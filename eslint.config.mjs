@@ -62,6 +62,13 @@ const eslintConfig = defineConfig([
       "no-restricted-syntax": "off",
     },
   },
+  {
+    files: ["prisma.config.ts", "prisma/**/*.ts"],
+    rules: {
+      "no-restricted-syntax": "off",
+      "no-console": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

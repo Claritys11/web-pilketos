@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  VIEWER
+}
+
+enum ElectionStatus {
+  SETUP
+  READY
+  OPEN
+  PAUSED
+  CLOSED
+  ARCHIVED
+}
+
+enum AuditAction {
+  ADMIN_CREATED
+  ADMIN_UPDATED
+  ADMIN_DEACTIVATED
+  ADMIN_PASSWORD_CHANGED
+  ADMIN_LOGIN_SUCCESS
+  ADMIN_LOGIN_FAILED
+  ELECTION_CREATED
+  ELECTION_STATUS_CHANGED
+  ELECTION_DELETED
+  CANDIDATE_CREATED
+  CANDIDATE_UPDATED
+  CANDIDATE_DELETED
+  TOKEN_BATCH_GENERATED
+  TOKEN_BATCH_EXPORTED
+  VOTE_CAST
+  BACKUP_RESTORED
+}
+
+enum AuditResult {
+  SUCCESS
+  FAILURE
+}
+
+model Admin {
+  id           String        @id @default(cuid())
+  username     String        @unique @db.VarChar(50)
+  email        String        @unique @db.VarChar(255)
+  passwordHash String        @map("password_hash") @db.Text
+  role         AdminRole     @default(ADMIN)
+  isActive     Boolean       @default(true) @map("is_active")
+  lastLoginAt  DateTime?     @map("last_login_at") @db.Timestamptz(6)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  elections    Election[]    @relation("ElectionCreatedBy")
+  auditLogs    AuditLog[]    @relation("AuditActor")
+  tokens       VotingToken[]
+
+  @@index([username], map: "idx_admin_username")
+  @@index([email], map: "idx_admin_email")
+  @@index([role], map: "idx_admin_role")
+  @@index([isActive], map: "idx_admin_is_active")
+}
+
+model Election {
+  id          String         @id @default(cuid())
+  title       String         @db.VarChar(255)
+  description String?        @db.Text
+  status      ElectionStatus @default(SETUP)
+  openedAt    DateTime?      @map("opened_at") @db.Timestamptz(6)
+  closedAt    DateTime?      @map("closed_at") @db.Timestamptz(6)
+  createdById String         @map("created_by")
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy   Admin          @relation("ElectionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  candidates  Candidate[]
+  tokens      VotingToken[]
+  votes       Vote[]
+
+  @@index([status], map: "idx_election_status")
+  @@index([createdById], map: "idx_election_created_by")
+}
+
+model Candidate {
+  id          String   @id @default(cuid())
+  electionId  String   @map("election_id")
+  orderNumber Int      @map("order_number") @db.SmallInt
+  name        String   @db.VarChar(255)
+  className   String   @map("class_name") @db.VarChar(50)
+  photoUrl    String?  @map("photo_url") @db.Text
+  vision      String   @db.Text
+  missions    Json     @default("[]") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  election    Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  votes       Vote[]
+
+  @@unique([electionId, orderNumber], map: "candidate_election_order_number_key")
+  @@index([electionId], map: "idx_candidate_election_id")
+  @@index([electionId, orderNumber], map: "idx_candidate_election_order")
+}
+
+model VotingToken {
+  id          String    @id @default(cuid())
+  electionId  String    @map("election_id")
+  tokenHash   String    @unique @map("token_hash") @db.VarChar(64)
+  usedAt      DateTime? @map("used_at") @db.Timestamptz(6)
+  createdById String    @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  election    Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  createdBy   Admin     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([tokenHash], map: "idx_voting_token_hash")
+  @@index([electionId], map: "idx_voting_token_election_id")
+  @@index([createdById], map: "idx_voting_token_created_by")
+}
+
+model Vote {
+  id          String    @id @default(cuid())
+  electionId  String    @map("election_id")
+  candidateId String    @map("candidate_id")
+  votedAt     DateTime  @default(now()) @map("voted_at") @db.Timestamptz(6)
+  election    Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+
+  @@index([electionId], map: "idx_vote_election_id")
+  @@index([candidateId], map: "idx_vote_candidate_id")
+  @@index([electionId, candidateId], map: "idx_vote_election_candidate")
+  @@index([votedAt], map: "idx_vote_voted_at")
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  actorId    String?     @map("actor_id")
+  action     AuditAction
+  targetType String?     @map("target_type") @db.VarChar(50)
+  targetId   String?     @map("target_id") @db.VarChar(100)
+  result     AuditResult
+  ipAddress  String?     @map("ip_address") @db.Inet
+  userAgent  String?     @map("user_agent") @db.Text
+  metadata   Json?       @db.JsonB
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  actor      Admin?      @relation("AuditActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([actorId], map: "idx_audit_actor_id")
+  @@index([action], map: "idx_audit_action")
+  @@index([createdAt], map: "idx_audit_created_at")
+  @@index([targetType, targetId], map: "idx_audit_target")
+  @@index([result], map: "idx_audit_result")
+}

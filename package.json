@@ -4,14 +4,18 @@
   "description": "Pilketos — E-Voting System untuk Pemilihan Ketua OSIS",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 6500",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 6500",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -24,9 +28,13 @@
     ]
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
     "@supabase/supabase-js": "^2.50.5",
+    "argon2": "^0.45.1",
     "next": "16.2.12",
     "next-auth": "5.0.0-beta.32",
+    "pg": "^8.22.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^3.25.71"
@@ -34,17 +42,21 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
     "babel-plugin-react-compiler": "1.0.0",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.2",
     "prettier": "^3.5.3",
+    "prisma": "^7.9.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.1",
     "typescript": "^5"
   }
 }

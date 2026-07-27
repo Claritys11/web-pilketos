@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pilketos-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: pilketos
+    ports:
+      - "5434:5432"
+    volumes:
+      - pilketos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pilketos"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pilketos_pgdata:

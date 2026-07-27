@@ -1,4 +1,5 @@
 # 08 — Implementation Tracker (TODO)
+
 > **Status:** ACTIVE — Living Document
 > **Version:** 1.0.0
 > **Last Updated:** 2026-07-28
@@ -18,11 +19,13 @@ Setiap penyelesaian tugas wajib diverifikasi terhadap kriteria Definition of Don
 ## Progress Dashboard
 
 ### Overall Progress
+
 ```
-[░░░░░░░░░░░░░░░░░░░░] 0%
+[██░░░░░░░░░░░░░░░░░░] 12%
 ```
 
 ### Progress Status Legend
+
 - ⬜ **Not Started** (Belum dimulai)
 - 🟨 **In Progress** (Sedang dikerjakan)
 - 🟩 **Done** (Selesai dan terverifikasi)
@@ -30,19 +33,19 @@ Setiap penyelesaian tugas wajib diverifikasi terhadap kriteria Definition of Don
 
 ### Section Progress Summary
 
-| Modul / Fase | Progress | Status | Target Developer |
-|---|---|---|---|
-| Phase 0 — Project Setup | `0 / 12` (0%) | ⬜ Not Started | DevOps / Tech Lead |
-| Phase 1 — Database Layer | `0 / 10` (0%) | ⬜ Not Started | Database Engineer |
-| Phase 2 — Authentication | `0 / 12` (0%) | ⬜ Not Started | Backend Developer |
-| Phase 3 — Business Services | `0 / 24` (0%) | ⬜ Not Started | Backend Developer |
-| Phase 4 — API route handlers | `0 / 25` (0%) | ⬜ Not Started | Backend Developer |
-| Phase 5 — Student UI | `0 / 28` (0%) | ⬜ Not Started | Frontend Developer |
-| Phase 6 — Admin UI | `0 / 32` (0%) | ⬜ Not Started | Frontend Developer |
-| Phase 7 — Security Hardening | `0 / 12` (0%) | ⬜ Not Started | SecOps / Backend |
-| Phase 8 — Testing & QA | `0 / 16` (0%) | ⬜ Not Started | QA Tester |
-| Phase 9 — Deployment | `0 / 12` (0%) | ⬜ Not Started | DevOps |
-| Documentation Sync | `0 / 5` (0%) | ⬜ Not Started | Technical Writer |
+| Modul / Fase                 | Progress         | Status         | Target Developer   |
+| ---------------------------- | ---------------- | -------------- | ------------------ |
+| Phase 0 — Project Setup      | `12 / 12` (100%) | 🟩 Done        | DevOps / Tech Lead |
+| Phase 1 — Database Layer     | `10 / 10` (100%) | 🟩 Done        | Database Engineer  |
+| Phase 2 — Authentication     | `0 / 12` (0%)    | ⬜ Not Started | Backend Developer  |
+| Phase 3 — Business Services  | `0 / 24` (0%)    | ⬜ Not Started | Backend Developer  |
+| Phase 4 — API route handlers | `0 / 25` (0%)    | ⬜ Not Started | Backend Developer  |
+| Phase 5 — Student UI         | `0 / 28` (0%)    | ⬜ Not Started | Frontend Developer |
+| Phase 6 — Admin UI           | `0 / 32` (0%)    | ⬜ Not Started | Frontend Developer |
+| Phase 7 — Security Hardening | `0 / 12` (0%)    | ⬜ Not Started | SecOps / Backend   |
+| Phase 8 — Testing & QA       | `0 / 16` (0%)    | ⬜ Not Started | QA Tester          |
+| Phase 9 — Deployment         | `0 / 12` (0%)    | ⬜ Not Started | DevOps             |
+| Documentation Sync           | `0 / 5` (0%)     | ⬜ Not Started | Technical Writer   |
 
 ---
 
@@ -50,18 +53,18 @@ Setiap penyelesaian tugas wajib diverifikasi terhadap kriteria Definition of Don
 
 Fase inisiasi repositori, framework Next.js, standardisasi penulisan kode, dan konfigurasi environment.
 
-- [ ] **TS-00-01:** Buat repositori Git baru di platform repositori sekolah. ⬜
-- [ ] **TS-00-02:** Atur branch protection rule untuk `main` (wajib Pull Request, lolos CI build, min 1 approval). ⬜
-- [ ] **TS-00-03:** Inisiasi Next.js 14+ menggunakan `npx create-next-app@latest` dengan konfigurasi: App Router, TypeScript, ESLint, Src Directory, TailwindCSS. ⬜
-- [ ] **TS-00-04:** Konfigurasi `"strict": true` di `tsconfig.json` dan tambahkan aturan no implicit any. ⬜
-- [ ] **TS-00-05:** Inisiasi library UI shadcn/ui menggunakan `npx shadcn-ui@latest init` dan konfigurasikan layout global css. ⬜
-- [ ] **TS-00-06:** Konfigurasi rules ESLint untuk Next.js dan TypeScript strict checking di `.eslintrc.json`. ⬜
-- [ ] **TS-00-07:** Konfigurasi `.prettierrc` dan `.prettierignore` untuk konsistensi formatting kode. ⬜
-- [ ] **TS-00-08:** Setup tools git-hooks Husky dan lint-staged untuk memicu otomatis prettier formatting dan linting sesaat sebelum commit. ⬜
-- [ ] **TS-00-09:** Setup Dockerfile multi-stage build untuk containerisasi Next.js production environment. ⬜
-- [ ] **TS-00-10:** Buat file `.env.example` yang mencantumkan seluruh kunci rahasia yang dibutuhkan aplikasi. ⬜
-- [ ] **TS-00-11:** Tulis modul validasi terpusat environment variable di `src/config/env.ts` menggunakan schema validation Zod. ⬜
-- [ ] **TS-00-12:** Implementasikan abstraction layer logger (`src/lib/logger/index.ts`) dan buat `ConsoleLogger` sebagai implementasi default. ⬜
+- [x] **TS-00-01:** Buat repositori Git baru di platform repositori sekolah. 🟩
+- [x] **TS-00-02:** Atur branch protection rule untuk `main` (wajib Pull Request, lolos CI build, min 1 approval). 🟩
+- [x] **TS-00-03:** Inisiasi Next.js 16+ menggunakan `npx create-next-app@latest` dengan konfigurasi: App Router, TypeScript, ESLint, Src Directory, TailwindCSS. 🟩
+- [x] **TS-00-04:** Konfigurasi `"strict": true` di `tsconfig.json` dan tambahkan aturan no implicit any. 🟩
+- [x] **TS-00-05:** Inisiasi library UI shadcn/ui menggunakan `npx shadcn-ui@latest init` dan konfigurasikan layout global css. 🟩
+- [x] **TS-00-06:** Konfigurasi rules ESLint untuk Next.js dan TypeScript strict checking di `.eslintrc.json`. 🟩
+- [x] **TS-00-07:** Konfigurasi `.prettierrc` dan `.prettierignore` untuk konsistensi formatting kode. 🟩
+- [x] **TS-00-08:** Setup tools git-hooks Husky dan lint-staged untuk memicu otomatis prettier formatting dan linting sesaat sebelum commit. 🟩
+- [x] **TS-00-09:** Setup Dockerfile multi-stage build untuk containerisasi Next.js production environment. 🟩
+- [x] **TS-00-10:** Buat file `.env.example` yang mencantumkan seluruh kunci rahasia yang dibutuhkan aplikasi. 🟩
+- [x] **TS-00-11:** Tulis modul validasi terpusat environment variable di `src/config/env.ts` menggunakan schema validation Zod. 🟩
+- [x] **TS-00-12:** Implementasikan abstraction layer logger (`src/lib/logger/index.ts`) dan buat `ConsoleLogger` sebagai implementasi default. 🟩
 
 ---
 
@@ -69,18 +72,18 @@ Fase inisiasi repositori, framework Next.js, standardisasi penulisan kode, dan k
 
 Membangun representasi database fisik PostgreSQL berdasarkan rancangan database Prisma.
 
-- [ ] **TS-01-01:** Buat file skema Prisma `prisma/schema.prisma`. ⬜
-- [ ] **TS-01-02:** Definisikan tipe data, fields, relasi, dan default values untuk tabel `Admin` di Prisma. ⬜
-- [ ] **TS-01-03:** Definisikan skema untuk tabel `Election` (status enums: SETUP, READY, OPEN, PAUSED, CLOSED, ARCHIVED). ⬜
-- [ ] **TS-01-04:** Definisikan skema untuk tabel `Candidate` (orderNumber 1-5 constraint). ⬜
-- [ ] **TS-01-05:** Definisikan skema untuk tabel `VotingToken` (kolom token_hash HMAC-SHA256, used_at nullable). ⬜
-- [ ] **TS-01-06:** Definisikan skema untuk tabel `Vote` (tanpa FK ke VotingToken, hanya ke election dan candidate). ⬜
-- [ ] **TS-01-07:** Definisikan skema untuk tabel `AuditLog` (kolom actor, action, result, IP, UA, metadata JSON). ⬜
-- [ ] **TS-01-08:** Buat file migrasi SQL manual untuk disisipkan ke Prisma migrations:
-  - SQL script untuk membuat partial unique index `status` pada tabel `Election` (hanya status OPEN/PAUSED yang unik). ⬜
-  - SQL script untuk membuat constraint unique gabungan `election_id` dan `order_number` pada tabel `Candidate`. ⬜
-- [ ] **TS-01-09:** Eksekusi migrasi database ke lokal/dev menggunakan command `npx prisma migrate dev`. ⬜
-- [ ] **TS-01-10:** Tulis skrip data seeder `prisma/seed.ts` untuk mengisi akun Super Admin default dan election dummy dengan 3 kandidat. ⬜
+- [x] **TS-01-01:** Buat file skema Prisma `prisma/schema.prisma`. 🟩
+- [x] **TS-01-02:** Definisikan tipe data, fields, relasi, dan default values untuk tabel `Admin` di Prisma. 🟩
+- [x] **TS-01-03:** Definisikan skema untuk tabel `Election` (status enums: SETUP, READY, OPEN, PAUSED, CLOSED, ARCHIVED). 🟩
+- [x] **TS-01-04:** Definisikan skema untuk tabel `Candidate` (orderNumber 1-5 constraint). 🟩
+- [x] **TS-01-05:** Definisikan skema untuk tabel `VotingToken` (kolom token_hash HMAC-SHA256, used_at nullable). 🟩
+- [x] **TS-01-06:** Definisikan skema untuk tabel `Vote` (tanpa FK ke VotingToken, hanya ke election dan candidate). 🟩
+- [x] **TS-01-07:** Definisikan skema untuk tabel `AuditLog` (kolom actor, action, result, IP, UA, metadata JSON). 🟩
+- [x] **TS-01-08:** Buat file migrasi SQL manual untuk disisipkan ke Prisma migrations:
+  - SQL script untuk membuat partial unique index `status` pada tabel `Election` (hanya status OPEN/PAUSED yang unik). 🟩
+  - SQL script untuk membuat constraint unique gabungan `election_id` dan `order_number` pada tabel `Candidate`. 🟩
+- [x] **TS-01-09:** Eksekusi migrasi database ke lokal/dev menggunakan command `npx prisma migrate dev`. 🟩
+- [x] **TS-01-10:** Tulis skrip data seeder `prisma/seed.ts` untuk mengisi akun Super Admin default dan election dummy dengan 3 kandidat. 🟩
 
 ---
 
@@ -110,16 +113,19 @@ Membangun backend authentication, integrasi Argon2id hashing, NextAuth middlewar
 Implementasi business logic inti yang terisolasi di folder `src/services/`.
 
 ### 1. AuditService (`src/services/audit.service.ts`)
+
 - [ ] **TS-03-01:** Implementasikan fungsi `writeLog()` untuk menyimpan log audit administratif ke database secara append-only. ⬜
 - [ ] **TS-03-02:** Pastikan fungsi penulisan log tidak menerima update/delete perintah (Prisma update/delete diblokir). ⬜
 
 ### 2. TokenService (`src/services/token.service.ts`)
+
 - [ ] **TS-03-03:** Implementasikan generator token plaintext random menggunakan secure cryptographic random string (min 12 chars). ⬜
 - [ ] **TS-03-04:** Implementasikan fungsi `generateTokenBatch()` yang menghitung hash HMAC-SHA256 untuk setiap token dan menyimpannya dalam satu transaksi database Prisma (TX-3). ⬜
 - [ ] **TS-03-05:** Pastikan token plaintext dikembalikan dalam response generator batch untuk satu kali tampilan, kemudian memori dibersihkan. ⬜
 - [ ] **TS-03-06:** Implementasikan fungsi `validateToken()` yang mencocokkan input token plaintext siswa dengan hash database dan memastikan status election `OPEN`. ⬜
 
 ### 3. VoteService (`src/services/vote.service.ts`)
+
 - [ ] **TS-03-07:** Implementasikan fungsi `castVote()` untuk pencatatan suara siswa. ⬜
 - [ ] **TS-03-08:** Masukkan perintah penguncian baris (`FOR UPDATE`) pada pencarian token di awal transaksi database (TX-1). ⬜
 - [ ] **TS-03-09:** Tambahkan logika validasi token belum digunakan (`used_at IS NULL`) di dalam transaksi. ⬜
@@ -128,17 +134,20 @@ Implementasi business logic inti yang terisolasi di folder `src/services/`.
 - [ ] **TS-03-12:** Panggil `AuditService` setelah transaksi commit berhasil untuk mencatat event `VOTE_CAST` tanpa menyimpan detail token/pilihan. ⬜
 
 ### 4. ElectionService (`src/services/election.service.ts`)
+
 - [ ] **TS-03-13:** Implementasikan fungsi standard CRUD election. ⬜
 - [ ] **TS-03-14:** Tulis logika transisi state machine status election (`transitionStatus`) di dalam transaksi database (TX-2). ⬜
 - [ ] **TS-03-15:** Berikan validasi prasyarat minimal 2 kandidat dan 1 token sebelum status diizinkan beralih ke `READY`. ⬜
 - [ ] **TS-03-16:** Buat constraint check sebelum state diubah ke `OPEN` agar tidak ada election aktif lain. ⬜
 
 ### 5. CandidateService (`src/services/candidate.service.ts`)
+
 - [ ] **TS-03-17:** Implementasikan fungsi CRUD kandidat. ⬜
 - [ ] **TS-03-18:** Tambahkan validasi batas maksimum kandidat (5) per election di dalam service. ⬜
 - [ ] **TS-03-19:** Hubungkan integrasi method `uploadFile` dan `deleteFile` dari `StorageService` untuk mengelola berkas foto kandidat. ⬜
 
 ### 6. AdminService (`src/services/admin.service.ts`) & Abstractions
+
 - [ ] **TS-03-20:** Implementasikan fungsi kelola pengguna admin (create, update role, toggle status). ⬜
 - [ ] **TS-03-21:** Tambahkan aturan validasi Super Admin tidak boleh menonaktifkan dirinya sendiri. ⬜
 - [ ] **TS-03-22:** Buat custom hooks/helper `StorageService` menggunakan SDK Supabase Storage (`src/lib/storage/supabase.ts`). ⬜
@@ -152,13 +161,16 @@ Implementasi business logic inti yang terisolasi di folder `src/services/`.
 Membangun endpoint API di folder `src/app/api/` berdasarkan kontrak spesifikasi API.
 
 ### 1. Voting API
+
 - [ ] **TS-04-01:** Implementasikan `POST /api/vote/validate-token` (panggil `TokenService.validateToken`). ⬜
 - [ ] **TS-04-02:** Implementasikan `POST /api/vote/cast` (panggil `VoteService.castVote`). ⬜
 
 ### 2. Authentication API
+
 - [ ] **TS-04-03:** Konfigurasikan endpoint NextAuth default `/api/auth/[...nextauth]` route. ⬜
 
 ### 3. Election API
+
 - [ ] **TS-04-04:** Implementasikan `GET /api/admin/elections` (list dengan status filters & pagination). ⬜
 - [ ] **TS-04-05:** Implementasikan `POST /api/admin/elections` (buat election baru state SETUP). ⬜
 - [ ] **TS-04-06:** Implementasikan `GET /api/admin/elections/[id]` (detail dengan candidates list). ⬜
@@ -166,6 +178,7 @@ Membangun endpoint API di folder `src/app/api/` berdasarkan kontrak spesifikasi 
 - [ ] **TS-04-08:** Implementasikan `DELETE /api/admin/elections/[id]` (hanya jika state SETUP/ARCHIVED). ⬜
 
 ### 4. Candidate API
+
 - [ ] **TS-04-09:** Implementasikan `GET /api/admin/candidates` (list diurutkan by orderNumber). ⬜
 - [ ] **TS-04-10:** Implementasikan `POST /api/admin/candidates` (buat kandidat baru, election status SETUP). ⬜
 - [ ] **TS-04-11:** Implementasikan `PATCH /api/admin/candidates/[id]` (update field kandidat). ⬜
@@ -173,14 +186,17 @@ Membangun endpoint API di folder `src/app/api/` berdasarkan kontrak spesifikasi 
 - [ ] **TS-04-13:** Implementasikan `POST /api/admin/candidates/[id]/photo` (unggah berkas foto kandidat). ⬜
 
 ### 5. Token API
+
 - [ ] **TS-04-14:** Implementasikan `POST /api/admin/tokens/generate` (panggil `TokenService.generateTokenBatch`). ⬜
 - [ ] **TS-04-15:** Implementasikan `GET /api/admin/tokens/export` (export token metadata CSV). ⬜
 
 ### 6. Dashboard & Audit API
+
 - [ ] **TS-04-16:** Implementasikan `GET /api/admin/dashboard/stats` (mengembalikan aggregate data COUNT, no raw vote lists). ⬜
 - [ ] **TS-04-17:** Implementasikan `GET /api/admin/audit` (list log audit dengan filters & pagination). ⬜
 
 ### 7. Admin API & Infrastructure
+
 - [ ] **TS-04-18:** Implementasikan `GET /api/admin/admins` (list admin, Super Admin access only). ⬜
 - [ ] **TS-04-19:** Implementasikan `POST /api/admin/admins` (buat admin baru dengan Argon2 hash password). ⬜
 - [ ] **TS-04-20:** Implementasikan `PATCH /api/admin/admins/[id]` (update data admin / deaktifasi). ⬜
@@ -197,6 +213,7 @@ Membangun endpoint API di folder `src/app/api/` berdasarkan kontrak spesifikasi 
 Mengimplementasikan antarmuka untuk alur siswa pemilih di folder `src/app/vote/`.
 
 ### 1. Layout & Token Input Page
+
 - [ ] **TS-05-01:** Implementasikan global layout pemilih (`src/app/vote/layout.tsx`) dengan skema warna `--color-vote-surface`. ⬜
 - [ ] **TS-05-02:** Buat stepper progress bar component (`src/components/voting/Stepper.tsx`) linear stepper. ⬜
 - [ ] **TS-05-03:** Buat landing page token input (`/vote/page.tsx`). ⬜
@@ -204,12 +221,14 @@ Mengimplementasikan antarmuka untuk alur siswa pemilih di folder `src/app/vote/`
 - [ ] **TS-05-05:** Tampilkan inline error warning jika API token validation mengembalikan status invalid/terpakai. ⬜
 
 ### 2. Fullscreen Gate & Control
+
 - [ ] **TS-05-06:** Buat halaman Fullscreen Gate (`/vote/fullscreen/page.tsx`). ⬜
 - [ ] **TS-05-07:** Hubungkan pemicu Fullscreen API (`requestFullscreen()`) saat tombol "Mulai Voting" diklik. ⬜
 - [ ] **TS-05-08:** Buat fallback modal / panel petunjuk manual (tekan tombol F11) jika API fullscreen ditolak oleh browser. ⬜
 - [ ] **TS-05-09:** Hubungkan pemicu Keyboard Lock API (`navigator.keyboard.lock()`) saat fullscreen sukses (best effort). ⬜
 
 ### 3. Candidate Selection
+
 - [ ] **TS-05-10:** Buat halaman daftar kandidat (`/vote/candidates/page.tsx`). ⬜
 - [ ] **TS-05-11:** Implementasikan responsif kandidat grid (1 kolom mobile, 2-3 kolom desktop). ⬜
 - [ ] **TS-05-12:** Buat card komponen kandidat dengan data foto, nomor urut, nama, dan ringkasan visi misi. ⬜
@@ -218,12 +237,14 @@ Mengimplementasikan antarmuka untuk alur siswa pemilih di folder `src/app/vote/`
 - [ ] **TS-05-15:** Buat fixed bottom action bar untuk navigasi tombol "Lanjut" (disabled jika belum ada kandidat terpilih). ⬜
 
 ### 4. Fullscreen Interruption Overlay
+
 - [ ] **TS-05-16:** Buat custom hooks `useFullscreen` untuk mendeteksi event `fullscreenchange`, `visibilitychange`, dan `blur`. ⬜
 - [ ] **TS-05-17:** Buat komponen `FullscreenOverlay.tsx` dengan backdrop blur dan pointer-events blocker. ⬜
 - [ ] **TS-05-18:** Tampilkan overlay interupsi saat terdeteksi siswa keluar dari mode fullscreen atau memindahkan fokus tab browser. ⬜
 - [ ] **TS-05-19:** Hubungkan tombol "Kembali ke Layar Penuh" di overlay untuk memicu ulang fullscreen dan menyembunyikan overlay. ⬜
 
 ### 5. Confirmation & Done Screen
+
 - [ ] **TS-05-20:** Buat halaman konfirmasi pilihan (`/vote/confirm/page.tsx`). ⬜
 - [ ] **TS-05-21:** Tampilkan ringkasan data kandidat terpilih (foto, nomor urut, nama, kelas). ⬜
 - [ ] **TS-05-22:** Tambahkan tombol konfirmasi kirim suara dengan logic double-click prevention. ⬜
@@ -243,12 +264,14 @@ Mengimplementasikan antarmuka untuk alur siswa pemilih di folder `src/app/vote/`
 Mengimplementasikan antarmuka untuk domain admin di folder `src/app/admin/`.
 
 ### 1. General Panel & Login
+
 - [ ] **TS-06-01:** Buat global layout admin (`src/app/admin/layout.tsx`) dengan navigasi sidebar responsif dan topbar breadcrumbs. ⬜
 - [ ] **TS-06-02:** Buat halaman login admin (`/admin/login/page.tsx`). ⬜
 - [ ] **TS-06-03:** Tambahkan input password field dengan toggle show/hide (Lucide Eye/EyeOff icon). ⬜
 - [ ] **TS-06-04:** Tampilkan error alert generik di form login jika autentikasi ditolak. ⬜
 
 ### 2. Election CRUD
+
 - [ ] **TS-06-05:** Buat halaman list election (`/admin/elections/page.tsx`) berisi tabel election, badge status, dan pagination. ⬜
 - [ ] **TS-06-06:** Buat modal form pembuatan election baru ( SETUP state ). ⬜
 - [ ] **TS-06-07:** Buat halaman detail election (`/admin/elections/[id]/page.tsx`) dengan tabs (Ringkasan, Kandidat, Token, Audit). ⬜
@@ -256,6 +279,7 @@ Mengimplementasikan antarmuka untuk domain admin di folder `src/app/admin/`.
 - [ ] **TS-06-09:** Tambahkan modal konfirmasi sebelum perintah perubahan status status dieksekusi. ⬜
 
 ### 3. Candidate Management
+
 - [ ] **TS-06-10:** Buat sub-halaman kelola kandidat (`/admin/elections/[id]/candidates/page.tsx`). ⬜
 - [ ] **TS-06-11:** Sembunyikan semua tombol tambah/edit/hapus jika status election bukan `SETUP`. ⬜
 - [ ] **TS-06-12:** Buat slide-over panel dari kanan untuk form tambah/edit data kandidat (nomor urut, nama, kelas, visi, misi). ⬜
@@ -263,6 +287,7 @@ Mengimplementasikan antarmuka untuk domain admin di folder `src/app/admin/`.
 - [ ] **TS-06-14:** Sediakan tombol hapus kandidat dengan modal konfirmasi keselamatan. ⬜
 
 ### 4. Token Management
+
 - [ ] **TS-06-15:** Buat sub-halaman token manager (`/admin/elections/[id]/tokens/page.tsx`). ⬜
 - [ ] **TS-06-16:** Tampilkan panel statistik token (Total, Digunakan, Sisa, Partisipasi %). ⬜
 - [ ] **TS-06-17:** Buat modal generator token batch (input jumlah token). ⬜
@@ -270,6 +295,7 @@ Mengimplementasikan antarmuka untuk domain admin di folder `src/app/admin/`.
 - [ ] **TS-06-19:** Hubungkan pemicu download CSV token plaintext otomatis sesaat setelah token sukses di-generate. ⬜
 
 ### 5. Dashboard & Projector Mode
+
 - [ ] **TS-06-20:** Buat halaman dashboard utama (`/admin/dashboard/page.tsx`). ⬜
 - [ ] **TS-06-21:** Implementasikan hook `useDashboardPolling` untuk auto-update statistik dashboard setiap 3-5 detik saat tab aktif. ⬜
 - [ ] **TS-06-22:** Buat chart visualisasi perolehan suara per kandidat menggunakan horizontal CSS bar chart. ⬜
@@ -277,12 +303,13 @@ Mengimplementasikan antarmuka untuk domain admin di folder `src/app/admin/`.
 - [ ] **TS-06-24:** Sediakan tombol exit projector mode di sudut bawah layar. ⬜
 
 ### 6. Audit Log & Settings
+
 - [ ] **TS-06-25:** Buat halaman audit log (`/admin/audit/page.tsx`) berisi tabel log aktivitas. ⬜
 - [ ] **TS-06-26:** Tambahkan filter bar (Action type, Actor, Result, Date picker range). ⬜
 - [ ] **TS-06-27:** Jadikan tabel baris log audit dapat diklik untuk menampilkan expand data detail metadata JSON. ⬜
 - [ ] **TS-06-28:** Buat halaman pengaturan pengguna admin (`/admin/settings/page.tsx`) khusus Super Admin. ⬜
 - [ ] **TS-06-29:** Buat form modal tambah/edit admin (Username, Email, Role, Ganti Password). ⬜
-- [ ] **TS-06-30:** Sediakan tombol nonaktifkan admin dengan logic validation bypass pencegahan *self-deactivation*. ⬜
+- [ ] **TS-06-30:** Sediakan tombol nonaktifkan admin dengan logic validation bypass pencegahan _self-deactivation_. ⬜
 - [ ] **TS-06-31:** Buat reusable skeleton components (`SkeletonCard`, `SkeletonTable`) untuk layout stability saat loading data. ⬜
 - [ ] **TS-06-32:** Tampilkan visual empty states di setiap halaman tabel / list jika tidak ada data yang dimuat. ⬜
 
@@ -365,13 +392,14 @@ Checklist sinkronisasi dokumentasi proyek.
 
 ### Known Technical Debt (v1)
 
-| Area | Detail Debt | Prioritas | Alasan Penundaan | Owner | Target Rilis |
-|---|---|---|---|---|---|
-| **Rate Limiting** | Memory-based rate limiter (non-Redis) | Medium | Skala v1 kecil (~500 pemilih), single instance container cukup. | Backend | v2.0.0 |
-| **Dashboard** | Polling HTTP 3-5 detik (bukan push WebSocket) | Low | Lebih mudah di-debug, minim dependency, cukup responsif untuk v1. | UI Dev | v2.0.0 |
-| **Backup** | SQL dump tidak terenkripsi client-side | Medium | Supabase sudah menyediakan basic database backups terenkripsi. | DevOps | v1.1.0 |
+| Area              | Detail Debt                                   | Prioritas | Alasan Penundaan                                                  | Owner   | Target Rilis |
+| ----------------- | --------------------------------------------- | --------- | ----------------------------------------------------------------- | ------- | ------------ |
+| **Rate Limiting** | Memory-based rate limiter (non-Redis)         | Medium    | Skala v1 kecil (~500 pemilih), single instance container cukup.   | Backend | v2.0.0       |
+| **Dashboard**     | Polling HTTP 3-5 detik (bukan push WebSocket) | Low       | Lebih mudah di-debug, minim dependency, cukup responsif untuk v1. | UI Dev  | v2.0.0       |
+| **Backup**        | SQL dump tidak terenkripsi client-side        | Medium    | Supabase sudah menyediakan basic database backups terenkripsi.    | DevOps  | v1.1.0       |
 
 ### Nice to Have Features (v2+)
+
 - [ ] **TS-NH-01:** Integrasi Multi-Factor Authentication (MFA) menggunakan TOTP (Google Authenticator) untuk akun admin. ⬜
 - [ ] **TS-NH-02:** Penggunaan Redis untuk rate limiting terdistribusi dan caching dashboard statistics. ⬜
 - [ ] **TS-NH-03:** Push-based Realtime Dashboard menggunakan WebSocket (Supabase Realtime). ⬜
@@ -382,7 +410,7 @@ Checklist sinkronisasi dokumentasi proyek.
 
 ## Release Checklist (Pre-Production Gate)
 
-Daftar periksa penentu kelayakan rilis sebelum sistem dinyatakan *Live* di hari pemilihan:
+Daftar periksa penentu kelayakan rilis sebelum sistem dinyatakan _Live_ di hari pemilihan:
 
 - [ ] **Database:** Migrasi PostgreSQL terpasang sukses, indexes aktif, seeder default admin berhasil diganti password. ⬜
 - [ ] **Security:** Security headers (CSP, HSTS) terverifikasi, rate limits aktif, secure session cookies aktif, magic bytes file upload jalan. ⬜
