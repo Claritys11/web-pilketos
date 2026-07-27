@@ -1,0 +1,49 @@
+# Source control
+.git/
+.gitignore
+
+# Development artifacts
+.next/
+node_modules/
+coverage/
+.nyc_output/
+
+# Environment files — never include secrets in Docker image
+.env
+.env.local
+.env.*.local
+
+# Documentation (not needed at runtime)
+docs/
+*.md
+!README.md
+
+# Development configuration files
+.eslintrc*
+eslint.config.*
+.prettierrc*
+.prettierignore
+.husky/
+tsconfig.tsbuildinfo
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+__tests__/
+tests/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# IDE artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Log files
+*.log
+npm-debug.log*

@@ -1,0 +1,50 @@
+{
+  "name": "pilketos",
+  "version": "0.1.0",
+  "description": "Pilketos — E-Voting System untuk Pemilihan Ketua OSIS",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "type-check": "tsc --noEmit",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mts}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css,mjs,cjs}": [
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.5",
+    "next": "16.2.12",
+    "next-auth": "5.0.0-beta.32",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zod": "^3.25.71"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@typescript-eslint/eslint-plugin": "^8.38.0",
+    "@typescript-eslint/parser": "^8.38.0",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.12",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.2",
+    "prettier": "^3.5.3",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,29 @@
+# Ignore build artifacts
+.next/
+out/
+build/
+dist/
+
+# Ignore dependency directories
+node_modules/
+
+# Ignore generated files
+next-env.d.ts
+prisma/generated/
+
+# Ignore coverage/test output
+coverage/
+.nyc_output/
+
+# Ignore log files
+*.log
+
+# Ignore lock files (these can be large and diff poorly)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Ignore environment files
+.env
+.env.local
+.env.*.local
