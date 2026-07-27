@@ -8,6 +8,7 @@
  * Reference: 02_SYSTEM_ARCHITECTURE.md §Logging Architecture
  */
 
+import { config } from "@/config/env";
 import type { ILogger, LogContext } from "./index";
 
 // ---------------------------------------------------------------------------
@@ -36,7 +37,7 @@ function formatEntry(
         name: error.name,
         message: error.message,
         // Stack only in non-production; never sent to client
-        ...(process.env["NODE_ENV"] !== "production" && { stack: error.stack }),
+        ...(!config.app.isProduction && { stack: error.stack }),
       };
     } else {
       entry["error"] = String(error);
@@ -51,30 +52,25 @@ function formatEntry(
 // ---------------------------------------------------------------------------
 
 export class ConsoleLogger implements ILogger {
-  private readonly isDevelopment =
-    process.env["NODE_ENV"] !== "production" && process.env["NODE_ENV"] !== "test";
+  private readonly isDevelopment = config.app.isDevelopment;
 
   debug(message: string, context?: LogContext): void {
     // Debug messages are suppressed in production and test environments
     if (!this.isDevelopment) {
       return;
     }
-    // eslint-disable-next-line no-console
     console.log(formatEntry("debug", message, context));
   }
 
   info(message: string, context?: LogContext): void {
-    // eslint-disable-next-line no-console
     console.log(formatEntry("info", message, context));
   }
 
   warn(message: string, context?: LogContext): void {
-    // eslint-disable-next-line no-console
     console.warn(formatEntry("warn", message, context));
   }
 
   error(message: string, error?: unknown, context?: LogContext): void {
-    // eslint-disable-next-line no-console
     console.error(formatEntry("error", message, context, error));
   }
 }

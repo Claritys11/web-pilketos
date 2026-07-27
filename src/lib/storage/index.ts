@@ -22,11 +22,7 @@
 // Reference: 05_SECURITY.md §File Upload Security
 // ---------------------------------------------------------------------------
 
-export const ALLOWED_PHOTO_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-] as const;
+export const ALLOWED_PHOTO_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 export type AllowedPhotoMimeType = (typeof ALLOWED_PHOTO_MIME_TYPES)[number];
 
@@ -79,7 +75,7 @@ export interface IStorageService {
 export class StorageError extends Error {
   constructor(
     message: string,
-    public readonly cause?: unknown,
+    public override readonly cause?: unknown,
   ) {
     super(message);
     this.name = "StorageError";

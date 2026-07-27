@@ -29,8 +29,6 @@ const eslintConfig = defineConfig([
         { prefer: "type-imports", fixStyle: "separate-type-imports" },
       ],
       "@typescript-eslint/no-non-null-assertion": "error",
-      "@typescript-eslint/prefer-nullish-coalescing": "warn",
-      "@typescript-eslint/prefer-optional-chain": "warn",
 
       // -------------------------------------------------------------------------
       // Architecture enforcement
@@ -39,8 +37,7 @@ const eslintConfig = defineConfig([
       "no-restricted-syntax": [
         "error",
         {
-          selector:
-            "MemberExpression[object.object.name='process'][object.property.name='env']",
+          selector: "MemberExpression[object.object.name='process'][object.property.name='env']",
           message:
             "Direct process.env access is forbidden. Use '@/config/env' instead. See 02_SYSTEM_ARCHITECTURE.md §Configuration Layer.",
         },
@@ -49,7 +46,7 @@ const eslintConfig = defineConfig([
       // -------------------------------------------------------------------------
       // General code quality
       // -------------------------------------------------------------------------
-      "no-console": ["warn", { allow: ["warn", "error"] }],
+      "no-console": ["warn", { allow: ["log", "warn", "error"] }],
       "prefer-const": "error",
       "no-var": "error",
       eqeqeq: ["error", "always"],

@@ -22,6 +22,13 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
 
   // -------------------------------------------------------------------------
+  // Standalone output — required for Docker multi-stage build
+  // Bundles only the necessary files to run the app without node_modules
+  // Reference: Dockerfile Stage 3
+  // -------------------------------------------------------------------------
+  output: "standalone",
+
+  // -------------------------------------------------------------------------
   // Image optimization — allow Supabase Storage as trusted image source
   // Reference: 05_SECURITY.md §Browser Security
   // -------------------------------------------------------------------------
