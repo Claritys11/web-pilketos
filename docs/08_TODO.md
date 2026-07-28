@@ -21,7 +21,7 @@ Setiap penyelesaian tugas wajib diverifikasi terhadap kriteria Definition of Don
 ### Overall Progress
 
 ```
-[██░░░░░░░░░░░░░░░░░░] 12%
+[████████░░░░░░░░░░░░] 42%
 ```
 
 ### Progress Status Legend
@@ -37,10 +37,10 @@ Setiap penyelesaian tugas wajib diverifikasi terhadap kriteria Definition of Don
 | ---------------------------- | ---------------- | -------------- | ------------------ |
 | Phase 0 — Project Setup      | `12 / 12` (100%) | 🟩 Done        | DevOps / Tech Lead |
 | Phase 1 — Database Layer     | `10 / 10` (100%) | 🟩 Done        | Database Engineer  |
-| Phase 2 — Authentication     | `0 / 12` (0%)    | ⬜ Not Started | Backend Developer  |
-| Phase 3 — Business Services  | `0 / 24` (0%)    | ⬜ Not Started | Backend Developer  |
-| Phase 4 — API route handlers | `0 / 25` (0%)    | ⬜ Not Started | Backend Developer  |
-| Phase 5 — Student UI         | `0 / 28` (0%)    | ⬜ Not Started | Frontend Developer |
+| Phase 2 — Authentication     | `10 / 12` (83%)  | 🟨 In Progress | Backend Developer  |
+| Phase 3 — Business Services  | `23 / 24` (96%)  | 🟨 In Progress | Backend Developer  |
+| Phase 4 — API route handlers | `25 / 25` (100%) | 🟩 Done        | Backend Developer  |
+| Phase 5 — Student UI         | `28 / 28` (100%) | 🟩 Done        | Frontend Developer |
 | Phase 6 — Admin UI           | `0 / 32` (0%)    | ⬜ Not Started | Frontend Developer |
 | Phase 7 — Security Hardening | `0 / 12` (0%)    | ⬜ Not Started | SecOps / Backend   |
 | Phase 8 — Testing & QA       | `0 / 16` (0%)    | ⬜ Not Started | QA Tester          |
@@ -91,18 +91,18 @@ Membangun representasi database fisik PostgreSQL berdasarkan rancangan database 
 
 Membangun backend authentication, integrasi Argon2id hashing, NextAuth middleware, dan otorisasi RBAC.
 
-- [ ] **TS-02-01:** Integrasikan library hashing password Argon2id di folder `src/lib/auth/argon.ts`. ⬜
+- [x] **TS-02-01:** Integrasikan library hashing password Argon2id di folder `src/lib/auth/argon.ts`. 🟩
 - [ ] **TS-02-02:** Tulis unit test untuk memverifikasi fungsionalitas hashing password (match/no-match). ⬜
-- [ ] **TS-02-03:** Inisiasi NextAuth (Auth.js) v5 dengan Credentials Provider di `src/app/api/auth/[...nextauth]/route.ts`. ⬜
-- [ ] **TS-02-04:** Konfigurasi NextAuth JWT token handler untuk menyertakan `role` dan `id` admin ke dalam payload. ⬜
-- [ ] **TS-02-05:** Atur parameter NextAuth session lifetime selama 8 jam dengan cookie secure flags (HttpOnly, Secure, SameSite=Lax). ⬜
-- [ ] **TS-02-06:** Hubungkan `verifyPassword` Argon2id ke dalam metode `authorize` credentials provider. ⬜
-- [ ] **TS-02-07:** Implementasikan `src/middleware.ts` untuk mencegat akses tidak sah ke area admin (`/admin/*`). ⬜
-- [ ] **TS-02-08:** Tambahkan rules otorisasi di middleware untuk membatasi route settings (`/admin/settings`) hanya bagi role `SUPER_ADMIN`. ⬜
-- [ ] **TS-02-09:** Tambahkan logika security headers injection pada Next.js Middleware (CSP, HSTS, X-Frame-Options, X-Content-Type, Referrer Policy). ⬜
+- [x] **TS-02-03:** Inisiasi NextAuth (Auth.js) v5 dengan Credentials Provider di `src/app/api/auth/[...nextauth]/route.ts`. 🟩
+- [x] **TS-02-04:** Konfigurasi NextAuth JWT token handler untuk menyertakan `role` dan `id` admin ke dalam payload. 🟩
+- [x] **TS-02-05:** Atur parameter NextAuth session lifetime selama 8 jam dengan cookie secure flags (HttpOnly, Secure, SameSite=Lax). 🟩
+- [x] **TS-02-06:** Hubungkan `verifyPassword` Argon2id ke dalam metode `authorize` credentials provider. 🟩
+- [x] **TS-02-07:** Implementasikan `src/middleware.ts` untuk mencegat akses tidak sah ke area admin (`/admin/*`). 🟩 Implemented as `src/proxy.ts` because Next.js 16 renamed Middleware to Proxy.
+- [x] **TS-02-08:** Tambahkan rules otorisasi di middleware untuk membatasi route settings (`/admin/settings`) hanya bagi role `SUPER_ADMIN`. 🟩
+- [x] **TS-02-09:** Tambahkan logika security headers injection pada Next.js Middleware (CSP, HSTS, X-Frame-Options, X-Content-Type, Referrer Policy). 🟩
 - [ ] **TS-02-10:** Tulis uji integrasi untuk memastikan admin dengan role `VIEWER` diblokir (403) saat mencoba mengakses route admin settings. ⬜
-- [ ] **TS-02-11:** Konfigurasikan penanganan kegagalan autentikasi di NextAuth login route agar mengembalikan pesan error generik (anti-user enumeration). ⬜
-- [ ] **TS-02-12:** Implementasikan logout handler API untuk menghapus session cookie dari browser admin. ⬜
+- [x] **TS-02-11:** Konfigurasikan penanganan kegagalan autentikasi di NextAuth login route agar mengembalikan pesan error generik (anti-user enumeration). 🟩
+- [x] **TS-02-12:** Implementasikan logout handler API untuk menghapus session cookie dari browser admin. 🟩 Provided by Auth.js `POST /api/auth/signout`.
 
 ---
 
@@ -114,44 +114,44 @@ Implementasi business logic inti yang terisolasi di folder `src/services/`.
 
 ### 1. AuditService (`src/services/audit.service.ts`)
 
-- [ ] **TS-03-01:** Implementasikan fungsi `writeLog()` untuk menyimpan log audit administratif ke database secara append-only. ⬜
-- [ ] **TS-03-02:** Pastikan fungsi penulisan log tidak menerima update/delete perintah (Prisma update/delete diblokir). ⬜
+- [x] **TS-03-01:** Implementasikan fungsi `writeLog()` untuk menyimpan log audit administratif ke database secara append-only. 🟩
+- [x] **TS-03-02:** Pastikan fungsi penulisan log tidak menerima update/delete perintah (Prisma update/delete diblokir). 🟩
 
 ### 2. TokenService (`src/services/token.service.ts`)
 
-- [ ] **TS-03-03:** Implementasikan generator token plaintext random menggunakan secure cryptographic random string (min 12 chars). ⬜
-- [ ] **TS-03-04:** Implementasikan fungsi `generateTokenBatch()` yang menghitung hash HMAC-SHA256 untuk setiap token dan menyimpannya dalam satu transaksi database Prisma (TX-3). ⬜
-- [ ] **TS-03-05:** Pastikan token plaintext dikembalikan dalam response generator batch untuk satu kali tampilan, kemudian memori dibersihkan. ⬜
-- [ ] **TS-03-06:** Implementasikan fungsi `validateToken()` yang mencocokkan input token plaintext siswa dengan hash database dan memastikan status election `OPEN`. ⬜
+- [x] **TS-03-03:** Implementasikan generator token plaintext random menggunakan secure cryptographic random string (min 12 chars). 🟩
+- [x] **TS-03-04:** Implementasikan fungsi `generateTokenBatch()` yang menghitung hash HMAC-SHA256 untuk setiap token dan menyimpannya dalam satu transaksi database Prisma (TX-3). 🟩
+- [x] **TS-03-05:** Pastikan token plaintext dikembalikan dalam response generator batch untuk satu kali tampilan, kemudian memori dibersihkan. 🟩
+- [x] **TS-03-06:** Implementasikan fungsi `validateToken()` yang mencocokkan input token plaintext siswa dengan hash database dan memastikan status election `OPEN`. 🟩
 
 ### 3. VoteService (`src/services/vote.service.ts`)
 
-- [ ] **TS-03-07:** Implementasikan fungsi `castVote()` untuk pencatatan suara siswa. ⬜
-- [ ] **TS-03-08:** Masukkan perintah penguncian baris (`FOR UPDATE`) pada pencarian token di awal transaksi database (TX-1). ⬜
-- [ ] **TS-03-09:** Tambahkan logika validasi token belum digunakan (`used_at IS NULL`) di dalam transaksi. ⬜
-- [ ] **TS-03-10:** Hubungkan penulisan suara baru ke tabel `Vote` (tanpa link FK ke token) di dalam transaksi. ⬜
-- [ ] **TS-03-11:** Perbarui status token (`used_at = now()`) di dalam transaksi. ⬜
-- [ ] **TS-03-12:** Panggil `AuditService` setelah transaksi commit berhasil untuk mencatat event `VOTE_CAST` tanpa menyimpan detail token/pilihan. ⬜
+- [x] **TS-03-07:** Implementasikan fungsi `castVote()` untuk pencatatan suara siswa. 🟩
+- [x] **TS-03-08:** Masukkan perintah penguncian baris (`FOR UPDATE`) pada pencarian token di awal transaksi database (TX-1). 🟩
+- [x] **TS-03-09:** Tambahkan logika validasi token belum digunakan (`used_at IS NULL`) di dalam transaksi. 🟩
+- [x] **TS-03-10:** Hubungkan penulisan suara baru ke tabel `Vote` (tanpa link FK ke token) di dalam transaksi. 🟩
+- [x] **TS-03-11:** Perbarui status token (`used_at = now()`) di dalam transaksi. 🟩
+- [x] **TS-03-12:** Panggil `AuditService` setelah transaksi commit berhasil untuk mencatat event `VOTE_CAST` tanpa menyimpan detail token/pilihan. 🟩
 
 ### 4. ElectionService (`src/services/election.service.ts`)
 
-- [ ] **TS-03-13:** Implementasikan fungsi standard CRUD election. ⬜
-- [ ] **TS-03-14:** Tulis logika transisi state machine status election (`transitionStatus`) di dalam transaksi database (TX-2). ⬜
-- [ ] **TS-03-15:** Berikan validasi prasyarat minimal 2 kandidat dan 1 token sebelum status diizinkan beralih ke `READY`. ⬜
-- [ ] **TS-03-16:** Buat constraint check sebelum state diubah ke `OPEN` agar tidak ada election aktif lain. ⬜
+- [x] **TS-03-13:** Implementasikan fungsi standard CRUD election. 🟩
+- [x] **TS-03-14:** Tulis logika transisi state machine status election (`transitionStatus`) di dalam transaksi database (TX-2). 🟩
+- [x] **TS-03-15:** Berikan validasi prasyarat minimal 2 kandidat dan 1 token sebelum status diizinkan beralih ke `READY`. 🟩
+- [x] **TS-03-16:** Buat constraint check sebelum state diubah ke `OPEN` agar tidak ada election aktif lain. 🟩
 
 ### 5. CandidateService (`src/services/candidate.service.ts`)
 
-- [ ] **TS-03-17:** Implementasikan fungsi CRUD kandidat. ⬜
-- [ ] **TS-03-18:** Tambahkan validasi batas maksimum kandidat (5) per election di dalam service. ⬜
-- [ ] **TS-03-19:** Hubungkan integrasi method `uploadFile` dan `deleteFile` dari `StorageService` untuk mengelola berkas foto kandidat. ⬜
+- [x] **TS-03-17:** Implementasikan fungsi CRUD kandidat. 🟩
+- [x] **TS-03-18:** Tambahkan validasi batas maksimum kandidat (5) per election di dalam service. 🟩
+- [x] **TS-03-19:** Hubungkan integrasi method `uploadFile` dan `deleteFile` dari `StorageService` untuk mengelola berkas foto kandidat. 🟩
 
 ### 6. AdminService (`src/services/admin.service.ts`) & Abstractions
 
-- [ ] **TS-03-20:** Implementasikan fungsi kelola pengguna admin (create, update role, toggle status). ⬜
-- [ ] **TS-03-21:** Tambahkan aturan validasi Super Admin tidak boleh menonaktifkan dirinya sendiri. ⬜
-- [ ] **TS-03-22:** Buat custom hooks/helper `StorageService` menggunakan SDK Supabase Storage (`src/lib/storage/supabase.ts`). ⬜
-- [ ] **TS-03-23:** Buat mock local storage implementation untuk pengujian lokal (`src/lib/storage/local.ts`). ⬜
+- [x] **TS-03-20:** Implementasikan fungsi kelola pengguna admin (create, update role, toggle status). 🟩
+- [x] **TS-03-21:** Tambahkan aturan validasi Super Admin tidak boleh menonaktifkan dirinya sendiri. 🟩
+- [x] **TS-03-22:** Buat custom hooks/helper `StorageService` menggunakan SDK Supabase Storage (`src/lib/storage/supabase.ts`). 🟩
+- [x] **TS-03-23:** Buat mock local storage implementation untuk pengujian lokal (`src/lib/storage/local.ts`). 🟩
 - [ ] **TS-03-24:** Buat unit test integrasi untuk seluruh service logic di atas. ⬜
 
 ---
@@ -162,49 +162,49 @@ Membangun endpoint API di folder `src/app/api/` berdasarkan kontrak spesifikasi 
 
 ### 1. Voting API
 
-- [ ] **TS-04-01:** Implementasikan `POST /api/vote/validate-token` (panggil `TokenService.validateToken`). ⬜
-- [ ] **TS-04-02:** Implementasikan `POST /api/vote/cast` (panggil `VoteService.castVote`). ⬜
+- [x] **TS-04-01:** Implementasikan `POST /api/vote/validate-token` (panggil `TokenService.validateToken`). 🟩
+- [x] **TS-04-02:** Implementasikan `POST /api/vote/cast` (panggil `VoteService.castVote`). 🟩
 
 ### 2. Authentication API
 
-- [ ] **TS-04-03:** Konfigurasikan endpoint NextAuth default `/api/auth/[...nextauth]` route. ⬜
+- [x] **TS-04-03:** Konfigurasikan endpoint NextAuth default `/api/auth/[...nextauth]` route. 🟩
 
 ### 3. Election API
 
-- [ ] **TS-04-04:** Implementasikan `GET /api/admin/elections` (list dengan status filters & pagination). ⬜
-- [ ] **TS-04-05:** Implementasikan `POST /api/admin/elections` (buat election baru state SETUP). ⬜
-- [ ] **TS-04-06:** Implementasikan `GET /api/admin/elections/[id]` (detail dengan candidates list). ⬜
-- [ ] **TS-04-07:** Implementasikan `PATCH /api/admin/elections/[id]/status` (panggil `ElectionService.transitionStatus`). ⬜
-- [ ] **TS-04-08:** Implementasikan `DELETE /api/admin/elections/[id]` (hanya jika state SETUP/ARCHIVED). ⬜
+- [x] **TS-04-04:** Implementasikan `GET /api/admin/elections` (list dengan status filters & pagination). 🟩
+- [x] **TS-04-05:** Implementasikan `POST /api/admin/elections` (buat election baru state SETUP). 🟩
+- [x] **TS-04-06:** Implementasikan `GET /api/admin/elections/[id]` (detail dengan candidates list). 🟩
+- [x] **TS-04-07:** Implementasikan `PATCH /api/admin/elections/[id]/status` (panggil `ElectionService.transitionStatus`). 🟩
+- [x] **TS-04-08:** Implementasikan `DELETE /api/admin/elections/[id]` (hanya jika state SETUP/ARCHIVED). 🟩
 
 ### 4. Candidate API
 
-- [ ] **TS-04-09:** Implementasikan `GET /api/admin/candidates` (list diurutkan by orderNumber). ⬜
-- [ ] **TS-04-10:** Implementasikan `POST /api/admin/candidates` (buat kandidat baru, election status SETUP). ⬜
-- [ ] **TS-04-11:** Implementasikan `PATCH /api/admin/candidates/[id]` (update field kandidat). ⬜
-- [ ] **TS-04-12:** Implementasikan `DELETE /api/admin/candidates/[id]` (hanya jika status SETUP dan suara nol). ⬜
-- [ ] **TS-04-13:** Implementasikan `POST /api/admin/candidates/[id]/photo` (unggah berkas foto kandidat). ⬜
+- [x] **TS-04-09:** Implementasikan `GET /api/admin/candidates` (list diurutkan by orderNumber). 🟩
+- [x] **TS-04-10:** Implementasikan `POST /api/admin/candidates` (buat kandidat baru, election status SETUP). 🟩
+- [x] **TS-04-11:** Implementasikan `PATCH /api/admin/candidates/[id]` (update field kandidat). 🟩
+- [x] **TS-04-12:** Implementasikan `DELETE /api/admin/candidates/[id]` (hanya jika status SETUP dan suara nol). 🟩
+- [x] **TS-04-13:** Implementasikan `POST /api/admin/candidates/[id]/photo` (unggah berkas foto kandidat). 🟩
 
 ### 5. Token API
 
-- [ ] **TS-04-14:** Implementasikan `POST /api/admin/tokens/generate` (panggil `TokenService.generateTokenBatch`). ⬜
-- [ ] **TS-04-15:** Implementasikan `GET /api/admin/tokens/export` (export token metadata CSV). ⬜
+- [x] **TS-04-14:** Implementasikan `POST /api/admin/tokens/generate` (panggil `TokenService.generateTokenBatch`). 🟩
+- [x] **TS-04-15:** Implementasikan `GET /api/admin/tokens/export` (export token metadata CSV). 🟩
 
 ### 6. Dashboard & Audit API
 
-- [ ] **TS-04-16:** Implementasikan `GET /api/admin/dashboard/stats` (mengembalikan aggregate data COUNT, no raw vote lists). ⬜
-- [ ] **TS-04-17:** Implementasikan `GET /api/admin/audit` (list log audit dengan filters & pagination). ⬜
+- [x] **TS-04-16:** Implementasikan `GET /api/admin/dashboard/stats` (mengembalikan aggregate data COUNT, no raw vote lists). 🟩
+- [x] **TS-04-17:** Implementasikan `GET /api/admin/audit` (list log audit dengan filters & pagination). 🟩
 
 ### 7. Admin API & Infrastructure
 
-- [ ] **TS-04-18:** Implementasikan `GET /api/admin/admins` (list admin, Super Admin access only). ⬜
-- [ ] **TS-04-19:** Implementasikan `POST /api/admin/admins` (buat admin baru dengan Argon2 hash password). ⬜
-- [ ] **TS-04-20:** Implementasikan `PATCH /api/admin/admins/[id]` (update data admin / deaktifasi). ⬜
-- [ ] **TS-04-21:** Implementasikan `GET /api/health` (kembalikan operational metrics: DB, Storage, Uptime). ⬜
-- [ ] **TS-04-22:** Tambahkan layer Zod schema validation pada request body setiap endpoint di atas. ⬜
-- [ ] **TS-04-23:** Pastikan format output error API seragam `{ success: false, error: { code, message } }`. ⬜
+- [x] **TS-04-18:** Implementasikan `GET /api/admin/admins` (list admin, Super Admin access only). 🟩
+- [x] **TS-04-19:** Implementasikan `POST /api/admin/admins` (buat admin baru dengan Argon2 hash password). 🟩
+- [x] **TS-04-20:** Implementasikan `PATCH /api/admin/admins/[id]` (update data admin / deaktifasi). 🟩
+- [x] **TS-04-21:** Implementasikan `GET /api/health` (kembalikan operational metrics: DB, Storage, Uptime). 🟩
+- [x] **TS-04-22:** Tambahkan layer Zod schema validation pada request body setiap endpoint di atas. 🟩
+- [x] **TS-04-23:** Pastikan format output error API seragam `{ success: false, error: { code, message } }`. 🟩
 - [ ] **TS-04-24:** Buat pengujian integrasi otomatis untuk memverifikasi kontrak API. ⬜
-- [ ] **TS-04-25:** Pastikan database connection pooling ditutup dengan benar di akhir pemrosesan API. ⬜
+- [x] **TS-04-25:** Pastikan database connection pooling ditutup dengan benar di akhir pemrosesan API. 🟩 Prisma singleton/adapter digunakan untuk route runtime; koneksi tidak dibuat ulang dan tidak diputus per-request.
 
 ---
 
@@ -214,46 +214,46 @@ Mengimplementasikan antarmuka untuk alur siswa pemilih di folder `src/app/vote/`
 
 ### 1. Layout & Token Input Page
 
-- [ ] **TS-05-01:** Implementasikan global layout pemilih (`src/app/vote/layout.tsx`) dengan skema warna `--color-vote-surface`. ⬜
-- [ ] **TS-05-02:** Buat stepper progress bar component (`src/components/voting/Stepper.tsx`) linear stepper. ⬜
-- [ ] **TS-05-03:** Buat landing page token input (`/vote/page.tsx`). ⬜
-- [ ] **TS-05-04:** Tambahkan field input token dengan auto-trim whitespace dan auto-uppercase formatting. ⬜
-- [ ] **TS-05-05:** Tampilkan inline error warning jika API token validation mengembalikan status invalid/terpakai. ⬜
+- [x] **TS-05-01:** Implementasikan global layout pemilih (`src/app/vote/layout.tsx`) dengan skema warna `--color-vote-surface`. 🟩
+- [x] **TS-05-02:** Buat stepper progress bar component (`src/components/voting/Stepper.tsx`) linear stepper. 🟩
+- [x] **TS-05-03:** Buat landing page token input (`/vote/page.tsx`). 🟩
+- [x] **TS-05-04:** Tambahkan field input token dengan auto-trim whitespace dan auto-uppercase formatting. 🟩
+- [x] **TS-05-05:** Tampilkan inline error warning jika API token validation mengembalikan status invalid/terpakai. 🟩
 
 ### 2. Fullscreen Gate & Control
 
-- [ ] **TS-05-06:** Buat halaman Fullscreen Gate (`/vote/fullscreen/page.tsx`). ⬜
-- [ ] **TS-05-07:** Hubungkan pemicu Fullscreen API (`requestFullscreen()`) saat tombol "Mulai Voting" diklik. ⬜
-- [ ] **TS-05-08:** Buat fallback modal / panel petunjuk manual (tekan tombol F11) jika API fullscreen ditolak oleh browser. ⬜
-- [ ] **TS-05-09:** Hubungkan pemicu Keyboard Lock API (`navigator.keyboard.lock()`) saat fullscreen sukses (best effort). ⬜
+- [x] **TS-05-06:** Buat halaman Fullscreen Gate (`/vote/fullscreen/page.tsx`). 🟩
+- [x] **TS-05-07:** Hubungkan pemicu Fullscreen API (`requestFullscreen()`) saat tombol "Mulai Voting" diklik. 🟩
+- [x] **TS-05-08:** Buat fallback modal / panel petunjuk manual (tekan tombol F11) jika API fullscreen ditolak oleh browser. 🟩
+- [x] **TS-05-09:** Hubungkan pemicu Keyboard Lock API (`navigator.keyboard.lock()`) saat fullscreen sukses (best effort). 🟩
 
 ### 3. Candidate Selection
 
-- [ ] **TS-05-10:** Buat halaman daftar kandidat (`/vote/candidates/page.tsx`). ⬜
-- [ ] **TS-05-11:** Implementasikan responsif kandidat grid (1 kolom mobile, 2-3 kolom desktop). ⬜
-- [ ] **TS-05-12:** Buat card komponen kandidat dengan data foto, nomor urut, nama, dan ringkasan visi misi. ⬜
-- [ ] **TS-05-13:** Buat modal detail kandidat (`src/components/voting/CandidateDetailModal.tsx`) untuk membaca visi & semua misi lengkap. ⬜
-- [ ] **TS-05-14:** Implementasikan status highlight terpilih pada card kandidat saat diklik. ⬜
-- [ ] **TS-05-15:** Buat fixed bottom action bar untuk navigasi tombol "Lanjut" (disabled jika belum ada kandidat terpilih). ⬜
+- [x] **TS-05-10:** Buat halaman daftar kandidat (`/vote/candidates/page.tsx`). 🟩
+- [x] **TS-05-11:** Implementasikan responsif kandidat grid (1 kolom mobile, 2-3 kolom desktop). 🟩
+- [x] **TS-05-12:** Buat card komponen kandidat dengan data foto, nomor urut, nama, dan ringkasan visi misi. 🟩
+- [x] **TS-05-13:** Buat modal detail kandidat (`src/components/voting/CandidateDetailModal.tsx`) untuk membaca visi & semua misi lengkap. 🟩
+- [x] **TS-05-14:** Implementasikan status highlight terpilih pada card kandidat saat diklik. 🟩
+- [x] **TS-05-15:** Buat fixed bottom action bar untuk navigasi tombol "Lanjut" (disabled jika belum ada kandidat terpilih). 🟩
 
 ### 4. Fullscreen Interruption Overlay
 
-- [ ] **TS-05-16:** Buat custom hooks `useFullscreen` untuk mendeteksi event `fullscreenchange`, `visibilitychange`, dan `blur`. ⬜
-- [ ] **TS-05-17:** Buat komponen `FullscreenOverlay.tsx` dengan backdrop blur dan pointer-events blocker. ⬜
-- [ ] **TS-05-18:** Tampilkan overlay interupsi saat terdeteksi siswa keluar dari mode fullscreen atau memindahkan fokus tab browser. ⬜
-- [ ] **TS-05-19:** Hubungkan tombol "Kembali ke Layar Penuh" di overlay untuk memicu ulang fullscreen dan menyembunyikan overlay. ⬜
+- [x] **TS-05-16:** Buat custom hooks `useFullscreen` untuk mendeteksi event `fullscreenchange`, `visibilitychange`, dan `blur`. 🟩
+- [x] **TS-05-17:** Buat komponen `FullscreenOverlay.tsx` dengan backdrop blur dan pointer-events blocker. 🟩
+- [x] **TS-05-18:** Tampilkan overlay interupsi saat terdeteksi siswa keluar dari mode fullscreen atau memindahkan fokus tab browser. 🟩
+- [x] **TS-05-19:** Hubungkan tombol "Kembali ke Layar Penuh" di overlay untuk memicu ulang fullscreen dan menyembunyikan overlay. 🟩
 
 ### 5. Confirmation & Done Screen
 
-- [ ] **TS-05-20:** Buat halaman konfirmasi pilihan (`/vote/confirm/page.tsx`). ⬜
-- [ ] **TS-05-21:** Tampilkan ringkasan data kandidat terpilih (foto, nomor urut, nama, kelas). ⬜
-- [ ] **TS-05-22:** Tambahkan tombol konfirmasi kirim suara dengan logic double-click prevention. ⬜
-- [ ] **TS-05-23:** Sediakan tombol "Kembali Pilih Ulang" untuk mengembalikan siswa ke daftar kandidat tanpa kehilangan state. ⬜
-- [ ] **TS-05-24:** Buat halaman sukses voting (`/vote/done/page.tsx`). ⬜
-- [ ] **TS-05-25:** Tambahkan animasi spring checkmark sukses dan pesan terima kasih. ⬜
-- [ ] **TS-05-26:** Buat progress bar countdown visual selama 3 detik. ⬜
-- [ ] **TS-05-27:** Picu keluar fullscreen (`document.exitFullscreen()`) dan redirect kembali ke halaman utama `/vote` saat countdown habis. ⬜
-- [ ] **TS-05-28:** Pastikan data state voting siswa dibersihkan total dari client state (sessionStorage/React state). ⬜
+- [x] **TS-05-20:** Buat halaman konfirmasi pilihan (`/vote/confirm/page.tsx`). 🟩
+- [x] **TS-05-21:** Tampilkan ringkasan data kandidat terpilih (foto, nomor urut, nama, kelas). 🟩
+- [x] **TS-05-22:** Tambahkan tombol konfirmasi kirim suara dengan logic double-click prevention. 🟩
+- [x] **TS-05-23:** Sediakan tombol "Kembali Pilih Ulang" untuk mengembalikan siswa ke daftar kandidat tanpa kehilangan state. 🟩
+- [x] **TS-05-24:** Buat halaman sukses voting (`/vote/done/page.tsx`). 🟩
+- [x] **TS-05-25:** Tambahkan animasi spring checkmark sukses dan pesan terima kasih. 🟩
+- [x] **TS-05-26:** Buat progress bar countdown visual selama 3 detik. 🟩
+- [x] **TS-05-27:** Picu keluar fullscreen (`document.exitFullscreen()`) dan redirect kembali ke halaman utama `/vote` saat countdown habis. 🟩
+- [x] **TS-05-28:** Pastikan data state voting siswa dibersihkan total dari client state (sessionStorage/React state). 🟩
 
 ---
 
