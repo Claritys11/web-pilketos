@@ -1,4 +1,5 @@
 # 03 — API Specification
+
 > **Status:** DRAFT — Pending Review
 > **Version:** 1.0.0
 > **Last Updated:** 2026-07-27
@@ -46,13 +47,13 @@ Setiap endpoint berasal dari PRD dan System Architecture. Tidak ada endpoint yan
 
 ### Naming Conventions
 
-| Elemen | Konvensi | Contoh |
-|---|---|---|
-| URL path segment | `kebab-case` | `/validate-token`, `/audit-log` |
-| Request body field | `camelCase` | `candidateId`, `electionId` |
-| Response field | `camelCase` | `createdAt`, `orderNumber` |
-| Enum value di body | `SCREAMING_SNAKE_CASE` | `"SETUP"`, `"SUPER_ADMIN"` |
-| Query parameter | `camelCase` | `?page=1&pageSize=20&filterBy=action` |
+| Elemen             | Konvensi               | Contoh                                |
+| ------------------ | ---------------------- | ------------------------------------- |
+| URL path segment   | `kebab-case`           | `/validate-token`, `/audit-log`       |
+| Request body field | `camelCase`            | `candidateId`, `electionId`           |
+| Response field     | `camelCase`            | `createdAt`, `orderNumber`            |
+| Enum value di body | `SCREAMING_SNAKE_CASE` | `"SETUP"`, `"SUPER_ADMIN"`            |
+| Query parameter    | `camelCase`            | `?page=1&pageSize=20&filterBy=action` |
 
 ### Response Format — Success
 
@@ -113,19 +114,19 @@ Validation error dengan detail per field:
 
 Default untuk semua list endpoint yang menggunakan pagination:
 
-| Parameter | Default | Max | Deskripsi |
-|---|---|---|---|
-| `page` | `1` | — | Nomor halaman (1-indexed) |
-| `pageSize` | `20` | `100` | Jumlah item per halaman |
+| Parameter  | Default | Max   | Deskripsi                 |
+| ---------- | ------- | ----- | ------------------------- |
+| `page`     | `1`     | —     | Nomor halaman (1-indexed) |
+| `pageSize` | `20`    | `100` | Jumlah item per halaman   |
 
 ### Sorting
 
 Format: `?sortBy=createdAt&sortOrder=desc`
 
-| Parameter | Default | Nilai valid |
-|---|---|---|
-| `sortBy` | `createdAt` | Kolom yang didukung per endpoint |
-| `sortOrder` | `desc` | `asc`, `desc` |
+| Parameter   | Default     | Nilai valid                      |
+| ----------- | ----------- | -------------------------------- |
+| `sortBy`    | `createdAt` | Kolom yang didukung per endpoint |
+| `sortOrder` | `desc`      | `asc`, `desc`                    |
 
 ### Filtering
 
@@ -163,83 +164,83 @@ Siswa tidak memiliki akun atau session. Autentikasi bersifat **stateless berbasi
 
 ### Request Headers (Semua Endpoint)
 
-| Header | Required | Deskripsi |
-|---|---|---|
-| `Content-Type` | Ya (jika ada body) | `application/json` |
-| `Accept` | Opsional | `application/json` |
-| `Cookie` | Ya (admin endpoints) | Session cookie NextAuth — dikirim otomatis browser |
+| Header         | Required             | Deskripsi                                          |
+| -------------- | -------------------- | -------------------------------------------------- |
+| `Content-Type` | Ya (jika ada body)   | `application/json`                                 |
+| `Accept`       | Opsional             | `application/json`                                 |
+| `Cookie`       | Ya (admin endpoints) | Session cookie NextAuth — dikirim otomatis browser |
 
 ### Response Headers (Semua Endpoint)
 
-| Header | Deskripsi |
-|---|---|
-| `Content-Type` | `application/json; charset=utf-8` |
-| `X-API-Version` | `1.0.0` |
-| `X-RateLimit-Limit` | Batas request per window (jika rate limited) |
-| `X-RateLimit-Remaining` | Sisa request dalam window saat ini |
-| `X-RateLimit-Reset` | Unix timestamp saat window reset |
+| Header                  | Deskripsi                                    |
+| ----------------------- | -------------------------------------------- |
+| `Content-Type`          | `application/json; charset=utf-8`            |
+| `X-API-Version`         | `1.0.0`                                      |
+| `X-RateLimit-Limit`     | Batas request per window (jika rate limited) |
+| `X-RateLimit-Remaining` | Sisa request dalam window saat ini           |
+| `X-RateLimit-Reset`     | Unix timestamp saat window reset             |
 
 ### Security Headers (Injected via Middleware)
 
-| Header | Value |
-|---|---|
-| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
-| `X-Frame-Options` | `DENY` |
-| `X-Content-Type-Options` | `nosniff` |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` |
-| `Content-Security-Policy` | Lihat `02_SYSTEM_ARCHITECTURE.md §Middleware Architecture` |
+| Header                      | Value                                                      |
+| --------------------------- | ---------------------------------------------------------- |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains`                      |
+| `X-Frame-Options`           | `DENY`                                                     |
+| `X-Content-Type-Options`    | `nosniff`                                                  |
+| `Referrer-Policy`           | `strict-origin-when-cross-origin`                          |
+| `Content-Security-Policy`   | Lihat `02_SYSTEM_ARCHITECTURE.md §Middleware Architecture` |
 
 ---
 
 ## Common Error Codes
 
-| Code | HTTP Status | Deskripsi |
-|---|---|---|
-| `VALIDATION_ERROR` | 400 | Input gagal validasi schema |
-| `TOKEN_INVALID` | 400 | Token tidak ditemukan di database |
-| `TOKEN_ALREADY_USED` | 409 | Token sudah dipakai sebelumnya |
-| `ELECTION_NOT_OPEN` | 422 | Election tidak dalam state OPEN saat vote |
-| `ELECTION_NOT_FOUND` | 404 | Election ID tidak ditemukan |
-| `CANDIDATE_NOT_FOUND` | 404 | Candidate ID tidak ditemukan |
-| `CANDIDATE_NOT_IN_ELECTION` | 422 | Candidate tidak termasuk dalam election yang aktif |
-| `ELECTION_WRONG_STATE` | 422 | Operasi tidak valid untuk state election saat ini |
-| `ELECTION_TRANSITION_INVALID` | 422 | Transisi state machine tidak diizinkan |
-| `ELECTION_MIN_CANDIDATES` | 422 | Election harus memiliki minimal 2 kandidat |
-| `ELECTION_MAX_CANDIDATES` | 422 | Election sudah memiliki 5 kandidat (maksimum) |
-| `CANDIDATE_HAS_VOTES` | 409 | Kandidat tidak dapat dihapus karena sudah memiliki suara |
-| `ORDER_NUMBER_TAKEN` | 409 | Nomor urut sudah digunakan kandidat lain |
-| `UNAUTHORIZED` | 401 | Tidak terautentikasi |
-| `FORBIDDEN` | 403 | Role tidak memiliki akses |
-| `NOT_FOUND` | 404 | Resource tidak ditemukan |
-| `CONFLICT` | 409 | Konflik dengan state saat ini |
-| `RATE_LIMIT_EXCEEDED` | 429 | Terlalu banyak request |
-| `INTERNAL_ERROR` | 500 | Server error internal |
-| `SERVICE_UNAVAILABLE` | 503 | Layanan tidak tersedia (health check gagal) |
-| `ADMIN_USERNAME_TAKEN` | 409 | Username admin sudah digunakan |
-| `ADMIN_EMAIL_TAKEN` | 409 | Email admin sudah digunakan |
-| `ADMIN_NOT_FOUND` | 404 | Admin ID tidak ditemukan |
-| `CANNOT_DEACTIVATE_SELF` | 422 | Admin tidak dapat menonaktifkan diri sendiri |
-| `ACTIVE_ELECTION_EXISTS` | 422 | Sudah ada election aktif (OPEN/PAUSED) |
-| `TOKEN_GENERATION_ACTIVE_ONLY` | 422 | Token hanya bisa di-generate saat state SETUP |
-| `PHOTO_UPLOAD_FAILED` | 500 | Gagal upload foto ke storage |
-| `INVALID_FILE_TYPE` | 400 | Tipe file foto tidak didukung |
-| `FILE_TOO_LARGE` | 400 | Ukuran file foto melebihi batas |
+| Code                           | HTTP Status | Deskripsi                                                |
+| ------------------------------ | ----------- | -------------------------------------------------------- |
+| `VALIDATION_ERROR`             | 400         | Input gagal validasi schema                              |
+| `TOKEN_INVALID`                | 400         | Token tidak ditemukan di database                        |
+| `TOKEN_ALREADY_USED`           | 409         | Token sudah dipakai sebelumnya                           |
+| `ELECTION_NOT_OPEN`            | 422         | Election tidak dalam state OPEN saat vote                |
+| `ELECTION_NOT_FOUND`           | 404         | Election ID tidak ditemukan                              |
+| `CANDIDATE_NOT_FOUND`          | 404         | Candidate ID tidak ditemukan                             |
+| `CANDIDATE_NOT_IN_ELECTION`    | 422         | Candidate tidak termasuk dalam election yang aktif       |
+| `ELECTION_WRONG_STATE`         | 422         | Operasi tidak valid untuk state election saat ini        |
+| `ELECTION_TRANSITION_INVALID`  | 422         | Transisi state machine tidak diizinkan                   |
+| `ELECTION_MIN_CANDIDATES`      | 422         | Election harus memiliki minimal 2 kandidat               |
+| `ELECTION_MAX_CANDIDATES`      | 422         | Election sudah memiliki 5 kandidat (maksimum)            |
+| `CANDIDATE_HAS_VOTES`          | 409         | Kandidat tidak dapat dihapus karena sudah memiliki suara |
+| `ORDER_NUMBER_TAKEN`           | 409         | Nomor urut sudah digunakan kandidat lain                 |
+| `UNAUTHORIZED`                 | 401         | Tidak terautentikasi                                     |
+| `FORBIDDEN`                    | 403         | Role tidak memiliki akses                                |
+| `NOT_FOUND`                    | 404         | Resource tidak ditemukan                                 |
+| `CONFLICT`                     | 409         | Konflik dengan state saat ini                            |
+| `RATE_LIMIT_EXCEEDED`          | 429         | Terlalu banyak request                                   |
+| `INTERNAL_ERROR`               | 500         | Server error internal                                    |
+| `SERVICE_UNAVAILABLE`          | 503         | Layanan tidak tersedia (health check gagal)              |
+| `ADMIN_USERNAME_TAKEN`         | 409         | Username admin sudah digunakan                           |
+| `ADMIN_EMAIL_TAKEN`            | 409         | Email admin sudah digunakan                              |
+| `ADMIN_NOT_FOUND`              | 404         | Admin ID tidak ditemukan                                 |
+| `CANNOT_DEACTIVATE_SELF`       | 422         | Admin tidak dapat menonaktifkan diri sendiri             |
+| `ACTIVE_ELECTION_EXISTS`       | 422         | Sudah ada election aktif (OPEN/PAUSED)                   |
+| `TOKEN_GENERATION_ACTIVE_ONLY` | 422         | Token hanya bisa di-generate saat state SETUP            |
+| `PHOTO_UPLOAD_FAILED`          | 500         | Gagal upload foto ke storage                             |
+| `INVALID_FILE_TYPE`            | 400         | Tipe file foto tidak didukung                            |
+| `FILE_TOO_LARGE`               | 400         | Ukuran file foto melebihi batas                          |
 
 ---
 
 ## Endpoint Categories
 
-| Kategori | Base Path | Jumlah Endpoint | Auth |
-|---|---|---|---|
-| Voting | `/api/vote` | 2 | Token-based |
-| Authentication | `/api/auth` | 3 | N/A (NextAuth) |
-| Election | `/api/admin/elections` | 4 | Admin session |
-| Candidate | `/api/admin/candidates` | 4 | Admin session |
-| Token | `/api/admin/tokens` | 2 | Admin session |
-| Dashboard | `/api/admin/dashboard` | 1 | Admin session |
-| Audit | `/api/admin/audit` | 1 | Admin session |
-| Admin Management | `/api/admin/admins` | 2 | Admin session (SUPER_ADMIN) |
-| Health | `/api/health` | 1 | None (public) |
+| Kategori         | Base Path               | Jumlah Endpoint | Auth                        |
+| ---------------- | ----------------------- | --------------- | --------------------------- |
+| Voting           | `/api/vote`             | 2               | Token-based                 |
+| Authentication   | `/api/auth`             | 3               | N/A (NextAuth)              |
+| Election         | `/api/admin/elections`  | 4               | Admin session               |
+| Candidate        | `/api/admin/candidates` | 4               | Admin session               |
+| Token            | `/api/admin/tokens`     | 2               | Admin session               |
+| Dashboard        | `/api/admin/dashboard`  | 1               | Admin session               |
+| Audit            | `/api/admin/audit`      | 1               | Admin session               |
+| Admin Management | `/api/admin/admins`     | 2               | Admin session (SUPER_ADMIN) |
+| Health           | `/api/health`           | 1               | None (public)               |
 
 ---
 
@@ -251,12 +252,12 @@ Semua endpoint dikenakan rate limit default: **60 requests / menit / IP**.
 
 ### Endpoint-Specific Rate Limits
 
-| Endpoint | Limit | Window | Rationale |
-|---|---|---|---|
-| `POST /api/vote/validate-token` | **10 req** | 1 menit / IP | Mencegah brute force token *(PRD §9.2)* |
-| `POST /api/auth/signin` | **5 req** | 15 menit / IP | Mencegah credential brute force + lockout *(PRD §9.2)* |
-| `POST /api/admin/tokens/generate` | **5 req** | 5 menit / IP | Operasi berat, prevent abuse |
-| `POST /api/vote/cast` | **3 req** | 5 menit / IP | Mencegah race condition spam |
+| Endpoint                          | Limit      | Window        | Rationale                                              |
+| --------------------------------- | ---------- | ------------- | ------------------------------------------------------ |
+| `POST /api/vote/validate-token`   | **10 req** | 1 menit / IP  | Mencegah brute force token _(PRD §9.2)_                |
+| `POST /api/auth/signin`           | **5 req**  | 15 menit / IP | Mencegah credential brute force + lockout _(PRD §9.2)_ |
+| `POST /api/admin/tokens/generate` | **5 req**  | 5 menit / IP  | Operasi berat, prevent abuse                           |
+| `POST /api/vote/cast`             | **3 req**  | 5 menit / IP  | Mencegah race condition spam                           |
 
 ### Rate Limit Response
 
@@ -275,6 +276,7 @@ HTTP 429 Too Many Requests
 ```
 
 Headers:
+
 ```
 X-RateLimit-Limit: 10
 X-RateLimit-Remaining: 0
@@ -337,6 +339,7 @@ GET /api/admin/elections?filterBy[status]=OPEN
 - Field yang tidak didukung untuk filter diabaikan (bukan error).
 
 ---
+
 ## Voting API
 
 ---
@@ -351,26 +354,26 @@ GET /api/admin/elections?filterBy[status]=OPEN
 
 **Authorization:** N/A.
 
-**Rate Limiting:** 10 request / menit / IP. *(PRD §9.2)*
+**Rate Limiting:** 10 request / menit / IP. _(PRD §9.2)_
 
 ---
 
 **Request Headers:**
 
-| Header | Value |
-|---|---|
+| Header         | Value              |
+| -------------- | ------------------ |
 | `Content-Type` | `application/json` |
 
 **Request Body:**
 
-| Field | Type | Required | Deskripsi |
-|---|---|---|---|
-| `token` | `string` | Yes | Token plaintext yang diterima siswa dari panitia |
+| Field   | Type     | Required | Deskripsi                                        |
+| ------- | -------- | -------- | ------------------------------------------------ |
+| `token` | `string` | Yes      | Token plaintext yang diterima siswa dari panitia |
 
 **Validation Rules:**
 
-| Field | Rule |
-|---|---|
+| Field   | Rule                                                                              |
+| ------- | --------------------------------------------------------------------------------- |
 | `token` | Required; string; min length 8; max length 64; tidak boleh berupa whitespace saja |
 
 ---
@@ -389,13 +392,13 @@ GET /api/admin/elections?filterBy[status]=OPEN
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | Token field kosong atau format tidak valid |
-| 400 | `TOKEN_INVALID` | Token tidak ditemukan (hash tidak cocok) atau `used_at` tidak null |
-| 422 | `ELECTION_NOT_OPEN` | Election yang terkait tidak dalam state `OPEN` |
-| 429 | `RATE_LIMIT_EXCEEDED` | Terlalu banyak percobaan dari IP ini |
-| 500 | `INTERNAL_ERROR` | Server error |
+| HTTP Status | Error Code            | Kondisi                                                            |
+| ----------- | --------------------- | ------------------------------------------------------------------ |
+| 400         | `VALIDATION_ERROR`    | Token field kosong atau format tidak valid                         |
+| 400         | `TOKEN_INVALID`       | Token tidak ditemukan (hash tidak cocok) atau `used_at` tidak null |
+| 422         | `ELECTION_NOT_OPEN`   | Election yang terkait tidak dalam state `OPEN`                     |
+| 429         | `RATE_LIMIT_EXCEEDED` | Terlalu banyak percobaan dari IP ini                               |
+| 500         | `INTERNAL_ERROR`      | Server error                                                       |
 
 ---
 
@@ -436,25 +439,25 @@ GET /api/admin/elections?filterBy[status]=OPEN
 
 **Request Headers:**
 
-| Header | Value |
-|---|---|
+| Header         | Value              |
+| -------------- | ------------------ |
 | `Content-Type` | `application/json` |
 
 **Request Body:**
 
-| Field | Type | Required | Deskripsi |
-|---|---|---|---|
-| `token` | `string` | Yes | Token plaintext siswa (di-re-validasi di server) |
-| `candidateId` | `string` | Yes | CUID kandidat yang dipilih |
-| `electionId` | `string` | Yes | CUID election yang aktif |
+| Field         | Type     | Required | Deskripsi                                        |
+| ------------- | -------- | -------- | ------------------------------------------------ |
+| `token`       | `string` | Yes      | Token plaintext siswa (di-re-validasi di server) |
+| `candidateId` | `string` | Yes      | CUID kandidat yang dipilih                       |
+| `electionId`  | `string` | Yes      | CUID election yang aktif                         |
 
 **Validation Rules:**
 
-| Field | Rule |
-|---|---|
-| `token` | Required; string; min 8; max 64; tidak boleh whitespace saja |
-| `candidateId` | Required; string; format CUID valid |
-| `electionId` | Required; string; format CUID valid |
+| Field         | Rule                                                         |
+| ------------- | ------------------------------------------------------------ |
+| `token`       | Required; string; min 8; max 64; tidak boleh whitespace saja |
+| `candidateId` | Required; string; format CUID valid                          |
+| `electionId`  | Required; string; format CUID valid                          |
 
 ---
 
@@ -471,17 +474,17 @@ GET /api/admin/elections?filterBy[status]=OPEN
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | Field kosong, format CUID tidak valid |
-| 400 | `TOKEN_INVALID` | Token tidak ditemukan atau hash tidak cocok |
-| 409 | `TOKEN_ALREADY_USED` | Token sudah dipakai (race condition terdeteksi di TX) |
-| 404 | `ELECTION_NOT_FOUND` | `electionId` tidak ditemukan |
-| 422 | `ELECTION_NOT_OPEN` | Election tidak dalam state `OPEN` |
-| 404 | `CANDIDATE_NOT_FOUND` | `candidateId` tidak ditemukan |
-| 422 | `CANDIDATE_NOT_IN_ELECTION` | Kandidat tidak termasuk dalam election yang dimaksud |
-| 429 | `RATE_LIMIT_EXCEEDED` | Rate limit terlampaui |
-| 500 | `INTERNAL_ERROR` | Server error / DB error / rollback |
+| HTTP Status | Error Code                  | Kondisi                                               |
+| ----------- | --------------------------- | ----------------------------------------------------- |
+| 400         | `VALIDATION_ERROR`          | Field kosong, format CUID tidak valid                 |
+| 400         | `TOKEN_INVALID`             | Token tidak ditemukan atau hash tidak cocok           |
+| 409         | `TOKEN_ALREADY_USED`        | Token sudah dipakai (race condition terdeteksi di TX) |
+| 404         | `ELECTION_NOT_FOUND`        | `electionId` tidak ditemukan                          |
+| 422         | `ELECTION_NOT_OPEN`         | Election tidak dalam state `OPEN`                     |
+| 404         | `CANDIDATE_NOT_FOUND`       | `candidateId` tidak ditemukan                         |
+| 422         | `CANDIDATE_NOT_IN_ELECTION` | Kandidat tidak termasuk dalam election yang dimaksud  |
+| 429         | `RATE_LIMIT_EXCEEDED`       | Rate limit terlampaui                                 |
+| 500         | `INTERNAL_ERROR`            | Server error / DB error / rollback                    |
 
 ---
 
@@ -499,17 +502,20 @@ GET /api/admin/elections?filterBy[status]=OPEN
 10. Jika ada langkah yang gagal → `ROLLBACK` → tidak ada vote yang tersimpan, token tidak berubah.
 
 **Side Effects:**
+
 - `Vote` record baru di-insert.
 - `VotingToken.used_at` di-set ke timestamp saat ini.
 - Dashboard stats akan berubah pada polling berikutnya.
 
 **Audit Logging:**
+
 - `AuditLog` record dengan `action: VOTE_CAST` di-insert setelah transaksi COMMIT.
-- **Tidak ada referensi ke `candidateId`, `tokenId`, atau identitas siswa** dalam audit log. *(PRD §7.3)*
+- **Tidak ada referensi ke `candidateId`, `tokenId`, atau identitas siswa** dalam audit log. _(PRD §7.3)_
 
 **Anonymity Guarantee:**
+
 - Response tidak mengandung kandidat yang dipilih, token hash, atau vote ID.
-- `Vote` record yang tersimpan hanya berisi `election_id`, `candidate_id`, `voted_at` — tidak ada FK ke `VotingToken`. *(PRD §7.2, DB §5)*
+- `Vote` record yang tersimpan hanya berisi `election_id`, `candidate_id`, `voted_at` — tidak ada FK ke `VotingToken`. _(PRD §7.2, DB §5)_
 - Tidak ada korelasi token ↔ kandidat yang bisa ditarik dari database maupun dari response.
 
 **Idempotency:** Tidak idempoten — memanggil dua kali dengan token yang sama akan menghasilkan `TOKEN_ALREADY_USED` pada panggilan kedua (karena `used_at` sudah di-set pada panggilan pertama).
@@ -536,30 +542,30 @@ GET /api/admin/elections?filterBy[status]=OPEN
 
 **Authorization:** N/A.
 
-**Rate Limiting:** 5 request / 15 menit / IP. *(PRD §9.2)*
+**Rate Limiting:** 5 request / 15 menit / IP. _(PRD §9.2)_
 
 ---
 
 **Request Headers:**
 
-| Header | Value |
-|---|---|
+| Header         | Value              |
+| -------------- | ------------------ |
 | `Content-Type` | `application/json` |
 
 **Request Body:**
 
-| Field | Type | Required | Deskripsi |
-|---|---|---|---|
-| `username` | `string` | Yes | Username admin |
-| `password` | `string` | Yes | Password admin (plaintext — hanya dalam transit via HTTPS) |
-| `csrfToken` | `string` | Yes | CSRF token dari `GET /api/auth/csrf` |
+| Field       | Type     | Required | Deskripsi                                                  |
+| ----------- | -------- | -------- | ---------------------------------------------------------- |
+| `username`  | `string` | Yes      | Username admin                                             |
+| `password`  | `string` | Yes      | Password admin (plaintext — hanya dalam transit via HTTPS) |
+| `csrfToken` | `string` | Yes      | CSRF token dari `GET /api/auth/csrf`                       |
 
 **Validation Rules:**
 
-| Field | Rule |
-|---|---|
-| `username` | Required; string; min 1; max 50 |
-| `password` | Required; string; min 1; max 128 |
+| Field       | Rule                                                       |
+| ----------- | ---------------------------------------------------------- |
+| `username`  | Required; string; min 1; max 50                            |
+| `password`  | Required; string; min 1; max 128                           |
 | `csrfToken` | Required; string; disediakan otomatis oleh NextAuth client |
 
 ---
@@ -573,18 +579,19 @@ GET /api/admin/elections?filterBy[status]=OPEN
 ```
 
 Response header:
+
 ```
 Set-Cookie: next-auth.session-token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=/
 ```
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 401 | `UNAUTHORIZED` | Username tidak ditemukan, admin tidak aktif, atau password salah |
-| 429 | `RATE_LIMIT_EXCEEDED` | Terlalu banyak percobaan dari IP ini |
+| HTTP Status | Error Code            | Kondisi                                                          |
+| ----------- | --------------------- | ---------------------------------------------------------------- |
+| 401         | `UNAUTHORIZED`        | Username tidak ditemukan, admin tidak aktif, atau password salah |
+| 429         | `RATE_LIMIT_EXCEEDED` | Terlalu banyak percobaan dari IP ini                             |
 
-> **Security note:** Error untuk "username tidak ditemukan" dan "password salah" menggunakan pesan yang identik untuk mencegah user enumeration attack. *(PRD §9.2)*
+> **Security note:** Error untuk "username tidak ditemukan" dan "password salah" menggunakan pesan yang identik untuk mencegah user enumeration attack. _(PRD §9.2)_
 
 ---
 
@@ -592,7 +599,7 @@ Set-Cookie: next-auth.session-token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=
 
 1. Server mencari `Admin` dengan `username = $username AND is_active = true`.
 2. Jika tidak ditemukan → catat `ADMIN_LOGIN_FAILED` di AuditLog → kembalikan 401.
-3. Verifikasi password dengan `argon2.verify(storedHash, inputPassword)`. *(PRD §9.2)*
+3. Verifikasi password dengan `argon2.verify(storedHash, inputPassword)`. _(PRD §9.2)_
 4. Jika password salah → catat `ADMIN_LOGIN_FAILED` di AuditLog → kembalikan 401.
 5. Update `Admin.last_login_at = now()`.
 6. Catat `ADMIN_LOGIN_SUCCESS` di AuditLog dengan IP dan user agent.
@@ -600,6 +607,7 @@ Set-Cookie: next-auth.session-token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=
 8. Set session cookie: HTTP-only, Secure, SameSite=Lax.
 
 **Audit Logging:**
+
 - `ADMIN_LOGIN_SUCCESS` atau `ADMIN_LOGIN_FAILED` per percobaan.
 - IP address dan user agent selalu dicatat.
 
@@ -622,16 +630,16 @@ Set-Cookie: next-auth.session-token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=
 
 **Request Headers:**
 
-| Header | Value |
-|---|---|
-| `Content-Type` | `application/json` |
-| `Cookie` | `next-auth.session-token=<jwt>` |
+| Header         | Value                           |
+| -------------- | ------------------------------- |
+| `Content-Type` | `application/json`              |
+| `Cookie`       | `next-auth.session-token=<jwt>` |
 
 **Request Body:**
 
-| Field | Type | Required | Deskripsi |
-|---|---|---|---|
-| `csrfToken` | `string` | Yes | CSRF token dari NextAuth |
+| Field       | Type     | Required | Deskripsi                |
+| ----------- | -------- | -------- | ------------------------ |
+| `csrfToken` | `string` | Yes      | CSRF token dari NextAuth |
 
 **Success Response — `200 OK`:**
 
@@ -642,6 +650,7 @@ Set-Cookie: next-auth.session-token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=
 ```
 
 Response header:
+
 ```
 Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/
 ```
@@ -708,13 +717,13 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Default | Deskripsi |
-|---|---|---|---|---|
-| `page` | integer | No | 1 | Nomor halaman |
-| `pageSize` | integer | No | 20 | Item per halaman (max 100) |
-| `filterBy[status]` | enum | No | — | Filter status: `SETUP`, `READY`, `OPEN`, `PAUSED`, `CLOSED`, `ARCHIVED` |
-| `sortBy` | string | No | `createdAt` | Field sorting: `createdAt`, `title`, `status` |
-| `sortOrder` | enum | No | `desc` | `asc` atau `desc` |
+| Parameter          | Type    | Required | Default     | Deskripsi                                                               |
+| ------------------ | ------- | -------- | ----------- | ----------------------------------------------------------------------- |
+| `page`             | integer | No       | 1           | Nomor halaman                                                           |
+| `pageSize`         | integer | No       | 20          | Item per halaman (max 100)                                              |
+| `filterBy[status]` | enum    | No       | —           | Filter status: `SETUP`, `READY`, `OPEN`, `PAUSED`, `CLOSED`, `ARCHIVED` |
+| `sortBy`           | string  | No       | `createdAt` | Field sorting: `createdAt`, `title`, `status`                           |
+| `sortOrder`        | enum    | No       | `desc`      | `asc` atau `desc`                                                       |
 
 **Success Response — `200 OK`:**
 
@@ -773,17 +782,17 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Request Body:**
 
-| Field | Type | Required | Deskripsi |
-|---|---|---|---|
-| `title` | `string` | Yes | Judul election |
-| `description` | `string` | No | Deskripsi singkat opsional |
+| Field         | Type     | Required | Deskripsi                  |
+| ------------- | -------- | -------- | -------------------------- |
+| `title`       | `string` | Yes      | Judul election             |
+| `description` | `string` | No       | Deskripsi singkat opsional |
 
 **Validation Rules:**
 
-| Field | Rule |
-|---|---|
-| `title` | Required; string; min 3; max 255; tidak boleh whitespace saja |
-| `description` | Opsional; string; max 1000; nullable |
+| Field         | Rule                                                          |
+| ------------- | ------------------------------------------------------------- |
+| `title`       | Required; string; min 3; max 255; tidak boleh whitespace saja |
+| `description` | Opsional; string; max 1000; nullable                          |
 
 **Success Response — `201 Created`:**
 
@@ -811,17 +820,18 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | Field tidak valid |
-| 422 | `ACTIVE_ELECTION_EXISTS` | Sudah ada election berstatus `OPEN` atau `PAUSED` |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
-| 403 | `FORBIDDEN` | Role `VIEWER` tidak bisa create |
-| 500 | `INTERNAL_ERROR` | DB error |
+| HTTP Status | Error Code               | Kondisi                                           |
+| ----------- | ------------------------ | ------------------------------------------------- |
+| 400         | `VALIDATION_ERROR`       | Field tidak valid                                 |
+| 422         | `ACTIVE_ELECTION_EXISTS` | Sudah ada election berstatus `OPEN` atau `PAUSED` |
+| 401         | `UNAUTHORIZED`           | Tidak terautentikasi                              |
+| 403         | `FORBIDDEN`              | Role `VIEWER` tidak bisa create                   |
+| 500         | `INTERNAL_ERROR`         | DB error                                          |
 
 **Business Rules:**
+
 1. Status awal selalu `SETUP` — tidak bisa di-override.
-2. Sistem memvalidasi bahwa tidak ada election lain yang berstatus `OPEN` atau `PAUSED` sebelum membuat election baru. *(DB: partial unique index)*
+2. Sistem memvalidasi bahwa tidak ada election lain yang berstatus `OPEN` atau `PAUSED` sebelum membuat election baru. _(DB: partial unique index)_
 3. `created_by` diambil dari session JWT — bukan dari request body.
 
 **Side Effects:** Election baru di-insert ke database.
@@ -847,9 +857,9 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Path Parameters:**
 
-| Parameter | Type | Required | Deskripsi |
-|---|---|---|---|
-| `id` | CUID | Yes | ID election |
+| Parameter | Type | Required | Deskripsi   |
+| --------- | ---- | -------- | ----------- |
+| `id`      | CUID | Yes      | ID election |
 
 **Success Response — `200 OK`:**
 
@@ -896,11 +906,11 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | `id` bukan CUID valid |
-| 404 | `ELECTION_NOT_FOUND` | Election dengan ID ini tidak ditemukan |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
+| HTTP Status | Error Code           | Kondisi                                |
+| ----------- | -------------------- | -------------------------------------- |
+| 400         | `VALIDATION_ERROR`   | `id` bukan CUID valid                  |
+| 404         | `ELECTION_NOT_FOUND` | Election dengan ID ini tidak ditemukan |
+| 401         | `UNAUTHORIZED`       | Tidak terautentikasi                   |
 
 **Notes:** `participationRate` dihitung sebagai `(used / total) * 100`, dibulatkan ke 1 desimal.
 
@@ -913,7 +923,7 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **`PATCH /api/admin/elections/[id]/status`**
 
-**Purpose:** Melakukan transisi state election sesuai state machine yang telah didefinisikan. *(PRD §6)*
+**Purpose:** Melakukan transisi state election sesuai state machine yang telah didefinisikan. _(PRD §6)_
 
 **Authentication:** Admin session.
 
@@ -923,20 +933,20 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Path Parameters:**
 
-| Parameter | Type | Required | Deskripsi |
-|---|---|---|---|
-| `id` | CUID | Yes | ID election |
+| Parameter | Type | Required | Deskripsi   |
+| --------- | ---- | -------- | ----------- |
+| `id`      | CUID | Yes      | ID election |
 
 **Request Body:**
 
-| Field | Type | Required | Deskripsi |
-|---|---|---|---|
-| `status` | `ElectionStatus` | Yes | Status baru yang diminta |
+| Field    | Type             | Required | Deskripsi                |
+| -------- | ---------------- | -------- | ------------------------ |
+| `status` | `ElectionStatus` | Yes      | Status baru yang diminta |
 
 **Validation Rules:**
 
-| Field | Rule |
-|---|---|
+| Field    | Rule                                                            |
+| -------- | --------------------------------------------------------------- |
 | `status` | Required; enum: `READY`, `OPEN`, `PAUSED`, `CLOSED`, `ARCHIVED` |
 
 > `SETUP` tidak termasuk dalam enum yang valid untuk endpoint ini — state `SETUP` hanya dicapai saat election baru dibuat.
@@ -945,16 +955,16 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **State Transition Matrix:**
 
-| Status Saat Ini | Status Baru yang Diizinkan | Prasyarat |
-|---|---|---|
-| `SETUP` | `READY` | Minimal 2 kandidat; minimal 1 token di-generate |
-| `READY` | `OPEN` | Tidak ada election lain yang `OPEN`/`PAUSED` |
-| `OPEN` | `PAUSED` | — |
-| `OPEN` | `CLOSED` | — |
-| `PAUSED` | `OPEN` | — |
-| `PAUSED` | `CLOSED` | — |
-| `CLOSED` | `ARCHIVED` | — |
-| `ARCHIVED` | — | Tidak ada transisi yang diizinkan |
+| Status Saat Ini | Status Baru yang Diizinkan | Prasyarat                                       |
+| --------------- | -------------------------- | ----------------------------------------------- |
+| `SETUP`         | `READY`                    | Minimal 2 kandidat; minimal 1 token di-generate |
+| `READY`         | `OPEN`                     | Tidak ada election lain yang `OPEN`/`PAUSED`    |
+| `OPEN`          | `PAUSED`                   | —                                               |
+| `OPEN`          | `CLOSED`                   | —                                               |
+| `PAUSED`        | `OPEN`                     | —                                               |
+| `PAUSED`        | `CLOSED`                   | —                                               |
+| `CLOSED`        | `ARCHIVED`                 | —                                               |
+| `ARCHIVED`      | —                          | Tidak ada transisi yang diizinkan               |
 
 **Success Response — `200 OK`:**
 
@@ -972,21 +982,22 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | `status` bukan enum valid |
-| 404 | `ELECTION_NOT_FOUND` | Election tidak ditemukan |
-| 422 | `ELECTION_TRANSITION_INVALID` | Transisi tidak diizinkan dari state saat ini |
-| 422 | `ELECTION_MIN_CANDIDATES` | Kurang dari 2 kandidat (saat SETUP → READY) |
-| 422 | `ACTIVE_ELECTION_EXISTS` | Sudah ada election aktif (saat READY → OPEN) |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
-| 403 | `FORBIDDEN` | Role `VIEWER` tidak bisa ubah status |
+| HTTP Status | Error Code                    | Kondisi                                      |
+| ----------- | ----------------------------- | -------------------------------------------- |
+| 400         | `VALIDATION_ERROR`            | `status` bukan enum valid                    |
+| 404         | `ELECTION_NOT_FOUND`          | Election tidak ditemukan                     |
+| 422         | `ELECTION_TRANSITION_INVALID` | Transisi tidak diizinkan dari state saat ini |
+| 422         | `ELECTION_MIN_CANDIDATES`     | Kurang dari 2 kandidat (saat SETUP → READY)  |
+| 422         | `ACTIVE_ELECTION_EXISTS`      | Sudah ada election aktif (saat READY → OPEN) |
+| 401         | `UNAUTHORIZED`                | Tidak terautentikasi                         |
+| 403         | `FORBIDDEN`                   | Role `VIEWER` tidak bisa ubah status         |
 
 **Business Rules:**
-1. Transisi hanya bisa maju (kecuali OPEN ↔ PAUSED). *(PRD §6)*
+
+1. Transisi hanya bisa maju (kecuali OPEN ↔ PAUSED). _(PRD §6)_
 2. Saat transisi ke `OPEN`: set `openedAt = now()`.
 3. Saat transisi ke `CLOSED`: set `closedAt = now()`.
-4. Transisi dieksekusi dalam database transaction bersama insert AuditLog. *(DB TX-2)*
+4. Transisi dieksekusi dalam database transaction bersama insert AuditLog. _(DB TX-2)_
 
 **Audit Logging:** `ELECTION_STATUS_CHANGED` dengan `metadata: { from: "SETUP", to: "READY" }`.
 
@@ -1004,15 +1015,15 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Authentication:** Admin session.
 
-**Authorization:** `SUPER_ADMIN` only. *(PRD §1.3)*
+**Authorization:** `SUPER_ADMIN` only. _(PRD §1.3)_
 
 ---
 
 **Path Parameters:**
 
-| Parameter | Type | Required | Deskripsi |
-|---|---|---|---|
-| `id` | CUID | Yes | ID election |
+| Parameter | Type | Required | Deskripsi   |
+| --------- | ---- | -------- | ----------- |
+| `id`      | CUID | Yes      | ID election |
 
 **Success Response — `200 OK`:**
 
@@ -1028,17 +1039,18 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 404 | `ELECTION_NOT_FOUND` | Election tidak ditemukan |
-| 422 | `ELECTION_WRONG_STATE` | Election bukan dalam state `SETUP` atau `ARCHIVED` |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
-| 403 | `FORBIDDEN` | Hanya `SUPER_ADMIN` yang bisa hapus |
+| HTTP Status | Error Code             | Kondisi                                            |
+| ----------- | ---------------------- | -------------------------------------------------- |
+| 404         | `ELECTION_NOT_FOUND`   | Election tidak ditemukan                           |
+| 422         | `ELECTION_WRONG_STATE` | Election bukan dalam state `SETUP` atau `ARCHIVED` |
+| 401         | `UNAUTHORIZED`         | Tidak terautentikasi                               |
+| 403         | `FORBIDDEN`            | Hanya `SUPER_ADMIN` yang bisa hapus                |
 
 **Business Rules:**
+
 1. Hanya state `SETUP` atau `ARCHIVED` yang boleh dihapus.
 2. Election dalam state `READY`, `OPEN`, `PAUSED`, atau `CLOSED` tidak bisa dihapus — harus `ARCHIVE` dulu.
-3. Cascade delete: semua `Candidate`, `VotingToken`, dan `Vote` yang terkait ikut terhapus. *(DB: CASCADE)*
+3. Cascade delete: semua `Candidate`, `VotingToken`, dan `Vote` yang terkait ikut terhapus. _(DB: CASCADE)_
 
 **Audit Logging:** `ELECTION_DELETED` dengan `metadata: { title, status }`.
 
@@ -1065,9 +1077,9 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Deskripsi |
-|---|---|---|---|
-| `electionId` | CUID | Yes | ID election yang kandidatnya ingin dilihat |
+| Parameter    | Type | Required | Deskripsi                                  |
+| ------------ | ---- | -------- | ------------------------------------------ |
+| `electionId` | CUID | Yes      | ID election yang kandidatnya ingin dilihat |
 
 **Success Response — `200 OK`:**
 
@@ -1098,8 +1110,9 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 ```
 
 **Notes:**
-- Tidak ada pagination — jumlah kandidat maksimal 5. *(PRD §2)*
-- `voteCount` hanya dikembalikan jika election sudah `CLOSED` atau `ARCHIVED`. Saat `OPEN` atau `PAUSED`, `voteCount` adalah `null` untuk mencegah inferensi real-time. *(PRD §8, throttle rationale)*
+
+- Tidak ada pagination — jumlah kandidat maksimal 5. _(PRD §2)_
+- `voteCount` hanya dikembalikan jika election sudah `CLOSED` atau `ARCHIVED`. Saat `OPEN` atau `PAUSED`, `voteCount` adalah `null` untuk mencegah inferensi real-time. _(PRD §8, throttle rationale)_
 - Diurutkan ascending berdasarkan `orderNumber`.
 
 **PRD Reference:** §2 (Manajemen Kandidat)
@@ -1121,25 +1134,25 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Request Body:**
 
-| Field | Type | Required | Deskripsi |
-|---|---|---|---|
-| `electionId` | `string` | Yes | CUID election yang dituju |
-| `orderNumber` | `integer` | Yes | Nomor urut (1–5), unik dalam election |
-| `name` | `string` | Yes | Nama lengkap kandidat |
-| `className` | `string` | Yes | Kelas kandidat |
-| `vision` | `string` | Yes | Visi kandidat |
-| `missions` | `string[]` | Yes | Array misi (min 1 item) |
+| Field         | Type       | Required | Deskripsi                             |
+| ------------- | ---------- | -------- | ------------------------------------- |
+| `electionId`  | `string`   | Yes      | CUID election yang dituju             |
+| `orderNumber` | `integer`  | Yes      | Nomor urut (1–5), unik dalam election |
+| `name`        | `string`   | Yes      | Nama lengkap kandidat                 |
+| `className`   | `string`   | Yes      | Kelas kandidat                        |
+| `vision`      | `string`   | Yes      | Visi kandidat                         |
+| `missions`    | `string[]` | Yes      | Array misi (min 1 item)               |
 
 **Validation Rules:**
 
-| Field | Rule |
-|---|---|
-| `electionId` | Required; CUID valid |
-| `orderNumber` | Required; integer; min 1; max 5 |
-| `name` | Required; string; min 2; max 255 |
-| `className` | Required; string; min 1; max 50 |
-| `vision` | Required; string; min 10; max 1000 |
-| `missions` | Required; array; min 1 item; max 10 items; setiap item string min 5 max 500 |
+| Field         | Rule                                                                        |
+| ------------- | --------------------------------------------------------------------------- |
+| `electionId`  | Required; CUID valid                                                        |
+| `orderNumber` | Required; integer; min 1; max 5                                             |
+| `name`        | Required; string; min 2; max 255                                            |
+| `className`   | Required; string; min 1; max 50                                             |
+| `vision`      | Required; string; min 10; max 1000                                          |
+| `missions`    | Required; array; min 1 item; max 10 items; setiap item string min 5 max 500 |
 
 > **Catatan:** `photoUrl` tidak ada di create body — foto di-upload terpisah via `POST /api/admin/candidates/[id]/photo`. Kandidat bisa dibuat tanpa foto terlebih dahulu (photo_url akan `null` sementara).
 
@@ -1165,19 +1178,20 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | Field tidak valid |
-| 404 | `ELECTION_NOT_FOUND` | Election tidak ditemukan |
-| 422 | `ELECTION_WRONG_STATE` | Election bukan dalam state `SETUP` |
-| 422 | `ELECTION_MAX_CANDIDATES` | Sudah ada 5 kandidat |
-| 409 | `ORDER_NUMBER_TAKEN` | Nomor urut sudah dipakai kandidat lain |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
-| 403 | `FORBIDDEN` | Role tidak memiliki akses |
+| HTTP Status | Error Code                | Kondisi                                |
+| ----------- | ------------------------- | -------------------------------------- |
+| 400         | `VALIDATION_ERROR`        | Field tidak valid                      |
+| 404         | `ELECTION_NOT_FOUND`      | Election tidak ditemukan               |
+| 422         | `ELECTION_WRONG_STATE`    | Election bukan dalam state `SETUP`     |
+| 422         | `ELECTION_MAX_CANDIDATES` | Sudah ada 5 kandidat                   |
+| 409         | `ORDER_NUMBER_TAKEN`      | Nomor urut sudah dipakai kandidat lain |
+| 401         | `UNAUTHORIZED`            | Tidak terautentikasi                   |
+| 403         | `FORBIDDEN`               | Role tidak memiliki akses              |
 
 **Business Rules:**
-1. Kandidat hanya bisa ditambah saat election `status = SETUP`. *(PRD §2)*
-2. Maksimal 5 kandidat per election. *(PRD §2)*
+
+1. Kandidat hanya bisa ditambah saat election `status = SETUP`. _(PRD §2)_
+2. Maksimal 5 kandidat per election. _(PRD §2)_
 3. `orderNumber` harus unik dalam scope election yang sama.
 
 **Audit Logging:** `CANDIDATE_CREATED` dengan `metadata: { name, orderNumber }`.
@@ -1201,29 +1215,29 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Path Parameters:**
 
-| Parameter | Type | Required | Deskripsi |
-|---|---|---|---|
-| `id` | CUID | Yes | ID kandidat |
+| Parameter | Type | Required | Deskripsi   |
+| --------- | ---- | -------- | ----------- |
+| `id`      | CUID | Yes      | ID kandidat |
 
 **Request Body (semua field opsional, minimal 1 harus dikirim):**
 
-| Field | Type | Required | Deskripsi |
-|---|---|---|---|
-| `orderNumber` | `integer` | No | Nomor urut baru (1–5) |
-| `name` | `string` | No | Nama lengkap baru |
-| `className` | `string` | No | Kelas baru |
-| `vision` | `string` | No | Visi baru |
-| `missions` | `string[]` | No | Array misi baru (replace seluruh array) |
+| Field         | Type       | Required | Deskripsi                               |
+| ------------- | ---------- | -------- | --------------------------------------- |
+| `orderNumber` | `integer`  | No       | Nomor urut baru (1–5)                   |
+| `name`        | `string`   | No       | Nama lengkap baru                       |
+| `className`   | `string`   | No       | Kelas baru                              |
+| `vision`      | `string`   | No       | Visi baru                               |
+| `missions`    | `string[]` | No       | Array misi baru (replace seluruh array) |
 
 **Validation Rules:**
 
-| Field | Rule |
-|---|---|
-| `orderNumber` | Opsional; integer; min 1; max 5 |
-| `name` | Opsional; string; min 2; max 255 |
-| `className` | Opsional; string; min 1; max 50 |
-| `vision` | Opsional; string; min 10; max 1000 |
-| `missions` | Opsional; array; min 1 item; max 10 items; setiap item string min 5 max 500 |
+| Field         | Rule                                                                        |
+| ------------- | --------------------------------------------------------------------------- |
+| `orderNumber` | Opsional; integer; min 1; max 5                                             |
+| `name`        | Opsional; string; min 2; max 255                                            |
+| `className`   | Opsional; string; min 1; max 50                                             |
+| `vision`      | Opsional; string; min 10; max 1000                                          |
+| `missions`    | Opsional; array; min 1 item; max 10 items; setiap item string min 5 max 500 |
 
 **Success Response — `200 OK`:**
 
@@ -1245,14 +1259,14 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | Field tidak valid atau tidak ada field yang dikirim |
-| 404 | `CANDIDATE_NOT_FOUND` | Kandidat tidak ditemukan |
-| 422 | `ELECTION_WRONG_STATE` | Election bukan `SETUP` |
-| 409 | `ORDER_NUMBER_TAKEN` | Nomor urut baru sudah dipakai |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
-| 403 | `FORBIDDEN` | Role tidak memiliki akses |
+| HTTP Status | Error Code             | Kondisi                                             |
+| ----------- | ---------------------- | --------------------------------------------------- |
+| 400         | `VALIDATION_ERROR`     | Field tidak valid atau tidak ada field yang dikirim |
+| 404         | `CANDIDATE_NOT_FOUND`  | Kandidat tidak ditemukan                            |
+| 422         | `ELECTION_WRONG_STATE` | Election bukan `SETUP`                              |
+| 409         | `ORDER_NUMBER_TAKEN`   | Nomor urut baru sudah dipakai                       |
+| 401         | `UNAUTHORIZED`         | Tidak terautentikasi                                |
+| 403         | `FORBIDDEN`            | Role tidak memiliki akses                           |
 
 **Audit Logging:** `CANDIDATE_UPDATED` dengan `metadata: { changedFields: ["name", "vision"] }`.
 
@@ -1275,9 +1289,9 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Path Parameters:**
 
-| Parameter | Type | Required | Deskripsi |
-|---|---|---|---|
-| `id` | CUID | Yes | ID kandidat |
+| Parameter | Type | Required | Deskripsi   |
+| --------- | ---- | -------- | ----------- |
+| `id`      | CUID | Yes      | ID kandidat |
 
 **Success Response — `200 OK`:**
 
@@ -1293,17 +1307,18 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 404 | `CANDIDATE_NOT_FOUND` | Kandidat tidak ditemukan |
-| 422 | `ELECTION_WRONG_STATE` | Election bukan `SETUP` |
-| 409 | `CANDIDATE_HAS_VOTES` | Kandidat sudah memiliki suara masuk |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
-| 403 | `FORBIDDEN` | Role tidak memiliki akses |
+| HTTP Status | Error Code             | Kondisi                             |
+| ----------- | ---------------------- | ----------------------------------- |
+| 404         | `CANDIDATE_NOT_FOUND`  | Kandidat tidak ditemukan            |
+| 422         | `ELECTION_WRONG_STATE` | Election bukan `SETUP`              |
+| 409         | `CANDIDATE_HAS_VOTES`  | Kandidat sudah memiliki suara masuk |
+| 401         | `UNAUTHORIZED`         | Tidak terautentikasi                |
+| 403         | `FORBIDDEN`            | Role tidak memiliki akses           |
 
 **Business Rules:**
+
 1. Setelah election `SETUP`, kandidat tidak bisa dihapus.
-2. `CANDIDATE_HAS_VOTES` secara praktis tidak akan terjadi jika rule (1) diikuti — namun tetap di-handle sebagai safety net dari database constraint `ON DELETE RESTRICT`. *(DB §5)*
+2. `CANDIDATE_HAS_VOTES` secara praktis tidak akan terjadi jika rule (1) diikuti — namun tetap di-handle sebagai safety net dari database constraint `ON DELETE RESTRICT`. _(DB §5)_
 
 **Audit Logging:** `CANDIDATE_DELETED` dengan `metadata: { name, orderNumber }`.
 
@@ -1326,26 +1341,26 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Path Parameters:**
 
-| Parameter | Type | Required | Deskripsi |
-|---|---|---|---|
-| `id` | CUID | Yes | ID kandidat |
+| Parameter | Type | Required | Deskripsi   |
+| --------- | ---- | -------- | ----------- |
+| `id`      | CUID | Yes      | ID kandidat |
 
 **Request Headers:**
 
-| Header | Value |
-|---|---|
+| Header         | Value                 |
+| -------------- | --------------------- |
 | `Content-Type` | `multipart/form-data` |
 
 **Request Body (multipart):**
 
-| Field | Type | Required | Deskripsi |
-|---|---|---|---|
-| `photo` | `File` | Yes | File foto kandidat |
+| Field   | Type   | Required | Deskripsi          |
+| ------- | ------ | -------- | ------------------ |
+| `photo` | `File` | Yes      | File foto kandidat |
 
 **Validation Rules:**
 
-| Field | Rule |
-|---|---|
+| Field   | Rule                                                                                       |
+| ------- | ------------------------------------------------------------------------------------------ |
 | `photo` | Required; file; MIME type harus `image/jpeg`, `image/png`, atau `image/webp`; max size 2MB |
 
 **Success Response — `200 OK`:**
@@ -1362,17 +1377,18 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | File tidak disertakan |
-| 400 | `INVALID_FILE_TYPE` | MIME type bukan JPEG/PNG/WebP |
-| 400 | `FILE_TOO_LARGE` | File > 2MB |
-| 404 | `CANDIDATE_NOT_FOUND` | Kandidat tidak ditemukan |
-| 422 | `ELECTION_WRONG_STATE` | Election bukan `SETUP` |
-| 500 | `PHOTO_UPLOAD_FAILED` | Storage service error |
+| HTTP Status | Error Code             | Kondisi                       |
+| ----------- | ---------------------- | ----------------------------- |
+| 400         | `VALIDATION_ERROR`     | File tidak disertakan         |
+| 400         | `INVALID_FILE_TYPE`    | MIME type bukan JPEG/PNG/WebP |
+| 400         | `FILE_TOO_LARGE`       | File > 2MB                    |
+| 404         | `CANDIDATE_NOT_FOUND`  | Kandidat tidak ditemukan      |
+| 422         | `ELECTION_WRONG_STATE` | Election bukan `SETUP`        |
+| 500         | `PHOTO_UPLOAD_FAILED`  | Storage service error         |
 
 **Business Rules:**
-1. Foto diupload via `StorageService` (abstraction layer). *(Arch §StorageService Abstraction)*
+
+1. Foto diupload via `StorageService` (abstraction layer). _(Arch §StorageService Abstraction)_
 2. Jika kandidat sudah punya foto, foto lama dihapus dari storage sebelum foto baru diupload.
 3. Path storage: `candidates/{candidateId}/photo.{ext}`.
 4. `Candidate.photo_url` diupdate setelah upload berhasil.
@@ -1383,6 +1399,7 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 **DB Tables:** `Candidate`, `AuditLog`
 
 ---
+
 ## Token API
 
 ---
@@ -1403,17 +1420,17 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Request Body:**
 
-| Field | Type | Required | Deskripsi |
-|---|---|---|---|
-| `electionId` | `string` | Yes | CUID election yang dituju |
-| `count` | `integer` | Yes | Jumlah token yang akan di-generate |
+| Field        | Type      | Required | Deskripsi                          |
+| ------------ | --------- | -------- | ---------------------------------- |
+| `electionId` | `string`  | Yes      | CUID election yang dituju          |
+| `count`      | `integer` | Yes      | Jumlah token yang akan di-generate |
 
 **Validation Rules:**
 
-| Field | Rule |
-|---|---|
-| `electionId` | Required; CUID valid |
-| `count` | Required; integer; min 1; max 1000 |
+| Field        | Rule                               |
+| ------------ | ---------------------------------- |
+| `electionId` | Required; CUID valid               |
+| `count`      | Required; integer; min 1; max 1000 |
 
 ---
 
@@ -1425,11 +1442,7 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
   "data": {
     "electionId": "clxxx...",
     "generatedCount": 200,
-    "tokens": [
-      "TKN-A3F8K2",
-      "TKN-B7X9P1",
-      "..."
-    ],
+    "tokens": ["TKN-A3F8K2", "TKN-B7X9P1", "..."],
     "note": "PENTING: Simpan token ini sekarang. Token plaintext tidak akan bisa diakses lagi setelah response ini."
   }
 }
@@ -1437,28 +1450,29 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | Field tidak valid |
-| 404 | `ELECTION_NOT_FOUND` | Election tidak ditemukan |
-| 422 | `TOKEN_GENERATION_ACTIVE_ONLY` | Election bukan dalam state `SETUP` |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
-| 403 | `FORBIDDEN` | Role tidak memiliki akses |
-| 429 | `RATE_LIMIT_EXCEEDED` | Rate limit terlampaui |
-| 500 | `INTERNAL_ERROR` | DB error |
+| HTTP Status | Error Code                     | Kondisi                            |
+| ----------- | ------------------------------ | ---------------------------------- |
+| 400         | `VALIDATION_ERROR`             | Field tidak valid                  |
+| 404         | `ELECTION_NOT_FOUND`           | Election tidak ditemukan           |
+| 422         | `TOKEN_GENERATION_ACTIVE_ONLY` | Election bukan dalam state `SETUP` |
+| 401         | `UNAUTHORIZED`                 | Tidak terautentikasi               |
+| 403         | `FORBIDDEN`                    | Role tidak memiliki akses          |
+| 429         | `RATE_LIMIT_EXCEEDED`          | Rate limit terlampaui              |
+| 500         | `INTERNAL_ERROR`               | DB error                           |
 
 ---
 
 **Business Rules:**
 
-1. Hanya bisa di-generate saat election `status = SETUP`. *(PRD §3)*
+1. Hanya bisa di-generate saat election `status = SETUP`. _(PRD §3)_
 2. Untuk setiap token: generate string random yang aman secara kriptografis (minimum 12 karakter).
-3. Hitung `HMAC-SHA256(tokenPlaintext, TOKEN_HMAC_SECRET)` — simpan hash ke database, bukan plaintext. *(PRD §3)*
-4. Semua INSERT dilakukan dalam satu transaksi database. Jika ada yang gagal, semua di-rollback. *(DB TX-3)*
+3. Hitung `HMAC-SHA256(tokenPlaintext, TOKEN_HMAC_SECRET)` — simpan hash ke database, bukan plaintext. _(PRD §3)_
+4. Semua INSERT dilakukan dalam satu transaksi database. Jika ada yang gagal, semua di-rollback. _(DB TX-3)_
 5. Token plaintext dikembalikan dalam response untuk satu kali — setelah ini tidak bisa diakses lagi.
 6. Tidak ada batas total token per election — admin bertanggung jawab atas jumlah yang wajar.
 
 **Side Effects:**
+
 - Batch `VotingToken` records di-insert ke database.
 
 **Audit Logging:** `TOKEN_BATCH_GENERATED` dengan `metadata: { count: 200, electionId }`.
@@ -1466,6 +1480,7 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 **Idempotency:** Tidak idempoten — setiap call menghasilkan token baru.
 
 **Notes:**
+
 - Frontend harus segera menawarkan download CSV setelah menerima response ini.
 - Token plaintext tidak bisa di-recover dari database — jika hilang, harus generate ulang.
 
@@ -1495,9 +1510,9 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Deskripsi |
-|---|---|---|---|
-| `electionId` | CUID | Yes | ID election |
+| Parameter    | Type | Required | Deskripsi   |
+| ------------ | ---- | -------- | ----------- |
+| `electionId` | CUID | Yes      | ID election |
 
 **Success Response — `200 OK`:**
 
@@ -1514,12 +1529,12 @@ token_number,created_at
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | `electionId` tidak valid |
-| 404 | `ELECTION_NOT_FOUND` | Election tidak ditemukan |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
-| 403 | `FORBIDDEN` | Role tidak memiliki akses |
+| HTTP Status | Error Code           | Kondisi                   |
+| ----------- | -------------------- | ------------------------- |
+| 400         | `VALIDATION_ERROR`   | `electionId` tidak valid  |
+| 404         | `ELECTION_NOT_FOUND` | Election tidak ditemukan  |
+| 401         | `UNAUTHORIZED`       | Tidak terautentikasi      |
+| 403         | `FORBIDDEN`          | Role tidak memiliki akses |
 
 **Audit Logging:** `TOKEN_BATCH_EXPORTED` dengan `metadata: { electionId, tokenCount }`.
 
@@ -1536,7 +1551,7 @@ token_number,created_at
 
 **`GET /api/admin/dashboard/stats`**
 
-**Purpose:** Mendapatkan statistik agregat election yang aktif untuk ditampilkan di dashboard. Didesain untuk dipanggil secara polling setiap 3–5 detik. *(Arch §Flow 5)*
+**Purpose:** Mendapatkan statistik agregat election yang aktif untuk ditampilkan di dashboard. Didesain untuk dipanggil secara polling setiap 3–5 detik. _(Arch §Flow 5)_
 
 **Authentication:** Admin session.
 
@@ -1546,9 +1561,9 @@ token_number,created_at
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Deskripsi |
-|---|---|---|---|
-| `electionId` | CUID | Yes | ID election yang dipantau |
+| Parameter    | Type | Required | Deskripsi                 |
+| ------------ | ---- | -------- | ------------------------- |
+| `electionId` | CUID | Yes      | ID election yang dipantau |
 
 **Success Response — `200 OK`:**
 
@@ -1590,17 +1605,17 @@ token_number,created_at
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | `electionId` tidak valid |
-| 404 | `ELECTION_NOT_FOUND` | Election tidak ditemukan |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
+| HTTP Status | Error Code           | Kondisi                  |
+| ----------- | -------------------- | ------------------------ |
+| 400         | `VALIDATION_ERROR`   | `electionId` tidak valid |
+| 404         | `ELECTION_NOT_FOUND` | Election tidak ditemukan |
+| 401         | `UNAUTHORIZED`       | Tidak terautentikasi     |
 
 ---
 
 **Business Rules:**
 
-1. Response selalu berupa **aggregate data** — tidak pernah individual vote records. *(PRD §8)*
+1. Response selalu berupa **aggregate data** — tidak pernah individual vote records. _(PRD §8)_
 2. `percentage` dihitung per kandidat: `(voteCount / totalVotes) * 100`, dibulatkan ke 2 desimal. Jika `totalVotes = 0`, semua percentage adalah `0`.
 3. `participationRate` = `(usedTokens / totalTokens) * 100`, dibulatkan ke 1 desimal.
 4. `lastVoteAt` adalah timestamp dari `MAX(voted_at)` di tabel `Vote` untuk election ini. Null jika belum ada vote.
@@ -1622,7 +1637,7 @@ token_number,created_at
 
 **`GET /api/admin/audit`**
 
-**Purpose:** Mendapatkan daftar audit log dengan filtering dan pagination. Audit log bersifat read-only — tidak ada endpoint untuk update atau delete. *(PRD §7.3)*
+**Purpose:** Mendapatkan daftar audit log dengan filtering dan pagination. Audit log bersifat read-only — tidak ada endpoint untuk update atau delete. _(PRD §7.3)_
 
 **Authentication:** Admin session.
 
@@ -1632,19 +1647,19 @@ token_number,created_at
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Default | Deskripsi |
-|---|---|---|---|---|
-| `page` | integer | No | 1 | Nomor halaman |
-| `pageSize` | integer | No | 20 | Item per halaman (max 100) |
-| `sortBy` | string | No | `createdAt` | Hanya `createdAt` yang didukung |
-| `sortOrder` | enum | No | `desc` | `asc` atau `desc` |
-| `filterBy[action]` | enum | No | — | Filter berdasarkan `AuditAction` enum |
-| `filterBy[actorId]` | CUID | No | — | Filter berdasarkan admin yang melakukan aksi |
-| `filterBy[result]` | enum | No | — | `SUCCESS` atau `FAILURE` |
-| `filterBy[targetType]` | string | No | — | `election`, `candidate`, `token`, `admin` |
-| `filterBy[targetId]` | string | No | — | ID entitas target |
-| `filterBy[dateFrom]` | ISO 8601 | No | — | Filter aksi sejak tanggal ini (inclusive) |
-| `filterBy[dateTo]` | ISO 8601 | No | — | Filter aksi sampai tanggal ini (inclusive) |
+| Parameter              | Type     | Required | Default     | Deskripsi                                    |
+| ---------------------- | -------- | -------- | ----------- | -------------------------------------------- |
+| `page`                 | integer  | No       | 1           | Nomor halaman                                |
+| `pageSize`             | integer  | No       | 20          | Item per halaman (max 100)                   |
+| `sortBy`               | string   | No       | `createdAt` | Hanya `createdAt` yang didukung              |
+| `sortOrder`            | enum     | No       | `desc`      | `asc` atau `desc`                            |
+| `filterBy[action]`     | enum     | No       | —           | Filter berdasarkan `AuditAction` enum        |
+| `filterBy[actorId]`    | CUID     | No       | —           | Filter berdasarkan admin yang melakukan aksi |
+| `filterBy[result]`     | enum     | No       | —           | `SUCCESS` atau `FAILURE`                     |
+| `filterBy[targetType]` | string   | No       | —           | `election`, `candidate`, `token`, `admin`    |
+| `filterBy[targetId]`   | string   | No       | —           | ID entitas target                            |
+| `filterBy[dateFrom]`   | ISO 8601 | No       | —           | Filter aksi sejak tanggal ini (inclusive)    |
+| `filterBy[dateTo]`     | ISO 8601 | No       | —           | Filter aksi sampai tanggal ini (inclusive)   |
 
 **Success Response — `200 OK`:**
 
@@ -1687,13 +1702,14 @@ token_number,created_at
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | Parameter query tidak valid |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
+| HTTP Status | Error Code         | Kondisi                     |
+| ----------- | ------------------ | --------------------------- |
+| 400         | `VALIDATION_ERROR` | Parameter query tidak valid |
+| 401         | `UNAUTHORIZED`     | Tidak terautentikasi        |
 
 **Business Rules:**
-1. Tidak ada endpoint untuk CREATE, UPDATE, atau DELETE audit log. *(PRD §7.3)*
+
+1. Tidak ada endpoint untuk CREATE, UPDATE, atau DELETE audit log. _(PRD §7.3)_
 2. `ipAddress` ditampilkan dalam response — hanya untuk admin, bukan publik.
 3. `userAgent` dapat di-truncate di response jika terlalu panjang (max 500 karakter).
 
@@ -1704,7 +1720,7 @@ token_number,created_at
 
 ## Admin Management API
 
-> Seluruh endpoint di bawah ini hanya dapat diakses oleh **`SUPER_ADMIN`**. *(PRD §1.3)*
+> Seluruh endpoint di bawah ini hanya dapat diakses oleh **`SUPER_ADMIN`**. _(PRD §1.3)_
 
 ---
 
@@ -1722,12 +1738,12 @@ token_number,created_at
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Default | Deskripsi |
-|---|---|---|---|---|
-| `page` | integer | No | 1 | Nomor halaman |
-| `pageSize` | integer | No | 20 | Item per halaman |
-| `filterBy[role]` | enum | No | — | `SUPER_ADMIN`, `ADMIN`, `VIEWER` |
-| `filterBy[isActive]` | boolean | No | — | `true` atau `false` |
+| Parameter            | Type    | Required | Default | Deskripsi                        |
+| -------------------- | ------- | -------- | ------- | -------------------------------- |
+| `page`               | integer | No       | 1       | Nomor halaman                    |
+| `pageSize`           | integer | No       | 20      | Item per halaman                 |
+| `filterBy[role]`     | enum    | No       | —       | `SUPER_ADMIN`, `ADMIN`, `VIEWER` |
+| `filterBy[isActive]` | boolean | No       | —       | `true` atau `false`              |
 
 **Success Response — `200 OK`:**
 
@@ -1772,21 +1788,21 @@ token_number,created_at
 
 **Request Body:**
 
-| Field | Type | Required | Deskripsi |
-|---|---|---|---|
-| `username` | `string` | Yes | Username unik |
-| `email` | `string` | Yes | Email unik |
-| `password` | `string` | Yes | Password plaintext (akan di-hash dengan Argon2id) |
-| `role` | `AdminRole` | Yes | `SUPER_ADMIN`, `ADMIN`, atau `VIEWER` |
+| Field      | Type        | Required | Deskripsi                                         |
+| ---------- | ----------- | -------- | ------------------------------------------------- |
+| `username` | `string`    | Yes      | Username unik                                     |
+| `email`    | `string`    | Yes      | Email unik                                        |
+| `password` | `string`    | Yes      | Password plaintext (akan di-hash dengan Argon2id) |
+| `role`     | `AdminRole` | Yes      | `SUPER_ADMIN`, `ADMIN`, atau `VIEWER`             |
 
 **Validation Rules:**
 
-| Field | Rule |
-|---|---|
+| Field      | Rule                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------ |
 | `username` | Required; string; min 3; max 50; alphanumeric + underscore; tidak boleh berisi spasi |
-| `email` | Required; valid email format; max 255 |
-| `password` | Required; string; min 8; max 128; harus mengandung huruf besar, huruf kecil, angka |
-| `role` | Required; enum: `SUPER_ADMIN`, `ADMIN`, `VIEWER` |
+| `email`    | Required; valid email format; max 255                                                |
+| `password` | Required; string; min 8; max 128; harus mengandung huruf besar, huruf kecil, angka   |
+| `role`     | Required; enum: `SUPER_ADMIN`, `ADMIN`, `VIEWER`                                     |
 
 **Success Response — `201 Created`:**
 
@@ -1806,16 +1822,17 @@ token_number,created_at
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | Field tidak valid |
-| 409 | `ADMIN_USERNAME_TAKEN` | Username sudah digunakan |
-| 409 | `ADMIN_EMAIL_TAKEN` | Email sudah digunakan |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
-| 403 | `FORBIDDEN` | Bukan `SUPER_ADMIN` |
+| HTTP Status | Error Code             | Kondisi                  |
+| ----------- | ---------------------- | ------------------------ |
+| 400         | `VALIDATION_ERROR`     | Field tidak valid        |
+| 409         | `ADMIN_USERNAME_TAKEN` | Username sudah digunakan |
+| 409         | `ADMIN_EMAIL_TAKEN`    | Email sudah digunakan    |
+| 401         | `UNAUTHORIZED`         | Tidak terautentikasi     |
+| 403         | `FORBIDDEN`            | Bukan `SUPER_ADMIN`      |
 
 **Business Rules:**
-1. Password di-hash menggunakan Argon2id sebelum disimpan. *(PRD §9.2)*
+
+1. Password di-hash menggunakan Argon2id sebelum disimpan. _(PRD §9.2)_
 2. `passwordHash` tidak pernah dikembalikan dalam response.
 3. `isActive` selalu `true` saat pertama kali dibuat.
 
@@ -1840,26 +1857,26 @@ token_number,created_at
 
 **Path Parameters:**
 
-| Parameter | Type | Required | Deskripsi |
-|---|---|---|---|
-| `id` | CUID | Yes | ID admin yang akan diupdate |
+| Parameter | Type | Required | Deskripsi                   |
+| --------- | ---- | -------- | --------------------------- |
+| `id`      | CUID | Yes      | ID admin yang akan diupdate |
 
 **Request Body (semua field opsional, minimal 1 harus dikirim):**
 
-| Field | Type | Required | Deskripsi |
-|---|---|---|---|
-| `role` | `AdminRole` | No | Role baru |
-| `isActive` | `boolean` | No | `false` untuk menonaktifkan (soft delete) |
-| `email` | `string` | No | Email baru |
-| `password` | `string` | No | Password baru (akan di-hash ulang) |
+| Field      | Type        | Required | Deskripsi                                 |
+| ---------- | ----------- | -------- | ----------------------------------------- |
+| `role`     | `AdminRole` | No       | Role baru                                 |
+| `isActive` | `boolean`   | No       | `false` untuk menonaktifkan (soft delete) |
+| `email`    | `string`    | No       | Email baru                                |
+| `password` | `string`    | No       | Password baru (akan di-hash ulang)        |
 
 **Validation Rules:**
 
-| Field | Rule |
-|---|---|
-| `role` | Opsional; enum: `SUPER_ADMIN`, `ADMIN`, `VIEWER` |
-| `isActive` | Opsional; boolean |
-| `email` | Opsional; valid email; max 255 |
+| Field      | Rule                                                           |
+| ---------- | -------------------------------------------------------------- |
+| `role`     | Opsional; enum: `SUPER_ADMIN`, `ADMIN`, `VIEWER`               |
+| `isActive` | Opsional; boolean                                              |
+| `email`    | Opsional; valid email; max 255                                 |
 | `password` | Opsional; min 8; max 128; mengandung huruf besar, kecil, angka |
 
 **Success Response — `200 OK`:**
@@ -1880,16 +1897,17 @@ token_number,created_at
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code | Kondisi |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | Field tidak valid atau tidak ada field yang dikirim |
-| 404 | `ADMIN_NOT_FOUND` | Admin tidak ditemukan |
-| 409 | `ADMIN_EMAIL_TAKEN` | Email baru sudah digunakan |
-| 422 | `CANNOT_DEACTIVATE_SELF` | SUPER_ADMIN tidak bisa menonaktifkan dirinya sendiri |
-| 401 | `UNAUTHORIZED` | Tidak terautentikasi |
-| 403 | `FORBIDDEN` | Bukan `SUPER_ADMIN` |
+| HTTP Status | Error Code               | Kondisi                                              |
+| ----------- | ------------------------ | ---------------------------------------------------- |
+| 400         | `VALIDATION_ERROR`       | Field tidak valid atau tidak ada field yang dikirim  |
+| 404         | `ADMIN_NOT_FOUND`        | Admin tidak ditemukan                                |
+| 409         | `ADMIN_EMAIL_TAKEN`      | Email baru sudah digunakan                           |
+| 422         | `CANNOT_DEACTIVATE_SELF` | SUPER_ADMIN tidak bisa menonaktifkan dirinya sendiri |
+| 401         | `UNAUTHORIZED`           | Tidak terautentikasi                                 |
+| 403         | `FORBIDDEN`              | Bukan `SUPER_ADMIN`                                  |
 
 **Business Rules:**
+
 1. Seorang SUPER_ADMIN tidak dapat menonaktifkan (`isActive: false`) akun dirinya sendiri.
 2. Jika `password` dikirim, password di-hash ulang dengan Argon2id sebelum disimpan.
 3. Jika admin di-deactivate (`isActive: false`), session mereka yang aktif tetap valid sampai expire (JWT stateless). Ini adalah trade-off desain yang diterima untuk v1.
@@ -1957,6 +1975,7 @@ token_number,created_at
 ```
 
 **Business Rules:**
+
 1. `database`: jalankan `SELECT 1` via Prisma. Timeout 5 detik.
 2. `storage`: lakukan lightweight HEAD request ke storage bucket. Timeout 3 detik.
 3. `version`: dibaca dari konfigurasi aplikasi (package.json version via env).
@@ -1976,13 +1995,13 @@ token_number,created_at
 
 Semua endpoint yang berkaitan dengan voting **wajib** mempertahankan jaminan anonimitas berikut:
 
-| Jaminan | Implementasi |
-|---|---|
-| Token plaintext tidak disimpan | HMAC-SHA256 hash saja yang tersimpan di DB |
-| Token ↔ Kandidat tidak bisa dikorelasikan | Tidak ada FK `VotingToken → Vote` di skema DB |
-| Vote tidak mengandung identitas | `Vote` record hanya punya `candidate_id`, `election_id`, `voted_at` |
-| Response vote tidak bocorkan data | `/api/vote/cast` response tidak mengandung kandidat atau token info |
-| Audit log vote tidak bocorkan data | `VOTE_CAST` audit entry tidak mengandung `candidate_id` atau `token_id` |
+| Jaminan                                   | Implementasi                                                            |
+| ----------------------------------------- | ----------------------------------------------------------------------- |
+| Token plaintext tidak disimpan            | HMAC-SHA256 hash saja yang tersimpan di DB                              |
+| Token ↔ Kandidat tidak bisa dikorelasikan | Tidak ada FK `VotingToken → Vote` di skema DB                           |
+| Vote tidak mengandung identitas           | `Vote` record hanya punya `candidate_id`, `election_id`, `voted_at`     |
+| Response vote tidak bocorkan data         | `/api/vote/cast` response tidak mengandung kandidat atau token info     |
+| Audit log vote tidak bocorkan data        | `VOTE_CAST` audit entry tidak mengandung `candidate_id` atau `token_id` |
 
 ### Defense in Depth
 
@@ -2000,12 +2019,12 @@ Jika constraint database gagal → 409 atau 500 tergantung jenis error.
 
 ### Secret Management
 
-| Secret | Lokasi | Ekspos ke Browser? |
-|---|---|---|
-| `TOKEN_HMAC_SECRET` | Server env only | ❌ Tidak pernah |
-| `AUTH_SECRET` | Server env only | ❌ Tidak pernah |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server env only | ❌ **Tidak pernah** *(PRD §9.2)* |
-| `DATABASE_URL` | Server env only | ❌ Tidak pernah |
+| Secret                      | Lokasi          | Ekspos ke Browser?               |
+| --------------------------- | --------------- | -------------------------------- |
+| `TOKEN_HMAC_SECRET`         | Server env only | ❌ Tidak pernah                  |
+| `AUTH_SECRET`               | Server env only | ❌ Tidak pernah                  |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server env only | ❌ **Tidak pernah** _(PRD §9.2)_ |
+| `DATABASE_URL`              | Server env only | ❌ Tidak pernah                  |
 
 ### CSRF Protection
 
@@ -2017,36 +2036,36 @@ Jika constraint database gagal → 409 atau 500 tergantung jenis error.
 
 ## Error Catalogue
 
-| Code | HTTP | Kategori | Deskripsi |
-|---|---|---|---|
-| `VALIDATION_ERROR` | 400 | Input | Gagal validasi format/type/range |
-| `TOKEN_INVALID` | 400 | Voting | Token tidak ditemukan atau sudah dipakai |
-| `TOKEN_ALREADY_USED` | 409 | Voting | Race condition: token baru saja dipakai |
-| `ELECTION_NOT_OPEN` | 422 | Voting | Election tidak dalam state OPEN |
-| `ELECTION_NOT_FOUND` | 404 | Election | Election ID tidak ada |
-| `ELECTION_WRONG_STATE` | 422 | Election | Operasi tidak valid untuk state ini |
-| `ELECTION_TRANSITION_INVALID` | 422 | Election | Transisi state tidak diizinkan |
-| `ELECTION_MIN_CANDIDATES` | 422 | Election | Kurang dari 2 kandidat |
-| `ELECTION_MAX_CANDIDATES` | 422 | Election | Sudah 5 kandidat (maksimum) |
-| `ACTIVE_ELECTION_EXISTS` | 422 | Election | Sudah ada election aktif |
-| `CANDIDATE_NOT_FOUND` | 404 | Candidate | Kandidat ID tidak ada |
-| `CANDIDATE_NOT_IN_ELECTION` | 422 | Candidate | Kandidat bukan bagian dari election ini |
-| `CANDIDATE_HAS_VOTES` | 409 | Candidate | Kandidat sudah punya suara, tidak bisa dihapus |
-| `ORDER_NUMBER_TAKEN` | 409 | Candidate | Nomor urut sudah dipakai |
-| `TOKEN_GENERATION_ACTIVE_ONLY` | 422 | Token | Token hanya bisa di-generate saat SETUP |
-| `PHOTO_UPLOAD_FAILED` | 500 | Storage | Storage service error saat upload |
-| `INVALID_FILE_TYPE` | 400 | Storage | Tipe file tidak didukung |
-| `FILE_TOO_LARGE` | 400 | Storage | File melebihi batas ukuran |
-| `ADMIN_USERNAME_TAKEN` | 409 | Admin | Username sudah digunakan |
-| `ADMIN_EMAIL_TAKEN` | 409 | Admin | Email sudah digunakan |
-| `ADMIN_NOT_FOUND` | 404 | Admin | Admin ID tidak ada |
-| `CANNOT_DEACTIVATE_SELF` | 422 | Admin | Tidak bisa menonaktifkan diri sendiri |
-| `UNAUTHORIZED` | 401 | Auth | Tidak terautentikasi |
-| `FORBIDDEN` | 403 | Auth | Role tidak memiliki akses |
-| `NOT_FOUND` | 404 | General | Resource tidak ditemukan |
-| `RATE_LIMIT_EXCEEDED` | 429 | Rate Limit | Terlalu banyak request |
-| `INTERNAL_ERROR` | 500 | Server | Error internal server |
-| `SERVICE_UNAVAILABLE` | 503 | Health | Layanan tidak tersedia |
+| Code                           | HTTP | Kategori   | Deskripsi                                      |
+| ------------------------------ | ---- | ---------- | ---------------------------------------------- |
+| `VALIDATION_ERROR`             | 400  | Input      | Gagal validasi format/type/range               |
+| `TOKEN_INVALID`                | 400  | Voting     | Token tidak ditemukan atau sudah dipakai       |
+| `TOKEN_ALREADY_USED`           | 409  | Voting     | Race condition: token baru saja dipakai        |
+| `ELECTION_NOT_OPEN`            | 422  | Voting     | Election tidak dalam state OPEN                |
+| `ELECTION_NOT_FOUND`           | 404  | Election   | Election ID tidak ada                          |
+| `ELECTION_WRONG_STATE`         | 422  | Election   | Operasi tidak valid untuk state ini            |
+| `ELECTION_TRANSITION_INVALID`  | 422  | Election   | Transisi state tidak diizinkan                 |
+| `ELECTION_MIN_CANDIDATES`      | 422  | Election   | Kurang dari 2 kandidat                         |
+| `ELECTION_MAX_CANDIDATES`      | 422  | Election   | Sudah 5 kandidat (maksimum)                    |
+| `ACTIVE_ELECTION_EXISTS`       | 422  | Election   | Sudah ada election aktif                       |
+| `CANDIDATE_NOT_FOUND`          | 404  | Candidate  | Kandidat ID tidak ada                          |
+| `CANDIDATE_NOT_IN_ELECTION`    | 422  | Candidate  | Kandidat bukan bagian dari election ini        |
+| `CANDIDATE_HAS_VOTES`          | 409  | Candidate  | Kandidat sudah punya suara, tidak bisa dihapus |
+| `ORDER_NUMBER_TAKEN`           | 409  | Candidate  | Nomor urut sudah dipakai                       |
+| `TOKEN_GENERATION_ACTIVE_ONLY` | 422  | Token      | Token hanya bisa di-generate saat SETUP        |
+| `PHOTO_UPLOAD_FAILED`          | 500  | Storage    | Storage service error saat upload              |
+| `INVALID_FILE_TYPE`            | 400  | Storage    | Tipe file tidak didukung                       |
+| `FILE_TOO_LARGE`               | 400  | Storage    | File melebihi batas ukuran                     |
+| `ADMIN_USERNAME_TAKEN`         | 409  | Admin      | Username sudah digunakan                       |
+| `ADMIN_EMAIL_TAKEN`            | 409  | Admin      | Email sudah digunakan                          |
+| `ADMIN_NOT_FOUND`              | 404  | Admin      | Admin ID tidak ada                             |
+| `CANNOT_DEACTIVATE_SELF`       | 422  | Admin      | Tidak bisa menonaktifkan diri sendiri          |
+| `UNAUTHORIZED`                 | 401  | Auth       | Tidak terautentikasi                           |
+| `FORBIDDEN`                    | 403  | Auth       | Role tidak memiliki akses                      |
+| `NOT_FOUND`                    | 404  | General    | Resource tidak ditemukan                       |
+| `RATE_LIMIT_EXCEEDED`          | 429  | Rate Limit | Terlalu banyak request                         |
+| `INTERNAL_ERROR`               | 500  | Server     | Error internal server                          |
+| `SERVICE_UNAVAILABLE`          | 503  | Health     | Layanan tidak tersedia                         |
 
 ---
 
@@ -2056,13 +2075,13 @@ Jika constraint database gagal → 409 atau 500 tergantung jenis error.
 
 Endpoint berikut diidentifikasi sebagai kandidat untuk v2 berdasarkan PRD §Future Improvements. **Tidak boleh diimplementasikan di v1.**
 
-| Endpoint (Kandidat v2) | Tujuan | PRD Ref |
-|---|---|---|
-| `GET /api/v2/elections` | Multi-election support | PRD v2 |
-| `POST /api/admin/tokens/export-pdf` | Export token sebagai PDF | PRD v2 |
-| `GET /api/public/results/[electionId]` | Public result page pasca election | PRD v2 |
-| `GET /api/admin/results/export-excel` | Export hasil ke Excel | PRD v2 |
-| `GET /api/admin/elections/[id]/verify-integrity` | Verifikasi hash chain (v2 feature) | PRD v2 |
+| Endpoint (Kandidat v2)                           | Tujuan                             | PRD Ref |
+| ------------------------------------------------ | ---------------------------------- | ------- |
+| `GET /api/v2/elections`                          | Multi-election support             | PRD v2  |
+| `POST /api/admin/tokens/export-pdf`              | Export token sebagai PDF           | PRD v2  |
+| `GET /api/public/results/[electionId]`           | Public result page pasca election  | PRD v2  |
+| `GET /api/admin/results/export-excel`            | Export hasil ke Excel              | PRD v2  |
+| `GET /api/admin/elections/[id]/verify-integrity` | Verifikasi hash chain (v2 feature) | PRD v2  |
 
 ### Backward Compatibility
 

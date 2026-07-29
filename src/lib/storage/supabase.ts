@@ -28,11 +28,7 @@ export class SupabaseStorageService implements IStorageService {
     this.baseUrl = supabaseUrl;
   }
 
-  async uploadFile(
-    path: string,
-    buffer: Buffer | Uint8Array,
-    mimeType: string,
-  ): Promise<string> {
+  async uploadFile(path: string, buffer: Buffer | Uint8Array, mimeType: string): Promise<string> {
     const { error } = await this.client.storage.from(this.bucket).upload(path, buffer, {
       contentType: mimeType,
       upsert: true,

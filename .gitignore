@@ -29,9 +29,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.cloudflared-quick-*.log
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
+!.env.example
+
+# local uploaded files
+public/uploads/**
+!public/uploads/.gitkeep
 
 # vercel
 .vercel

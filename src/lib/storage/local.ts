@@ -17,11 +17,9 @@ import { StorageError, type IStorageService } from "./index";
 
 export class LocalStorageService implements IStorageService {
   private readonly baseDir: string;
-  private readonly baseUrl: string;
 
-  constructor(baseDir: string, baseUrl: string) {
+  constructor(baseDir: string, _baseUrl: string) {
     this.baseDir = baseDir;
-    this.baseUrl = baseUrl.replace(/\/$/, ""); // strip trailing slash
   }
 
   async uploadFile(
@@ -37,10 +35,7 @@ export class LocalStorageService implements IStorageService {
       await fs.writeFile(fullPath, buffer);
       return this.getPublicUrl(filePath);
     } catch (err) {
-      throw new StorageError(
-        `LocalStorageService: Failed to write file at '${fullPath}'`,
-        err,
-      );
+      throw new StorageError(`LocalStorageService: Failed to write file at '${fullPath}'`, err);
     }
   }
 
@@ -52,10 +47,7 @@ export class LocalStorageService implements IStorageService {
     } catch (err) {
       // Ignore ENOENT — file already gone is not an error
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-        throw new StorageError(
-          `LocalStorageService: Failed to delete file at '${fullPath}'`,
-          err,
-        );
+        throw new StorageError(`LocalStorageService: Failed to delete file at '${fullPath}'`, err);
       }
     }
   }
@@ -63,11 +55,12 @@ export class LocalStorageService implements IStorageService {
   getPublicUrl(filePath: string): string {
     // Normalize path separators to forward slashes for URL compatibility
     const normalized = filePath.replace(/\\/g, "/");
-    return `${this.baseUrl}/uploads/${normalized}`;
+    return `/uploads/${normalized}`;
   }
 
   async ping(): Promise<"ok" | string> {
     try {
+      await fs.mkdir(this.baseDir, { recursive: true });
       await fs.access(this.baseDir);
       return "ok";
     } catch {

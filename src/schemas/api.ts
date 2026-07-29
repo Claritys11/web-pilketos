@@ -1,11 +1,16 @@
 import { z } from "zod";
 
-export const cuidSchema = z.string().cuid();
+export const idSchema = z.string().trim().min(1).max(100);
+export const cuidSchema = idSchema;
 export const tokenSchema = z.string().trim().min(8).max(64);
 
 export const paginationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const idParamsSchema = z.object({
+  id: cuidSchema,
 });
 
 export const electionIdQuerySchema = z.object({
@@ -64,6 +69,11 @@ export const tokenGenerateSchema = z.object({
 
 export const adminRoleSchema = z.enum(["SUPER_ADMIN", "ADMIN", "VIEWER"]);
 
+export const adminListQuerySchema = paginationQuerySchema.extend({
+  "filterBy[role]": adminRoleSchema.optional(),
+  "filterBy[isActive]": z.coerce.boolean().optional(),
+});
+
 export const createAdminSchema = z.object({
   username: z
     .string()
@@ -84,3 +94,34 @@ export const updateAdminSchema = z
   .refine((value) => Object.keys(value).length > 0, {
     message: "Minimal satu field harus dikirim.",
   });
+
+export const auditResultSchema = z.enum(["SUCCESS", "FAILURE"]);
+
+export const auditActionSchema = z.enum([
+  "ADMIN_CREATED",
+  "ADMIN_UPDATED",
+  "ADMIN_DEACTIVATED",
+  "ADMIN_PASSWORD_CHANGED",
+  "ADMIN_LOGIN_SUCCESS",
+  "ADMIN_LOGIN_FAILED",
+  "ELECTION_CREATED",
+  "ELECTION_STATUS_CHANGED",
+  "ELECTION_DELETED",
+  "CANDIDATE_CREATED",
+  "CANDIDATE_UPDATED",
+  "CANDIDATE_DELETED",
+  "TOKEN_BATCH_GENERATED",
+  "TOKEN_BATCH_EXPORTED",
+  "VOTE_CAST",
+  "BACKUP_RESTORED",
+]);
+
+export const auditQuerySchema = paginationQuerySchema.extend({
+  "filterBy[action]": auditActionSchema.optional(),
+  "filterBy[result]": auditResultSchema.optional(),
+  "filterBy[actorId]": cuidSchema.optional(),
+  "filterBy[targetType]": z.string().trim().min(1).max(50).optional(),
+  "filterBy[targetId]": z.string().trim().min(1).max(100).optional(),
+  "filterBy[createdFrom]": z.coerce.date().optional(),
+  "filterBy[createdTo]": z.coerce.date().optional(),
+});

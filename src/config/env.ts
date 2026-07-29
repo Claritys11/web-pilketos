@@ -35,12 +35,9 @@ const envSchema = z.object({
 
   // Supabase
   SUPABASE_URL: z.string().url("SUPABASE_URL must be a valid URL"),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z
-    .string()
-    .min(1, "NEXT_PUBLIC_SUPABASE_ANON_KEY is required"),
-  SUPABASE_SERVICE_ROLE_KEY: z
-    .string()
-    .min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, "NEXT_PUBLIC_SUPABASE_ANON_KEY is required"),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+  STORAGE_DRIVER: z.enum(["local", "supabase"]).optional(),
 
   // App
   NEXT_PUBLIC_APP_URL: z.string().url("NEXT_PUBLIC_APP_URL must be a valid URL"),
@@ -52,9 +49,10 @@ const envSchema = z.object({
 // Validation — throw immediately if misconfigured
 // ---------------------------------------------------------------------------
 
+const isSkippingEnvValidation = process.env.SKIP_ENV_VALIDATION === "1";
 const _parsed = envSchema.safeParse(process.env);
 
-if (!_parsed.success) {
+if (!_parsed.success && !isSkippingEnvValidation) {
   const errors = _parsed.error.flatten().fieldErrors;
   const missing = Object.entries(errors)
     .map(([key, messages]) => `  ${key}: ${(messages ?? []).join(", ")}`)
@@ -67,7 +65,33 @@ if (!_parsed.success) {
   );
 }
 
-const _env = _parsed.data;
+const _env = _parsed.success
+  ? _parsed.data
+  : ({
+      DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy",
+      DIRECT_URL: "postgresql://dummy:dummy@localhost:5432/dummy",
+      AUTH_SECRET: "dummy_secret_32_chars_long_12345678",
+      NEXTAUTH_URL: "http://localhost:6500",
+      TOKEN_HMAC_SECRET: "dummy_secret_32_chars_long_12345678",
+      SUPABASE_URL: "https://xyzabcdef.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "dummy_anon_key",
+      SUPABASE_SERVICE_ROLE_KEY: "dummy_service_key",
+      STORAGE_DRIVER: "local",
+      NEXT_PUBLIC_APP_URL: "http://localhost:6500",
+      APP_VERSION: "0.1.0",
+      NODE_ENV: "production",
+    } as unknown as z.infer<typeof envSchema>);
+
+if (isSkippingEnvValidation && configIsRuntime()) {
+  throw new Error("[Pilketos] SKIP_ENV_VALIDATION is only allowed during build-time validation.");
+}
+
+function configIsRuntime() {
+  return (
+    process.env.NEXT_PHASE !== "phase-production-build" &&
+    process.env.npm_lifecycle_event !== "build"
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Typed config export — grouped by concern
@@ -110,6 +134,10 @@ export const config = {
     url: _env.SUPABASE_URL,
     anonKey: _env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     serviceRoleKey: _env.SUPABASE_SERVICE_ROLE_KEY,
+  },
+
+  storage: {
+    driver: _env.STORAGE_DRIVER ?? (_env.NODE_ENV === "production" ? "supabase" : "local"),
   },
 
   /**

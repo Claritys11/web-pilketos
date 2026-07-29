@@ -2,20 +2,20 @@ import type { AdminRole } from "@prisma/client";
 
 import { getRequestContext, requireAdmin } from "@/lib/api/auth";
 import { created, handleApiError, ok } from "@/lib/api/response";
-import { createAdminSchema, paginationQuerySchema } from "@/schemas/api";
+import { adminListQuerySchema, createAdminSchema } from "@/schemas/api";
 import { adminService } from "@/services/admin.service";
 
 export async function GET(request: Request) {
   try {
     await requireAdmin(["SUPER_ADMIN"]);
     const searchParams = new URL(request.url).searchParams;
-    const pagination = paginationQuerySchema.parse(Object.fromEntries(searchParams));
-    const isActive = searchParams.get("filterBy[isActive]");
+    const query = adminListQuerySchema.parse(Object.fromEntries(searchParams));
     return ok(
       await adminService.listAdmins({
-        ...pagination,
-        role: (searchParams.get("filterBy[role]") ?? undefined) as AdminRole | undefined,
-        ...(isActive !== null ? { isActive: isActive === "true" } : {}),
+        page: query.page,
+        pageSize: query.pageSize,
+        role: query["filterBy[role]"] as AdminRole | undefined,
+        isActive: query["filterBy[isActive]"],
       }),
     );
   } catch (error) {

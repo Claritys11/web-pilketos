@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { createStorageCuid } from "@/lib/security/upload";
 import { storageService } from "@/lib/storage";
 import { auditService } from "@/services/audit.service";
 import { assertRole, ServiceError } from "@/services/errors";
@@ -277,7 +278,7 @@ export class CandidateService {
 
     await this.assertElectionEditable(candidate.electionId);
 
-    const storagePath = `candidates/${candidate.id}/photo.${input.extension}`;
+    const storagePath = `candidates/${candidate.id}/${createStorageCuid()}.${input.extension}`;
     const photoUrl = await storageService.uploadFile(storagePath, input.buffer, input.mimeType);
 
     const updated = await prisma.candidate.update({

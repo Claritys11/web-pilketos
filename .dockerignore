@@ -13,6 +13,10 @@ coverage/
 .env.local
 .env.*.local
 
+# Runtime uploads are mounted/persisted outside the image
+public/uploads/**
+!public/uploads/.gitkeep
+
 # Documentation (not needed at runtime)
 docs/
 *.md

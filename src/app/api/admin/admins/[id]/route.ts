@@ -1,6 +1,6 @@
 import { getRequestContext, requireAdmin } from "@/lib/api/auth";
 import { handleApiError, ok } from "@/lib/api/response";
-import { updateAdminSchema } from "@/schemas/api";
+import { idParamsSchema, updateAdminSchema } from "@/schemas/api";
 import { adminService } from "@/services/admin.service";
 
 interface RouteContext {
@@ -10,7 +10,7 @@ interface RouteContext {
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const admin = await requireAdmin(["SUPER_ADMIN"]);
-    const { id } = await context.params;
+    const { id } = idParamsSchema.parse(await context.params);
     const body = updateAdminSchema.parse(await request.json());
     return ok(
       await adminService.updateAdmin({

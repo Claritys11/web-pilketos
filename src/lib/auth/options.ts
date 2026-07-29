@@ -14,6 +14,7 @@ const loginSchema = z.object({
 });
 
 const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
+const isSecureAuthUrl = config.auth.url.startsWith("https://");
 
 function getClientIp(request: Request): string | null {
   return (
@@ -31,6 +32,17 @@ export const authOptions: NextAuthConfig = {
   session: {
     strategy: "jwt",
     maxAge: SESSION_MAX_AGE_SECONDS,
+  },
+  cookies: {
+    sessionToken: {
+      name: isSecureAuthUrl ? "__Secure-authjs.session-token" : "authjs.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: isSecureAuthUrl,
+      },
+    },
   },
   providers: [
     Credentials({

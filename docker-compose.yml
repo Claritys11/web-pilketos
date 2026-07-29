@@ -1,21 +1,78 @@
+x-app-env: &app-env
+  DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-pilketos}}
+  DIRECT_URL: ${DIRECT_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-pilketos}}
+  AUTH_SECRET: ${AUTH_SECRET:-change_me_32_chars_minimum_for_local}
+  NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:6500}
+  TOKEN_HMAC_SECRET: ${TOKEN_HMAC_SECRET:-change_me_32_chars_minimum_for_local}
+  SUPABASE_URL: ${SUPABASE_URL:-https://xyzabcdef.supabase.co}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-local-placeholder}
+  SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-local-placeholder}
+  STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+  NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:6500}
+  APP_VERSION: ${APP_VERSION:-0.1.0}
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: pilketos-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: pilketos
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-pilketos}
     ports:
-      - "5434:5432"
+      - "${POSTGRES_PORT:-5434}:5432"
     volumes:
       - pilketos_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d pilketos"]
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 5s
       timeout: 5s
       retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+      network: host
+    container_name: pilketos-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: *app-env
+    command: ["npm", "run", "db:deploy"]
+    restart: "no"
+
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+      target: migrator
+    container_name: pilketos-seed
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment: *app-env
+    command: ["npm", "run", "db:seed"]
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pilketos-app
+    restart: unless-stopped
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    environment: *app-env
+    ports:
+      - "${APP_PORT:-6500}:6500"
+    volumes:
+      - ./public/uploads:/app/public/uploads
 
 volumes:
   pilketos_pgdata:

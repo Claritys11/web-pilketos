@@ -6,7 +6,7 @@ import { config } from "./src/config/env";
  *
  * Security headers are defined here as a fallback for static routes.
  * The primary injection of security headers for dynamic routes happens
- * in src/middleware.ts (Edge Runtime), which runs first.
+ * in src/proxy.ts, which runs first in Next.js 16.
  *
  * Reference: 02_SYSTEM_ARCHITECTURE.md §Security Headers
  * Reference: 05_SECURITY.md §HTTP Security Headers
@@ -44,7 +44,7 @@ const nextConfig: NextConfig = {
 
   // -------------------------------------------------------------------------
   // Security headers — applied to all routes via next.config
-  // Note: middleware.ts overrides these for more granular control on /admin/*
+  // Note: src/proxy.ts overrides these for more granular control on /admin/*
   // Reference: 05_SECURITY.md §HTTP Security Headers
   // -------------------------------------------------------------------------
   async headers() {

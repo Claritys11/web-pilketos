@@ -17,52 +17,51 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const passwordHash = await argon2.hash("PilketosAdmin123", {
-    type: argon2.argon2id,
-    memoryCost: 65536,
-    timeCost: 3,
-    parallelism: 1,
-  });
-
-  const superAdmin = await prisma.admin.upsert({
+  let superAdmin = await prisma.admin.findUnique({
     where: { username: "superadmin" },
-    update: {
-      email: "superadmin@pilketos.local",
-      passwordHash,
-      role: "SUPER_ADMIN",
-      isActive: true,
-    },
-    create: {
-      username: "superadmin",
-      email: "superadmin@pilketos.local",
-      passwordHash,
-      role: "SUPER_ADMIN",
-    },
   });
 
-  const election = await prisma.election.upsert({
+  if (!superAdmin) {
+    const passwordHash = await argon2.hash("PilketosAdmin123", {
+      type: argon2.argon2id,
+      memoryCost: 65536,
+      timeCost: 3,
+      parallelism: 1,
+    });
+
+    superAdmin = await prisma.admin.create({
+      data: {
+        username: "superadmin",
+        email: "superadmin@pilketos.local",
+        passwordHash,
+        role: "SUPER_ADMIN",
+      },
+    });
+  }
+
+  let election = await prisma.election.findUnique({
     where: { id: "seed-election-pilketos-2026" },
-    update: {
-      title: "Pilketos 2025/2026",
-      description: "Data dummy untuk pengembangan awal sistem Pilketos.",
-      status: "SETUP",
-      createdById: superAdmin.id,
-    },
-    create: {
-      id: "seed-election-pilketos-2026",
-      title: "Pilketos 2025/2026",
-      description: "Data dummy untuk pengembangan awal sistem Pilketos.",
-      status: "SETUP",
-      createdById: superAdmin.id,
-    },
   });
+  const createdElection = !election;
+
+  if (!election) {
+    election = await prisma.election.create({
+      data: {
+        id: "seed-election-pilketos-2026",
+        title: "Pilketos 2025/2026",
+        description: "Data dummy untuk pengembangan awal sistem Pilketos.",
+        status: "SETUP",
+        createdById: superAdmin.id,
+      },
+    });
+  }
 
   const candidates = [
     {
       orderNumber: 1,
       name: "Budi Santoso",
       className: "XI IPA 1",
-      photoUrl: "https://placehold.co/400x400?text=BS",
+      photoUrl: null,
       vision: "Mewujudkan OSIS yang aktif, terbuka, dan dekat dengan aspirasi siswa.",
       missions: [
         "Membuka forum aspirasi siswa setiap bulan.",
@@ -74,7 +73,7 @@ async function main() {
       orderNumber: 2,
       name: "Siti Rahma",
       className: "XI IPS 2",
-      photoUrl: "https://placehold.co/400x400?text=SR",
+      photoUrl: null,
       vision: "Membangun lingkungan sekolah yang kreatif, inklusif, dan kolaboratif.",
       missions: [
         "Menyelenggarakan pekan kreativitas lintas ekstrakurikuler.",
@@ -86,7 +85,7 @@ async function main() {
       orderNumber: 3,
       name: "Raka Pratama",
       className: "X MIPA 3",
-      photoUrl: "https://placehold.co/400x400?text=RP",
+      photoUrl: null,
       vision: "Menjadikan OSIS sebagai penggerak budaya disiplin dan prestasi.",
       missions: [
         "Mendorong program apresiasi prestasi akademik dan non-akademik.",
@@ -104,7 +103,9 @@ async function main() {
           orderNumber: candidate.orderNumber,
         },
       },
-      update: candidate,
+      update: {
+        photoUrl: candidate.photoUrl,
+      },
       create: {
         ...candidate,
         electionId: election.id,
@@ -112,19 +113,21 @@ async function main() {
     });
   }
 
-  await prisma.auditLog.create({
-    data: {
-      actorId: superAdmin.id,
-      action: "ELECTION_CREATED",
-      targetType: "election",
-      targetId: election.id,
-      result: "SUCCESS",
-      metadata: {
-        source: "seed",
-        candidateCount: candidates.length,
+  if (createdElection) {
+    await prisma.auditLog.create({
+      data: {
+        actorId: superAdmin.id,
+        action: "ELECTION_CREATED",
+        targetType: "election",
+        targetId: election.id,
+        result: "SUCCESS",
+        metadata: {
+          source: "seed",
+          candidateCount: candidates.length,
+        },
       },
-    },
-  });
+    });
+  }
 }
 
 main()

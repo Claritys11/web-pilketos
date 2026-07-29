@@ -1,4 +1,5 @@
 # 02 — System Architecture
+
 > **Status:** DRAFT — Pending Review
 > **Version:** 1.1.0
 > **Last Updated:** 2026-07-27
@@ -23,23 +24,23 @@ Setiap keputusan arsitektural dirujuk ke PRD atau Database Design. Tidak ada kep
 
 ### Technology Stack
 
-| Layer | Teknologi | Peran |
-|---|---|---|
-| **UI** | Next.js 16+, React, TypeScript | Rendering (SSR/CSR), routing, client state |
-| **Styling** | TailwindCSS, shadcn/ui | Design system, komponen UI |
-| **Backend** | Next.js Route Handlers | API endpoints, business logic |
-| **Auth** | Auth.js (NextAuth) v5, Credentials Provider | Session admin, RBAC |
-| **Password** | Argon2id | Hashing password admin *(PRD §9.2)* |
-| **ORM** | Prisma | Type-safe DB access, migrations |
-| **Database** | PostgreSQL (via Supabase) | Persistent storage |
-| **Dashboard Update** | HTTP Polling (3–5 detik) | Dashboard live update — default v1 *(PRD §8)* |
-| **Middleware** | Next.js Middleware | Route protection, security headers, auth boundary |
-| **Storage** | StorageService → Supabase Storage | Foto kandidat (via abstraction layer) |
-| **Deployment** | Docker / Vercel / VPS | Lihat §Deployment Architecture |
+| Layer                | Teknologi                                   | Peran                                             |
+| -------------------- | ------------------------------------------- | ------------------------------------------------- |
+| **UI**               | Next.js 16+, React, TypeScript              | Rendering (SSR/CSR), routing, client state        |
+| **Styling**          | TailwindCSS, shadcn/ui                      | Design system, komponen UI                        |
+| **Backend**          | Next.js Route Handlers                      | API endpoints, business logic                     |
+| **Auth**             | Auth.js (NextAuth) v5, Credentials Provider | Session admin, RBAC                               |
+| **Password**         | Argon2id                                    | Hashing password admin _(PRD §9.2)_               |
+| **ORM**              | Prisma                                      | Type-safe DB access, migrations                   |
+| **Database**         | PostgreSQL (via Supabase)                   | Persistent storage                                |
+| **Dashboard Update** | HTTP Polling (3–5 detik)                    | Dashboard live update — default v1 _(PRD §8)_     |
+| **Middleware**       | Next.js Proxy (formerly Middleware)         | Route protection, security headers, auth boundary |
+| **Storage**          | StorageService → Supabase Storage           | Foto kandidat (via abstraction layer)             |
+| **Deployment**       | Docker / Vercel / VPS                       | Lihat §Deployment Architecture                    |
 
 ### Prinsip Arsitektur
 
-1. **Two-domain separation:** Domain voting siswa dan domain admin sepenuhnya terpisah secara teknis. *(PRD §1.1)*
+1. **Two-domain separation:** Domain voting siswa dan domain admin sepenuhnya terpisah secara teknis. _(PRD §1.1)_
 2. **Server-first:** Operasi sensitif (validasi token, insert vote, state machine) selalu di server, tidak pernah di client.
 3. **Defense in depth:** Validasi berlapis — middleware → route handler → service layer → database constraint.
 4. **Least privilege:** Setiap komponen hanya punya akses ke resource yang dibutuhkan.
@@ -84,7 +85,7 @@ graph TB
     end
 
     subgraph NextJS["Next.js Application Server"]
-        Middleware["Next.js Middleware\nRoute Protection + Security Headers"]
+        Middleware["Next.js Proxy (formerly Middleware)\nRoute Protection + Security Headers"]
 
         subgraph VotingDomain["Voting Domain"]
             VotePages["Vote Pages Server Components"]
@@ -152,12 +153,14 @@ graph TD
 ### Tanggung Jawab Per Layer
 
 #### Layer 1 — Presentation
+
 - React Server Components (RSC) untuk rendering awal (SEO, no JS bundle overhead).
 - React Client Components hanya untuk interaktivitas: stepper, fullscreen enforcement, polling dashboard.
 - Tidak ada business logic. Tidak ada direct database access.
 - Menerima data via props (dari RSC) atau API calls (dari Client Components).
 
 #### Layer 2 — API (Route Handlers)
+
 - Entry point untuk semua request dari browser.
 - Validasi input (Zod schema) sebelum meneruskan ke service.
 - Penegakan autentikasi dan otorisasi (session NextAuth untuk admin; token plain untuk siswa via request body).
@@ -167,6 +170,7 @@ graph TD
 - **Server Actions tidak digunakan** (lihat §Architectural Decision: No Server Actions).
 
 #### Layer 3 — Service
+
 - Semua business logic berada di sini: state machine transition, token validation, batch generation, permission check.
 - Memanggil Prisma dalam transaksi atomik untuk operasi kritis.
 - Memanggil `AuditService` untuk mencatat setiap aksi admin.
@@ -174,12 +178,14 @@ graph TD
 - Tidak tahu tentang HTTP (tidak punya akses ke `request` atau `response` object).
 
 #### Layer 4 — Data Access
+
 - Prisma Client sebagai satu-satunya interface ke database.
-- Semua query menggunakan parameterized queries (Prisma default — mencegah SQL injection). *(PRD §9.2)*
-- Transaction management: `prisma.$transaction()` untuk operasi atomik. *(DB Design TX-1, TX-2, TX-3)*
+- Semua query menggunakan parameterized queries (Prisma default — mencegah SQL injection). _(PRD §9.2)_
+- Transaction management: `prisma.$transaction()` untuk operasi atomik. _(DB Design TX-1, TX-2, TX-3)_
 - Tidak ada raw SQL kecuali untuk partial unique index via migration SQL manual.
 
 #### Layer 5 — Infrastructure
+
 - PostgreSQL via Supabase.
 - Supabase Storage (diakses hanya via `StorageService`).
 - Configuration via `config/env.ts` (diakses hanya via modul ini).
@@ -192,50 +198,50 @@ graph TD
 
 ### Voting Domain Components
 
-| Komponen | Path | Tanggung Jawab |
-|---|---|---|
-| `TokenPage` | `/vote` | Form input token; memanggil API validasi |
-| `FullscreenGate` | `/vote/fullscreen` | Enforce fullscreen; Keyboard Lock API + fallbacks *(PRD §5)* |
-| `CandidateListPage` | `/vote/candidates` | Tampil card kandidat dengan stepper |
-| `CandidateDetailModal` | component | Modal detail kandidat (visi + misi lengkap) |
-| `ConfirmationPage` | `/vote/confirm` | Review pilihan sebelum submit |
-| `ThankYouPage` | `/vote/done` | Countdown 3 detik; redirect ke `/vote` |
-| `VotingProgressStepper` | component | Stepper: Token → Kandidat → Konfirmasi → Selesai |
-| `FullscreenOverlay` | component | Overlay saat keluar fullscreen/pindah tab |
+| Komponen                | Path               | Tanggung Jawab                                               |
+| ----------------------- | ------------------ | ------------------------------------------------------------ |
+| `TokenPage`             | `/vote`            | Form input token; memanggil API validasi                     |
+| `FullscreenGate`        | `/vote/fullscreen` | Enforce fullscreen; Keyboard Lock API + fallbacks _(PRD §5)_ |
+| `CandidateListPage`     | `/vote/candidates` | Tampil card kandidat dengan stepper                          |
+| `CandidateDetailModal`  | component          | Modal detail kandidat (visi + misi lengkap)                  |
+| `ConfirmationPage`      | `/vote/confirm`    | Review pilihan sebelum submit                                |
+| `ThankYouPage`          | `/vote/done`       | Countdown 3 detik; redirect ke `/vote`                       |
+| `VotingProgressStepper` | component          | Stepper: Token → Kandidat → Konfirmasi → Selesai             |
+| `FullscreenOverlay`     | component          | Overlay saat keluar fullscreen/pindah tab                    |
 
 ### Admin Domain Components
 
-| Komponen | Path | Tanggung Jawab |
-|---|---|---|
-| `LoginPage` | `/admin/login` | Form login; submit ke NextAuth Credentials Provider |
-| `DashboardPage` | `/admin/dashboard` | Polling-based stats, toggle Live Mode *(PRD §8)* |
-| `ElectionManagerPage` | `/admin/elections` | CRUD election, kontrol state machine |
-| `CandidateManagerPage` | `/admin/candidates` | CRUD kandidat per election |
-| `TokenManagerPage` | `/admin/tokens` | Generate batch token, export CSV |
-| `AuditLogPage` | `/admin/audit` | View audit log (read-only) |
-| `AdminSettingsPage` | `/admin/settings` | Kelola akun admin — SUPER_ADMIN only *(PRD §1.3)* |
-| `LiveDashboardMode` | component | Toggle read-only mode untuk proyektor *(PRD §8)* |
+| Komponen               | Path                | Tanggung Jawab                                      |
+| ---------------------- | ------------------- | --------------------------------------------------- |
+| `LoginPage`            | `/admin/login`      | Form login; submit ke NextAuth Credentials Provider |
+| `DashboardPage`        | `/admin/dashboard`  | Polling-based stats, toggle Live Mode _(PRD §8)_    |
+| `ElectionManagerPage`  | `/admin/elections`  | CRUD election, kontrol state machine                |
+| `CandidateManagerPage` | `/admin/candidates` | CRUD kandidat per election                          |
+| `TokenManagerPage`     | `/admin/tokens`     | Generate batch token, export CSV                    |
+| `AuditLogPage`         | `/admin/audit`      | View audit log (read-only)                          |
+| `AdminSettingsPage`    | `/admin/settings`   | Kelola akun admin — SUPER_ADMIN only _(PRD §1.3)_   |
+| `LiveDashboardMode`    | component           | Toggle read-only mode untuk proyektor _(PRD §8)_    |
 
 ### API Route Handlers
 
-| Endpoint | Method | Tanggung Jawab | Auth Required |
-|---|---|---|---|
-| `/api/vote/validate-token` | POST | Validasi token siswa, cek election OPEN | None (token-based) |
-| `/api/vote/cast` | POST | Atomic: mark token + insert vote *(DB TX-1)* | None (token plaintext re-validated) |
-| `/api/auth/[...nextauth]` | ALL | Auth.js handler (login, session, logout) | N/A |
-| `/api/admin/elections` | GET, POST | List / create election | ADMIN+ |
-| `/api/admin/elections/[id]` | GET, PATCH, DELETE | Detail / update / delete election | ADMIN+ / SUPER_ADMIN |
-| `/api/admin/elections/[id]/status` | PATCH | State machine transition *(DB TX-2)* | ADMIN+ |
-| `/api/admin/candidates` | GET, POST | List / create kandidat | ADMIN+ |
-| `/api/admin/candidates/[id]` | PATCH, DELETE | Update / delete kandidat | ADMIN+ |
-| `/api/admin/candidates/[id]/photo` | POST | Upload foto via StorageService | ADMIN+ |
-| `/api/admin/tokens/generate` | POST | Batch generate tokens *(DB TX-3)* | ADMIN+ |
-| `/api/admin/tokens/export` | GET | Export CSV token plaintext | ADMIN+ |
-| `/api/admin/dashboard/stats` | GET | Aggregate stats untuk polling dashboard | VIEWER+ |
-| `/api/admin/audit` | GET | List audit log dengan filter | VIEWER+ |
-| `/api/admin/admins` | GET, POST | List / create akun admin | SUPER_ADMIN |
-| `/api/admin/admins/[id]` | PATCH, DELETE | Update / deactivate akun admin | SUPER_ADMIN |
-| `/api/health` | GET | Health check: DB, storage, version, uptime | None (public) |
+| Endpoint                           | Method             | Tanggung Jawab                               | Auth Required                       |
+| ---------------------------------- | ------------------ | -------------------------------------------- | ----------------------------------- |
+| `/api/vote/validate-token`         | POST               | Validasi token siswa, cek election OPEN      | None (token-based)                  |
+| `/api/vote/cast`                   | POST               | Atomic: mark token + insert vote _(DB TX-1)_ | None (token plaintext re-validated) |
+| `/api/auth/[...nextauth]`          | ALL                | Auth.js handler (login, session, logout)     | N/A                                 |
+| `/api/admin/elections`             | GET, POST          | List / create election                       | ADMIN+                              |
+| `/api/admin/elections/[id]`        | GET, PATCH, DELETE | Detail / update / delete election            | ADMIN+ / SUPER_ADMIN                |
+| `/api/admin/elections/[id]/status` | PATCH              | State machine transition _(DB TX-2)_         | ADMIN+                              |
+| `/api/admin/candidates`            | GET, POST          | List / create kandidat                       | ADMIN+                              |
+| `/api/admin/candidates/[id]`       | PATCH, DELETE      | Update / delete kandidat                     | ADMIN+                              |
+| `/api/admin/candidates/[id]/photo` | POST               | Upload foto via StorageService               | ADMIN+                              |
+| `/api/admin/tokens/generate`       | POST               | Batch generate tokens _(DB TX-3)_            | ADMIN+                              |
+| `/api/admin/tokens/export`         | GET                | Export CSV token plaintext                   | ADMIN+                              |
+| `/api/admin/dashboard/stats`       | GET                | Aggregate stats untuk polling dashboard      | VIEWER+                             |
+| `/api/admin/audit`                 | GET                | List audit log dengan filter                 | VIEWER+                             |
+| `/api/admin/admins`                | GET, POST          | List / create akun admin                     | SUPER_ADMIN                         |
+| `/api/admin/admins/[id]`           | PATCH, DELETE      | Update / deactivate akun admin               | SUPER_ADMIN                         |
+| `/api/health`                      | GET                | Health check: DB, storage, version, uptime   | None (public)                       |
 
 ---
 
@@ -255,14 +261,14 @@ Client
 
 **Alasan:**
 
-| Aspek | Server Actions | Route Handlers + Service |
-|---|---|---|
-| API boundary | Tidak jelas (mixed server/client) | Jelas dan eksplisit |
-| Testability | Sulit di-unit test secara isolasi | Service layer mudah di-unit test |
-| Future migration | Terikat ke Next.js | Mudah dipindah ke service terpisah |
-| Separation of concerns | Blur antara UI dan business logic | Tegas — UI hanya memanggil API |
-| Rate limiting | Tidak ada built-in | Bisa diterapkan di Route Handler |
-| Error handling | Inconsistent | Konsisten via standard HTTP responses |
+| Aspek                  | Server Actions                    | Route Handlers + Service              |
+| ---------------------- | --------------------------------- | ------------------------------------- |
+| API boundary           | Tidak jelas (mixed server/client) | Jelas dan eksplisit                   |
+| Testability            | Sulit di-unit test secara isolasi | Service layer mudah di-unit test      |
+| Future migration       | Terikat ke Next.js                | Mudah dipindah ke service terpisah    |
+| Separation of concerns | Blur antara UI dan business logic | Tegas — UI hanya memanggil API        |
+| Rate limiting          | Tidak ada built-in                | Bisa diterapkan di Route Handler      |
+| Error handling         | Inconsistent                      | Konsisten via standard HTTP responses |
 
 **Pengecualian:** Server Actions **boleh** digunakan hanya untuk operasi UI non-bisnis seperti form revalidation atau redirect. Tidak untuk operasi yang menyentuh database secara langsung.
 
@@ -275,7 +281,7 @@ Client
 ```mermaid
 sequenceDiagram
     participant B as Browser Siswa
-    participant MW as Next.js Middleware
+    participant MW as Next.js Proxy (formerly Middleware)
     participant API as /api/vote/validate-token
     participant Svc as TokenService
     participant DB as PostgreSQL
@@ -304,7 +310,7 @@ sequenceDiagram
     B->>B: Redirect ke /vote/fullscreen
 ```
 
-> **Catatan:** Tidak ada server-side session yang dibuat. Token plaintext hanya ada di memori saat pemrosesan, kemudian dibuang. `electionId` dan state voting disimpan di **client state** (React state/sessionStorage). Token di-re-validasi ulang saat vote cast *(Flow 2)*.
+> **Catatan:** Tidak ada server-side session yang dibuat. Token plaintext hanya ada di memori saat pemrosesan, kemudian dibuang. `electionId` dan state voting disimpan di **client state** (React state/sessionStorage). Token di-re-validasi ulang saat vote cast _(Flow 2)_.
 
 ### Flow 2 — Voting: Vote Cast (Critical Path)
 
@@ -344,7 +350,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant B as Browser Admin
-    participant MW as Next.js Middleware
+    participant MW as Next.js Proxy (formerly Middleware)
     participant NA as NextAuth /api/auth/signin
     participant Svc as AuthService
     participant DB as PostgreSQL
@@ -376,13 +382,13 @@ sequenceDiagram
     B->>B: Redirect ke /admin/dashboard
 ```
 
-> **Catatan:** Pesan error autentikasi selalu identik ("Invalid credentials") untuk mencegah user enumeration attack — tidak membedakan antara "username tidak ada" dan "password salah". *(PRD §9.2)*
+> **Catatan:** Pesan error autentikasi selalu identik ("Invalid credentials") untuk mencegah user enumeration attack — tidak membedakan antara "username tidak ada" dan "password salah". _(PRD §9.2)_
 
 ### Flow 4 — Admin: Route Protection (Middleware)
 
 ```mermaid
 flowchart TD
-    REQ["Incoming Request"] --> MW["Next.js Middleware\nInject Security Headers"]
+    REQ["Incoming Request"] --> MW["Next.js Proxy (formerly Middleware)\nInject Security Headers"]
 
     MW --> CHK1{"Path /admin/*?"}
     CHK1 -->|No| PASSTHROUGH["Pass through"]
@@ -399,7 +405,7 @@ flowchart TD
     RBAC --> ALLOW
 ```
 
-> *(PRD §9.2: "Middleware Next.js: `/vote` = token only, `/admin/*` = login wajib, `/admin/settings` = SUPER_ADMIN only. Gagal akses → HTTP 403")*
+> _(PRD §9.2: "Middleware Next.js: `/vote` = token only, `/admin/*` = login wajib, `/admin/settings` = SUPER_ADMIN only. Gagal akses → HTTP 403")_
 
 ### Flow 5 — Dashboard: Polling Update (Default v1)
 
@@ -435,6 +441,7 @@ sequenceDiagram
 ```
 
 **Polling Design Rules:**
+
 - Interval: **3–5 detik** saat tab aktif. Polling dijeda otomatis via `Page Visibility API` saat tab tidak aktif.
 - Response selalu berupa **aggregate query** (COUNT GROUP BY), bukan individual vote records.
 - Endpoint mengembalikan data yang sama untuk semua requestor — tidak ada data per-individu.
@@ -489,40 +496,40 @@ graph LR
 
 ### Student Authentication Detail
 
-| Aspek | Detail |
-|---|---|
-| Mekanisme | HMAC-SHA256 token verification di setiap operasi |
-| Session | **Tidak ada** — stateless sepenuhnya |
-| Client state | Voting progress disimpan di React state / sessionStorage (ephemeral) |
-| Re-validation | Token di-re-validate ulang saat vote cast (bukan dari session) |
-| Persistence | Tidak ada cookie, tidak ada server session |
-| Identity | Tidak ada — anonim by design *(PRD §1.1)* |
-| Anonymity | Token plaintext dibuang dari memori setelah HMAC computed |
+| Aspek         | Detail                                                               |
+| ------------- | -------------------------------------------------------------------- |
+| Mekanisme     | HMAC-SHA256 token verification di setiap operasi                     |
+| Session       | **Tidak ada** — stateless sepenuhnya                                 |
+| Client state  | Voting progress disimpan di React state / sessionStorage (ephemeral) |
+| Re-validation | Token di-re-validate ulang saat vote cast (bukan dari session)       |
+| Persistence   | Tidak ada cookie, tidak ada server session                           |
+| Identity      | Tidak ada — anonim by design _(PRD §1.1)_                            |
+| Anonymity     | Token plaintext dibuang dari memori setelah HMAC computed            |
 
 > **Rationale (revisi dari v1.0.0):** Menghapus temporary server-side session menyederhanakan arsitektur secara signifikan. Token di-re-validate langsung di `/api/vote/cast` dari request body, bukan dari session. Ini tetap aman karena HMAC verification dilakukan ulang server-side, dan `FOR UPDATE` lock pada database mencegah double-voting bahkan dalam race condition.
 
 ### Admin Authentication Detail
 
-| Aspek | Detail |
-|---|---|
-| Provider | NextAuth Credentials Provider |
-| Password | Argon2id (memory-hard, tahan GPU/ASIC attack) *(PRD §9.2)* |
-| Session | JWT dalam HTTP-only + Secure + SameSite=Lax cookie |
-| RBAC | Role dikodekan dalam session JWT; diverifikasi di middleware dan service layer |
-| Timeout | Session expire sesuai konfigurasi NextAuth (rekomendasi: 8 jam) |
+| Aspek    | Detail                                                                         |
+| -------- | ------------------------------------------------------------------------------ |
+| Provider | NextAuth Credentials Provider                                                  |
+| Password | Argon2id (memory-hard, tahan GPU/ASIC attack) _(PRD §9.2)_                     |
+| Session  | JWT dalam HTTP-only + Secure + SameSite=Lax cookie                             |
+| RBAC     | Role dikodekan dalam session JWT; diverifikasi di middleware dan service layer |
+| Timeout  | Session expire sesuai konfigurasi NextAuth (rekomendasi: 8 jam)                |
 
 ---
 
 ## Middleware Architecture
 
-Next.js Middleware berjalan di **Edge Runtime** (sebelum request mencapai route handler).
+Next.js Proxy (formerly Middleware) berjalan di **Edge Runtime** (sebelum request mencapai route handler).
 
 ```
 Request
   |
   v
 +------------------------------------------+
-|         Next.js Middleware               |
+|         Next.js Proxy (formerly Middleware)               |
 |  1. Inject Security Headers              |
 |     (CSP, HSTS, X-Frame-Options,         |
 |      X-Content-Type-Options,             |
@@ -538,15 +545,15 @@ Request
 Route Handler / Page
 ```
 
-**Security Headers *(PRD §9.2)*:**
+**Security Headers _(PRD §9.2)_:**
 
-| Header | Value (Rekomendasi) |
-|---|---|
-| `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: [supabase-storage-url]` |
-| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
-| `X-Frame-Options` | `DENY` |
-| `X-Content-Type-Options` | `nosniff` |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| Header                      | Value (Rekomendasi)                                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `Content-Security-Policy`   | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: [supabase-storage-url]` |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains`                                                                                        |
+| `X-Frame-Options`           | `DENY`                                                                                                                       |
+| `X-Content-Type-Options`    | `nosniff`                                                                                                                    |
+| `Referrer-Policy`           | `strict-origin-when-cross-origin`                                                                                            |
 
 ---
 
@@ -575,11 +582,13 @@ Future providers (tanpa mengubah application code):
 ```
 
 **Alasan:**
+
 - Business logic tidak bergantung pada provider spesifik.
 - Testing mudah dengan mock implementation.
 - Migrasi storage provider tidak memerlukan perubahan di service layer.
 
 **Folder:**
+
 ```
 src/lib/storage/
   index.ts           -- interface IStorageService
@@ -609,6 +618,7 @@ Service Layer, StorageService, AuthService, dll.
 ```
 
 **Manfaat:**
+
 - Validasi terpusat: aplikasi crash pada startup (bukan saat runtime) jika ada env var yang hilang.
 - Mudah di-mock dalam unit testing.
 - Menghindari scattered `process.env.XYZ` di seluruh codebase.
@@ -616,13 +626,13 @@ Service Layer, StorageService, AuthService, dll.
 
 **Config Groups:**
 
-| Group | Variables |
-|---|---|
-| `config.database` | `url`, `directUrl` |
-| `config.auth` | `secret`, `url` |
-| `config.token` | `hmacSecret` |
+| Group             | Variables                          |
+| ----------------- | ---------------------------------- |
+| `config.database` | `url`, `directUrl`                 |
+| `config.auth`     | `secret`, `url`                    |
+| `config.token`    | `hmacSecret`                       |
 | `config.supabase` | `url`, `anonKey`, `serviceRoleKey` |
-| `config.app` | `publicUrl`, `version`, `nodeEnv` |
+| `config.app`      | `publicUrl`, `version`, `nodeEnv`  |
 
 ---
 
@@ -632,14 +642,14 @@ Service Layer, StorageService, AuthService, dll.
 
 ### Perbedaan Audit Log vs Application Log
 
-| Aspek | Audit Log | Application Log |
-|---|---|---|
-| **Tujuan** | Rekam jejak aksi user | Debugging dan monitoring runtime |
-| **Siapa** | User (admin) melakukan aksi | System, errors, request/response |
-| **Storage** | Database (`AuditLog` table) — **immutable** | Console / structured log service |
-| **Retensi** | Permanen, tidak bisa dihapus *(PRD §7.3)* | Tidak ada retensi formal di v1 |
-| **Contoh** | `ELECTION_OPENED`, `TOKEN_GENERATED` | `ERROR: DB connection timeout`, `INFO: health check passed` |
-| **Konsumer** | Admin UI, export CSV | DevOps, deployment monitoring |
+| Aspek        | Audit Log                                   | Application Log                                             |
+| ------------ | ------------------------------------------- | ----------------------------------------------------------- |
+| **Tujuan**   | Rekam jejak aksi user                       | Debugging dan monitoring runtime                            |
+| **Siapa**    | User (admin) melakukan aksi                 | System, errors, request/response                            |
+| **Storage**  | Database (`AuditLog` table) — **immutable** | Console / structured log service                            |
+| **Retensi**  | Permanen, tidak bisa dihapus _(PRD §7.3)_   | Tidak ada retensi formal di v1                              |
+| **Contoh**   | `ELECTION_OPENED`, `TOKEN_GENERATED`        | `ERROR: DB connection timeout`, `INFO: health check passed` |
+| **Konsumer** | Admin UI, export CSV                        | DevOps, deployment monitoring                               |
 
 ### LoggerService Architecture
 
@@ -663,6 +673,7 @@ ConsoleLogger (development)
 ```
 
 **Folder:**
+
 ```
 src/lib/logger/
   index.ts        -- interface ILogger + export default instance
@@ -670,6 +681,7 @@ src/lib/logger/
 ```
 
 **Log Levels:**
+
 - `ERROR`: Exceptions, DB failures, unhandled errors — selalu dicatat
 - `WARN`: Degraded behavior, retry attempts, deprecated usage
 - `INFO`: Request lifecycle, service start/stop, health check results
@@ -688,6 +700,7 @@ GET /api/health
 **Authentication:** Tidak diperlukan (public endpoint). Tidak mengembalikan data sensitif.
 
 **Response (200 — Healthy):**
+
 ```json
 {
   "status": "ok",
@@ -702,6 +715,7 @@ GET /api/health
 ```
 
 **Response (503 — Degraded):**
+
 ```json
 {
   "status": "degraded",
@@ -716,6 +730,7 @@ GET /api/health
 ```
 
 **Checks yang dilakukan:**
+
 1. **Database:** `prisma.$queryRaw('SELECT 1')` — lightweight connectivity test
 2. **Storage:** `storageService.ping()` — HEAD request ke storage bucket
 3. **Version:** Dibaca dari `config.app.version` (package.json version)
@@ -729,18 +744,18 @@ GET /api/health
 
 ### HTTP Status Codes
 
-| Kode | Situasi | Contoh |
-|---|---|---|
-| `200` | Sukses | Vote berhasil, data berhasil diambil |
+| Kode  | Situasi                    | Contoh                                     |
+| ----- | -------------------------- | ------------------------------------------ |
+| `200` | Sukses                     | Vote berhasil, data berhasil diambil       |
 | `400` | Input tidak valid (format) | Token format salah, kandidat ID bukan CUID |
-| `401` | Belum autentikasi | Request ke `/api/admin/*` tanpa session |
-| `403` | Tidak punya akses | ADMIN mencoba `/admin/settings` |
-| `404` | Resource tidak ditemukan | Election ID tidak ada |
-| `409` | Konflik state | Token sudah dipakai (race condition) |
-| `422` | Business logic gagal | Election tidak dalam state OPEN saat vote |
-| `429` | Rate limit | Terlalu banyak percobaan validasi token |
-| `500` | Server error | Database connection error |
-| `503` | Service unavailable | Health check degraded |
+| `401` | Belum autentikasi          | Request ke `/api/admin/*` tanpa session    |
+| `403` | Tidak punya akses          | ADMIN mencoba `/admin/settings`            |
+| `404` | Resource tidak ditemukan   | Election ID tidak ada                      |
+| `409` | Konflik state              | Token sudah dipakai (race condition)       |
+| `422` | Business logic gagal       | Election tidak dalam state OPEN saat vote  |
+| `429` | Rate limit                 | Terlalu banyak percobaan validasi token    |
+| `500` | Server error               | Database connection error                  |
+| `503` | Service unavailable        | Health check degraded                      |
 
 ### Error Response Format (Standar)
 
@@ -767,7 +782,7 @@ GET /api/health
 
 ## Deployment Architecture
 
-*(PRD: "Docker / Vercel / VPS")*
+_(PRD: "Docker / Vercel / VPS")_
 
 ### Option A — Vercel + Supabase (Recommended untuk Production Awal)
 
@@ -826,20 +841,20 @@ graph TB
 
 ### Environment Variables (Required)
 
-| Variable | Keterangan | Di Browser? |
-|---|---|---|
-| `DATABASE_URL` | Prisma connection string PostgreSQL (via pooler) | ❌ Server only |
-| `DIRECT_URL` | Direct connection (bypass pooler, untuk migration) | ❌ Server only |
-| `AUTH_SECRET` | NextAuth JWT signing secret | ❌ Server only |
-| `TOKEN_HMAC_SECRET` | Secret untuk HMAC-SHA256 token hashing *(PRD §3)* | ❌ Server only |
-| `NEXTAUTH_URL` | Base URL aplikasi | ❌ Server only |
-| `SUPABASE_URL` | Supabase project URL | ✅ Client safe |
-| `SUPABASE_ANON_KEY` | Supabase anonymous key | ✅ Client safe |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | ❌ **Never to browser** *(PRD §9.2)* |
-| `NEXT_PUBLIC_APP_URL` | Public app URL | ✅ Client safe |
-| `APP_VERSION` | Versi aplikasi (untuk health check) | ❌ Server only |
+| Variable                    | Keterangan                                         | Di Browser?                          |
+| --------------------------- | -------------------------------------------------- | ------------------------------------ |
+| `DATABASE_URL`              | Prisma connection string PostgreSQL (via pooler)   | ❌ Server only                       |
+| `DIRECT_URL`                | Direct connection (bypass pooler, untuk migration) | ❌ Server only                       |
+| `AUTH_SECRET`               | NextAuth JWT signing secret                        | ❌ Server only                       |
+| `TOKEN_HMAC_SECRET`         | Secret untuk HMAC-SHA256 token hashing _(PRD §3)_  | ❌ Server only                       |
+| `NEXTAUTH_URL`              | Base URL aplikasi                                  | ❌ Server only                       |
+| `SUPABASE_URL`              | Supabase project URL                               | ✅ Client safe                       |
+| `SUPABASE_ANON_KEY`         | Supabase anonymous key                             | ✅ Client safe                       |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key                          | ❌ **Never to browser** _(PRD §9.2)_ |
+| `NEXT_PUBLIC_APP_URL`       | Public app URL                                     | ✅ Client safe                       |
+| `APP_VERSION`               | Versi aplikasi (untuk health check)                | ❌ Server only                       |
 
-> *(PRD §9.2: "service role key tidak pernah dikirim ke browser")*
+> _(PRD §9.2: "service role key tidak pernah dikirim ke browser")_
 
 ---
 
@@ -882,10 +897,11 @@ src/
 ├── types/                  # TypeScript interfaces dan enums
 ├── utils/                  # Pure utility functions
 ├── schemas/                # Zod validation schemas per endpoint
-└── middleware.ts            # Route protection + security headers
+└── proxy.ts            # Route protection + security headers
 ```
 
 **Perubahan dari PRD awal:**
+
 - Ditambahkan `services/` — memisahkan business logic dari route handlers.
 - Ditambahkan `schemas/` — Zod schemas per endpoint.
 - Ditambahkan `config/` — Configuration Layer terpusat.
@@ -924,45 +940,45 @@ graph TD
     D1 -. "tidak bisa dikorelasikan" .-> D2
 ```
 
-*(PRD §7.2: "Korelasi antara token dan kandidat secara teknis tidak dapat dilakukan dari dalam database.")*
+_(PRD §7.2: "Korelasi antara token dan kandidat secara teknis tidak dapat dilakukan dari dalam database.")_
 
 ---
 
 ## Scalability Considerations
 
-| Aspek | v1 (Current) | v2 (Future) |
-|---|---|---|
-| Concurrent voters | ~20–50 | Horizontal scaling App container |
-| Database connections | Supabase pooler default | PgBouncer / Supabase transaction pooler |
-| Dashboard update | Polling 3–5s (pull) | Supabase Realtime WebSocket (push) |
-| Dashboard queries | Aggregate per poll | Read replica + materialized view |
-| File storage | Supabase Storage via StorageService | S3 / R2 / MinIO — ganti implementation saja |
-| Multi-election | Tidak didukung *(PRD §10)* | Partition Vote/AuditLog per election_id |
-| Session storage | Stateless JWT | Redis session store jika diperlukan |
-| Logging | Console (dev) | Pino + log aggregation service |
-| Config | env.ts validasi | Secrets manager (Vault, AWS SSM) |
+| Aspek                | v1 (Current)                        | v2 (Future)                                 |
+| -------------------- | ----------------------------------- | ------------------------------------------- |
+| Concurrent voters    | ~20–50                              | Horizontal scaling App container            |
+| Database connections | Supabase pooler default             | PgBouncer / Supabase transaction pooler     |
+| Dashboard update     | Polling 3–5s (pull)                 | Supabase Realtime WebSocket (push)          |
+| Dashboard queries    | Aggregate per poll                  | Read replica + materialized view            |
+| File storage         | Supabase Storage via StorageService | S3 / R2 / MinIO — ganti implementation saja |
+| Multi-election       | Tidak didukung _(PRD §10)_          | Partition Vote/AuditLog per election_id     |
+| Session storage      | Stateless JWT                       | Redis session store jika diperlukan         |
+| Logging              | Console (dev)                       | Pino + log aggregation service              |
+| Config               | env.ts validasi                     | Secrets manager (Vault, AWS SSM)            |
 
 ---
 
 ## Design Decisions Summary
 
-| Keputusan | Pilihan | Alasan | Ref |
-|---|---|---|---|
-| Full-stack framework | Next.js App Router | SSR/CSR unified, Route Handlers sebagai API, middleware built-in | PRD Tech Stack |
-| Backend pattern | Route Handlers + Service layer | Tidak overengineer; mudah refactor ke microservice | — |
-| No Server Actions | Route Handlers only | Consistent API boundary, testability, separation of concerns | §No Server Actions |
-| Dashboard update v1 | HTTP Polling 3–5s | Simpler, zero dependency, sufficient untuk ~500 voters | PRD §8 |
-| Dashboard update v2 | Supabase Realtime (optional) | Push-based untuk skala lebih besar; API stats endpoint sama | PRD §8 |
-| Student session | Stateless — tidak ada server session | Simplify architecture; token re-validated per request | PRD §7.2 |
-| Storage abstraction | StorageService interface | Decoupling dari provider; mudah diganti atau di-mock | — |
-| Configuration layer | config/env.ts saja | Central validation; no scattered process.env | — |
-| Logging | LoggerService abstraction | Testable; mudah upgrade ke structured logging | — |
-| Health check | GET /api/health | Operational monitoring; standard DevOps practice | — |
-| Auth library | NextAuth v5 | Mature, CSRF built-in, HTTP-only cookie native | PRD §9.2 |
-| Validation | Zod | Type-safe, composable, runtime validation | — |
-| Error format | Standard {success, error: {code, message}} | Konsistensi client-server | — |
-| Deployment | Vercel + Supabase atau Docker VPS | Fleksibel untuk budget sekolah berbeda | PRD Deployment |
-| Security headers | Injected di Middleware Edge | Berjalan sebelum route handler | PRD §9.2 |
+| Keputusan            | Pilihan                                    | Alasan                                                           | Ref                |
+| -------------------- | ------------------------------------------ | ---------------------------------------------------------------- | ------------------ |
+| Full-stack framework | Next.js App Router                         | SSR/CSR unified, Route Handlers sebagai API, middleware built-in | PRD Tech Stack     |
+| Backend pattern      | Route Handlers + Service layer             | Tidak overengineer; mudah refactor ke microservice               | —                  |
+| No Server Actions    | Route Handlers only                        | Consistent API boundary, testability, separation of concerns     | §No Server Actions |
+| Dashboard update v1  | HTTP Polling 3–5s                          | Simpler, zero dependency, sufficient untuk ~500 voters           | PRD §8             |
+| Dashboard update v2  | Supabase Realtime (optional)               | Push-based untuk skala lebih besar; API stats endpoint sama      | PRD §8             |
+| Student session      | Stateless — tidak ada server session       | Simplify architecture; token re-validated per request            | PRD §7.2           |
+| Storage abstraction  | StorageService interface                   | Decoupling dari provider; mudah diganti atau di-mock             | —                  |
+| Configuration layer  | config/env.ts saja                         | Central validation; no scattered process.env                     | —                  |
+| Logging              | LoggerService abstraction                  | Testable; mudah upgrade ke structured logging                    | —                  |
+| Health check         | GET /api/health                            | Operational monitoring; standard DevOps practice                 | —                  |
+| Auth library         | NextAuth v5                                | Mature, CSRF built-in, HTTP-only cookie native                   | PRD §9.2           |
+| Validation           | Zod                                        | Type-safe, composable, runtime validation                        | —                  |
+| Error format         | Standard {success, error: {code, message}} | Konsistensi client-server                                        | —                  |
+| Deployment           | Vercel + Supabase atau Docker VPS          | Fleksibel untuk budget sekolah berbeda                           | PRD Deployment     |
+| Security headers     | Injected di Middleware Edge                | Berjalan sebelum route handler                                   | PRD §9.2           |
 
 ---
 

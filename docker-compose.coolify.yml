@@ -1,0 +1,73 @@
+x-app-env: &app-env
+  DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?set-a-strong-postgres-password}@postgres:5432/${POSTGRES_DB:-pilketos}
+  DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?set-a-strong-postgres-password}@postgres:5432/${POSTGRES_DB:-pilketos}
+  AUTH_SECRET: ${AUTH_SECRET:?generate-with-openssl-rand-base64-32}
+  NEXTAUTH_URL: ${NEXTAUTH_URL:?set-to-your-public-https-url}
+  TOKEN_HMAC_SECRET: ${TOKEN_HMAC_SECRET:?generate-once-with-openssl-rand-hex-32}
+  SUPABASE_URL: ${SUPABASE_URL:-https://xyzabcdef.supabase.co}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-local-placeholder}
+  SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-local-placeholder}
+  STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+  NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?set-to-your-public-https-url}
+  APP_VERSION: ${APP_VERSION:-0.1.0}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set-a-strong-postgres-password}
+      POSTGRES_DB: ${POSTGRES_DB:-pilketos}
+    volumes:
+      - pilketos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: *app-env
+    command: ["npm", "run", "db:deploy"]
+    restart: "no"
+    exclude_from_hc: true
+
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment: *app-env
+    command: ["npm", "run", "db:seed"]
+    restart: "no"
+    exclude_from_hc: true
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    restart: unless-stopped
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    environment: *app-env
+    expose:
+      - "6500"
+    volumes:
+      - pilketos_uploads:/app/public/uploads
+
+volumes:
+  pilketos_pgdata:
+  pilketos_uploads:

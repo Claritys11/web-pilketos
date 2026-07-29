@@ -87,20 +87,24 @@ export class StorageError extends Error {
 // ---------------------------------------------------------------------------
 
 import { config } from "@/config/env";
+import { LocalStorageService } from "./local";
 import { SupabaseStorageService } from "./supabase";
 
 /**
  * The application-wide storage service instance.
  *
- * In production: SupabaseStorageService
- * In tests: inject a mock that implements IStorageService
+ * In production: SupabaseStorageService by default.
+ * In local development/tests: LocalStorageService by default.
  *
  * The bucket name is hardcoded per architecture — one bucket per deployment.
  */
 const CANDIDATE_PHOTOS_BUCKET = "candidate-photos";
 
-export const storageService: IStorageService = new SupabaseStorageService(
-  config.supabase.url,
-  config.supabase.serviceRoleKey,
-  CANDIDATE_PHOTOS_BUCKET,
-);
+export const storageService: IStorageService =
+  config.storage.driver === "local"
+    ? new LocalStorageService("public/uploads", config.app.publicUrl)
+    : new SupabaseStorageService(
+        config.supabase.url,
+        config.supabase.serviceRoleKey,
+        CANDIDATE_PHOTOS_BUCKET,
+      );

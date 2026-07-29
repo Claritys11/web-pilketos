@@ -6,14 +6,15 @@
 #
 # Stages:
 #   1. deps       — Install production + dev dependencies
-#   2. builder    — Compile TypeScript and build Next.js standalone output
-#   3. runner     — Minimal runtime image (no build tools, no devDeps)
+#   2. migrator   — Prisma migrate/seed runner
+#   3. builder    — Compile TypeScript and build Next.js standalone output
+#   4. runner     — Minimal runtime image (no build tools, no devDeps)
 # =============================================================================
 
 # ---------------------------------------------------------------------------
 # Stage 1: Install all dependencies
 # ---------------------------------------------------------------------------
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 
 # libc6-compat is required for some native Node.js bindings on Alpine
 RUN apk add --no-cache libc6-compat
@@ -24,12 +25,33 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Install all dependencies (including dev) needed for the build step
-RUN npm ci --legacy-peer-deps
+# Increase timeout/retries to prevent ETIMEDOUT on slow/proxy networks
+RUN npm config set fetch-retries 10 \
+    && npm config set fetch-retry-mintimeout 30000 \
+    && npm config set fetch-retry-maxtimeout 300000 \
+    && npm config set fetch-timeout 600000 \
+    && npm ci --legacy-peer-deps --no-audit --prefer-offline
 
 # ---------------------------------------------------------------------------
-# Stage 2: Build the Next.js application
+# Stage 2: Database migration runner
 # ---------------------------------------------------------------------------
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS migrator
+
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json prisma.config.ts ./
+COPY prisma ./prisma
+
+ENV NODE_ENV=production
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+
+RUN npm run db:generate
+
+# ---------------------------------------------------------------------------
+# Stage 3: Build the Next.js application
+# ---------------------------------------------------------------------------
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -40,21 +62,20 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Environment variables required at build time
-# In CI/CD, these should be passed as --build-arg or set as build secrets
-# ARG DATABASE_URL
-# ARG DIRECT_URL
-# etc.
-
-# Build Next.js with standalone output for smaller runtime image
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV SKIP_ENV_VALIDATION=1
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+
+# Generate Prisma client for build types and runtime access
+RUN npm run db:generate
 
 RUN npm run build
 
 # ---------------------------------------------------------------------------
-# Stage 3: Production runner
+# Stage 4: Production runner
 # ---------------------------------------------------------------------------
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
@@ -65,10 +86,12 @@ RUN adduser --system --uid 1001 nextjs
 
 # Copy only necessary runtime artifacts from builder
 COPY --from=builder /app/public ./public
+RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
 
 # Standalone output bundles everything needed to run (minimal footprint)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+RUN mkdir -p /app/.next/cache && chmod -R 0777 /app/.next/cache
 
 USER nextjs
 

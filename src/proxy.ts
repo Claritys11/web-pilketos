@@ -8,12 +8,42 @@ const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 } as const;
 
-function buildContentSecurityPolicy(): string {
+const RATE_LIMITS = [
+  {
+    name: "admin-login",
+    matches: (pathname: string) =>
+      pathname === "/api/auth/signin" || pathname === "/api/auth/callback/credentials",
+    limit: 5,
+    windowMs: 15 * 60_000,
+  },
+  {
+    name: "vote-validate",
+    matches: (pathname: string) => pathname === "/api/vote/validate-token",
+    limit: 10,
+    windowMs: 60_000,
+  },
+  {
+    name: "vote-cast",
+    matches: (pathname: string) => pathname === "/api/vote/cast",
+    limit: 20,
+    windowMs: 60_000,
+  },
+] as const;
+
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+const isSecureAuthUrl = appConfig.auth.url.startsWith("https://");
+
+function createNonce(): string {
+  return Buffer.from(crypto.randomUUID()).toString("base64");
+}
+
+function buildContentSecurityPolicy(nonce: string): string {
   const scriptSrc = appConfig.app.isDevelopment
-    ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
-    : "script-src 'self'";
+    ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`
+    : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`;
 
   return [
     "default-src 'self'",
@@ -24,22 +54,104 @@ function buildContentSecurityPolicy(): string {
     "font-src 'self' data:",
     "object-src 'none'",
     "base-uri 'self'",
+    "form-action 'self'",
     "frame-ancestors 'none'",
-  ].join("; ");
+    isSecureAuthUrl ? "upgrade-insecure-requests" : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
 }
 
-function withSecurityHeaders(response: NextResponse): NextResponse {
+function withSecurityHeaders(response: NextResponse, contentSecurityPolicy: string): NextResponse {
   for (const [header, value] of Object.entries(SECURITY_HEADERS)) {
     response.headers.set(header, value);
   }
 
-  response.headers.set("Content-Security-Policy", buildContentSecurityPolicy());
-
-  if (appConfig.app.isProduction) {
-    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  }
+  response.headers.set("Content-Security-Policy", contentSecurityPolicy);
 
   return response;
+}
+
+function continueWithSecurityHeaders(
+  request: NextRequest,
+  nonce: string,
+  contentSecurityPolicy: string,
+): NextResponse {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
+
+  return withSecurityHeaders(
+    NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    }),
+    contentSecurityPolicy,
+  );
+}
+
+function getClientIp(request: NextRequest) {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
+
+function tooManyRequests(retryAfterSeconds: number): NextResponse {
+  return NextResponse.json(
+    {
+      success: false,
+      error: {
+        code: "RATE_LIMITED",
+        message: "Terlalu banyak percobaan. Coba lagi beberapa saat.",
+        details: null,
+      },
+    },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(retryAfterSeconds),
+      },
+    },
+  );
+}
+
+function checkRateLimit(request: NextRequest): NextResponse | null {
+  if (request.method !== "POST") {
+    return null;
+  }
+
+  const rule = RATE_LIMITS.find((item) => item.matches(request.nextUrl.pathname));
+  if (!rule) {
+    return null;
+  }
+
+  const now = Date.now();
+  const key = `${rule.name}:${getClientIp(request)}`;
+  const entry = rateLimitStore.get(key);
+
+  if (!entry || entry.resetAt <= now) {
+    rateLimitStore.set(key, { count: 1, resetAt: now + rule.windowMs });
+    return null;
+  }
+
+  entry.count += 1;
+
+  if (rateLimitStore.size > 5_000) {
+    for (const [storeKey, storeEntry] of rateLimitStore.entries()) {
+      if (storeEntry.resetAt <= now) {
+        rateLimitStore.delete(storeKey);
+      }
+    }
+  }
+
+  if (entry.count > rule.limit) {
+    return tooManyRequests(Math.ceil((entry.resetAt - now) / 1000));
+  }
+
+  return null;
 }
 
 function unauthorized(request: NextRequest): NextResponse {
@@ -82,33 +194,41 @@ function forbidden(request: NextRequest): NextResponse {
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const nonce = createNonce();
+  const contentSecurityPolicy = buildContentSecurityPolicy(nonce);
+  const rateLimited = checkRateLimit(request);
+
+  if (rateLimited) {
+    return withSecurityHeaders(rateLimited, contentSecurityPolicy);
+  }
+
   const isAdminRoute = pathname.startsWith("/admin");
   const isAdminApiRoute = pathname.startsWith("/api/admin");
   const isLoginPage = pathname === "/admin/login";
 
   if (!isAdminRoute && !isAdminApiRoute) {
-    return withSecurityHeaders(NextResponse.next());
+    return continueWithSecurityHeaders(request, nonce, contentSecurityPolicy);
   }
 
   if (isLoginPage) {
-    return withSecurityHeaders(NextResponse.next());
+    return continueWithSecurityHeaders(request, nonce, contentSecurityPolicy);
   }
 
   const token = await getToken({
     req: request,
     secret: appConfig.auth.secret,
-    secureCookie: appConfig.app.isProduction,
+    secureCookie: isSecureAuthUrl,
   });
 
   if (!token?.id) {
-    return withSecurityHeaders(unauthorized(request));
+    return withSecurityHeaders(unauthorized(request), contentSecurityPolicy);
   }
 
   if (pathname.startsWith("/admin/settings") && token.role !== "SUPER_ADMIN") {
-    return withSecurityHeaders(forbidden(request));
+    return withSecurityHeaders(forbidden(request), contentSecurityPolicy);
   }
 
-  return withSecurityHeaders(NextResponse.next());
+  return continueWithSecurityHeaders(request, nonce, contentSecurityPolicy);
 }
 
 export const config = {

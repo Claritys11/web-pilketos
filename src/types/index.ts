@@ -23,13 +23,7 @@
  * State machine transitions are enforced in ElectionService.
  * Reference: 01_DATABASE_DESIGN.md §State Machine & Transition Rules
  */
-export type ElectionStatus =
-  | "SETUP"
-  | "READY"
-  | "OPEN"
-  | "PAUSED"
-  | "CLOSED"
-  | "ARCHIVED";
+export type ElectionStatus = "SETUP" | "READY" | "OPEN" | "PAUSED" | "CLOSED" | "ARCHIVED";
 
 /**
  * Valid election status transitions (source → allowed targets).

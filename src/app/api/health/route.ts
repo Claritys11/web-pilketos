@@ -1,7 +1,7 @@
 import { config } from "@/config/env";
+import { fail, ok } from "@/lib/api/response";
 import { prisma } from "@/lib/prisma";
 import { storageService } from "@/lib/storage";
-import { fail, ok } from "@/lib/api/response";
 
 export async function GET() {
   const checks = {
@@ -11,12 +11,12 @@ export async function GET() {
 
   try {
     await prisma.$queryRaw`SELECT 1`;
-  } catch (error) {
-    checks.database = error instanceof Error ? `error: ${error.message}` : "error";
+  } catch {
+    checks.database = "error";
   }
 
   const storageStatus = await storageService.ping();
-  checks.storage = storageStatus;
+  checks.storage = storageStatus === "ok" ? "ok" : "error";
 
   const data = {
     status: checks.database === "ok" && checks.storage === "ok" ? "ok" : "degraded",

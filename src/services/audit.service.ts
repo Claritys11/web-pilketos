@@ -22,6 +22,8 @@ export class AuditService {
     actorId?: string | undefined;
     targetType?: string | undefined;
     targetId?: string | undefined;
+    createdFrom?: Date | undefined;
+    createdTo?: Date | undefined;
   }) {
     const page = Math.max(params.page ?? 1, 1);
     const pageSize = Math.min(Math.max(params.pageSize ?? 20, 1), 100);
@@ -31,6 +33,14 @@ export class AuditService {
       ...(params.actorId ? { actorId: params.actorId } : {}),
       ...(params.targetType ? { targetType: params.targetType } : {}),
       ...(params.targetId ? { targetId: params.targetId } : {}),
+      ...(params.createdFrom || params.createdTo
+        ? {
+            createdAt: {
+              ...(params.createdFrom ? { gte: params.createdFrom } : {}),
+              ...(params.createdTo ? { lte: params.createdTo } : {}),
+            },
+          }
+        : {}),
     };
 
     const [items, total] = await prisma.$transaction([

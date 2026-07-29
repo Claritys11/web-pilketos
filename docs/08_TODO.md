@@ -2,7 +2,7 @@
 
 > **Status:** ACTIVE — Living Document
 > **Version:** 1.0.0
-> **Last Updated:** 2026-07-28
+> **Last Updated:** 2026-07-29
 > **References:** PRD v1.1.0 · DB Design v1.0.0 · System Architecture v1.1.0 · API Spec v1.0.0 · UI/UX Spec v1.0.0 · Security v1.0.0 · Testing v1.0.0 · Roadmap v1.0.0
 > **Scope:** Granular task list for system implementation — v1
 
@@ -21,7 +21,7 @@ Setiap penyelesaian tugas wajib diverifikasi terhadap kriteria Definition of Don
 ### Overall Progress
 
 ```
-[████████░░░░░░░░░░░░] 42%
+[█████████████████░░░] 85%
 ```
 
 ### Progress Status Legend
@@ -41,11 +41,11 @@ Setiap penyelesaian tugas wajib diverifikasi terhadap kriteria Definition of Don
 | Phase 3 — Business Services  | `23 / 24` (96%)  | 🟨 In Progress | Backend Developer  |
 | Phase 4 — API route handlers | `25 / 25` (100%) | 🟩 Done        | Backend Developer  |
 | Phase 5 — Student UI         | `28 / 28` (100%) | 🟩 Done        | Frontend Developer |
-| Phase 6 — Admin UI           | `0 / 32` (0%)    | ⬜ Not Started | Frontend Developer |
-| Phase 7 — Security Hardening | `0 / 12` (0%)    | ⬜ Not Started | SecOps / Backend   |
+| Phase 6 — Admin UI           | `32 / 32` (100%) | 🟩 Done        | Frontend Developer |
+| Phase 7 — Security Hardening | `12 / 12` (100%) | 🟩 Done        | SecOps / Backend   |
 | Phase 8 — Testing & QA       | `0 / 16` (0%)    | ⬜ Not Started | QA Tester          |
-| Phase 9 — Deployment         | `0 / 12` (0%)    | ⬜ Not Started | DevOps             |
-| Documentation Sync           | `0 / 5` (0%)     | ⬜ Not Started | Technical Writer   |
+| Phase 9 — Deployment         | `2 / 12` (17%)   | 🟨 In Progress | DevOps             |
+| Documentation Sync           | `4 / 5` (80%)    | 🟨 In Progress | Technical Writer   |
 
 ---
 
@@ -97,9 +97,9 @@ Membangun backend authentication, integrasi Argon2id hashing, NextAuth middlewar
 - [x] **TS-02-04:** Konfigurasi NextAuth JWT token handler untuk menyertakan `role` dan `id` admin ke dalam payload. 🟩
 - [x] **TS-02-05:** Atur parameter NextAuth session lifetime selama 8 jam dengan cookie secure flags (HttpOnly, Secure, SameSite=Lax). 🟩
 - [x] **TS-02-06:** Hubungkan `verifyPassword` Argon2id ke dalam metode `authorize` credentials provider. 🟩
-- [x] **TS-02-07:** Implementasikan `src/middleware.ts` untuk mencegat akses tidak sah ke area admin (`/admin/*`). 🟩 Implemented as `src/proxy.ts` because Next.js 16 renamed Middleware to Proxy.
+- [x] **TS-02-07:** Implementasikan `src/proxy.ts` untuk mencegat akses tidak sah ke area admin (`/admin/*`). 🟩 Implemented as `src/proxy.ts` because Next.js 16 renamed Middleware to Proxy.
 - [x] **TS-02-08:** Tambahkan rules otorisasi di middleware untuk membatasi route settings (`/admin/settings`) hanya bagi role `SUPER_ADMIN`. 🟩
-- [x] **TS-02-09:** Tambahkan logika security headers injection pada Next.js Middleware (CSP, HSTS, X-Frame-Options, X-Content-Type, Referrer Policy). 🟩
+- [x] **TS-02-09:** Tambahkan logika security headers injection pada Next.js Proxy (formerly Middleware) (CSP, HSTS, X-Frame-Options, X-Content-Type, Referrer Policy). 🟩
 - [ ] **TS-02-10:** Tulis uji integrasi untuk memastikan admin dengan role `VIEWER` diblokir (403) saat mencoba mengakses route admin settings. ⬜
 - [x] **TS-02-11:** Konfigurasikan penanganan kegagalan autentikasi di NextAuth login route agar mengembalikan pesan error generik (anti-user enumeration). 🟩
 - [x] **TS-02-12:** Implementasikan logout handler API untuk menghapus session cookie dari browser admin. 🟩 Provided by Auth.js `POST /api/auth/signout`.
@@ -265,53 +265,53 @@ Mengimplementasikan antarmuka untuk domain admin di folder `src/app/admin/`.
 
 ### 1. General Panel & Login
 
-- [ ] **TS-06-01:** Buat global layout admin (`src/app/admin/layout.tsx`) dengan navigasi sidebar responsif dan topbar breadcrumbs. ⬜
-- [ ] **TS-06-02:** Buat halaman login admin (`/admin/login/page.tsx`). ⬜
-- [ ] **TS-06-03:** Tambahkan input password field dengan toggle show/hide (Lucide Eye/EyeOff icon). ⬜
-- [ ] **TS-06-04:** Tampilkan error alert generik di form login jika autentikasi ditolak. ⬜
+- [x] **TS-06-01:** Buat global layout admin (`src/app/admin/layout.tsx`) dengan navigasi sidebar responsif dan topbar breadcrumbs. 🟩
+- [x] **TS-06-02:** Buat halaman login admin (`/admin/login/page.tsx`). 🟩
+- [x] **TS-06-03:** Tambahkan input password field dengan toggle show/hide (Lucide Eye/EyeOff icon). 🟩
+- [x] **TS-06-04:** Tampilkan error alert generik di form login jika autentikasi ditolak. 🟩
 
 ### 2. Election CRUD
 
-- [ ] **TS-06-05:** Buat halaman list election (`/admin/elections/page.tsx`) berisi tabel election, badge status, dan pagination. ⬜
-- [ ] **TS-06-06:** Buat modal form pembuatan election baru ( SETUP state ). ⬜
-- [ ] **TS-06-07:** Buat halaman detail election (`/admin/elections/[id]/page.tsx`) dengan tabs (Ringkasan, Kandidat, Token, Audit). ⬜
-- [ ] **TS-06-08:** Buat panel kontrol state machine (tombol "Tandai Siap", "Buka Voting", "Jeda", "Tutup", "Arsipkan"). ⬜
-- [ ] **TS-06-09:** Tambahkan modal konfirmasi sebelum perintah perubahan status status dieksekusi. ⬜
+- [x] **TS-06-05:** Buat halaman list election (`/admin/elections/page.tsx`) berisi tabel election, badge status, dan pagination. 🟩
+- [x] **TS-06-06:** Buat modal form pembuatan election baru ( SETUP state ). 🟩
+- [x] **TS-06-07:** Buat halaman detail election (`/admin/elections/[id]/page.tsx`) dengan tabs (Ringkasan, Kandidat, Token, Audit). 🟩
+- [x] **TS-06-08:** Buat panel kontrol state machine (tombol "Tandai Siap", "Buka Voting", "Jeda", "Tutup", "Arsipkan"). 🟩
+- [x] **TS-06-09:** Tambahkan modal konfirmasi sebelum perintah perubahan status status dieksekusi. 🟩
 
 ### 3. Candidate Management
 
-- [ ] **TS-06-10:** Buat sub-halaman kelola kandidat (`/admin/elections/[id]/candidates/page.tsx`). ⬜
-- [ ] **TS-06-11:** Sembunyikan semua tombol tambah/edit/hapus jika status election bukan `SETUP`. ⬜
-- [ ] **TS-06-12:** Buat slide-over panel dari kanan untuk form tambah/edit data kandidat (nomor urut, nama, kelas, visi, misi). ⬜
-- [ ] **TS-06-13:** Integrasikan area file upload untuk unggah foto kandidat (drag & drop, MIME validation, format preview). ⬜
-- [ ] **TS-06-14:** Sediakan tombol hapus kandidat dengan modal konfirmasi keselamatan. ⬜
+- [x] **TS-06-10:** Buat sub-halaman kelola kandidat (`/admin/elections/[id]/candidates/page.tsx`). 🟩
+- [x] **TS-06-11:** Sembunyikan semua tombol tambah/edit/hapus jika status election bukan `SETUP`. 🟩
+- [x] **TS-06-12:** Buat slide-over panel dari kanan untuk form tambah/edit data kandidat (nomor urut, nama, kelas, visi, misi). 🟩
+- [x] **TS-06-13:** Integrasikan area file upload untuk unggah foto kandidat (drag & drop, MIME validation, format preview). 🟩
+- [x] **TS-06-14:** Sediakan tombol hapus kandidat dengan modal konfirmasi keselamatan. 🟩
 
 ### 4. Token Management
 
-- [ ] **TS-06-15:** Buat sub-halaman token manager (`/admin/elections/[id]/tokens/page.tsx`). ⬜
-- [ ] **TS-06-16:** Tampilkan panel statistik token (Total, Digunakan, Sisa, Partisipasi %). ⬜
-- [ ] **TS-06-17:** Buat modal generator token batch (input jumlah token). ⬜
-- [ ] **TS-06-18:** Buat modal post-generate token (tampilan satu kali plaintext tokens list). ⬜
-- [ ] **TS-06-19:** Hubungkan pemicu download CSV token plaintext otomatis sesaat setelah token sukses di-generate. ⬜
+- [x] **TS-06-15:** Buat sub-halaman token manager (`/admin/elections/[id]/tokens/page.tsx`). 🟩
+- [x] **TS-06-16:** Tampilkan panel statistik token (Total, Digunakan, Sisa, Partisipasi %). 🟩
+- [x] **TS-06-17:** Buat modal generator token batch (input jumlah token). 🟩
+- [x] **TS-06-18:** Buat modal post-generate token (tampilan satu kali plaintext tokens list). 🟩
+- [x] **TS-06-19:** Hubungkan pemicu download CSV token plaintext otomatis sesaat setelah token sukses di-generate. 🟩
 
 ### 5. Dashboard & Projector Mode
 
-- [ ] **TS-06-20:** Buat halaman dashboard utama (`/admin/dashboard/page.tsx`). ⬜
-- [ ] **TS-06-21:** Implementasikan hook `useDashboardPolling` untuk auto-update statistik dashboard setiap 3-5 detik saat tab aktif. ⬜
-- [ ] **TS-06-22:** Buat chart visualisasi perolehan suara per kandidat menggunakan horizontal CSS bar chart. ⬜
-- [ ] **TS-06-23:** Implementasikan toggle Projector Mode / Live Mode (menyembunyikan sidebar, topbar, dan kontrol admin). ⬜
-- [ ] **TS-06-24:** Sediakan tombol exit projector mode di sudut bawah layar. ⬜
+- [x] **TS-06-20:** Buat halaman dashboard utama (`/admin/dashboard/page.tsx`). 🟩
+- [x] **TS-06-21:** Implementasikan hook `useDashboardPolling` untuk auto-update statistik dashboard setiap 3-5 detik saat tab aktif. 🟩
+- [x] **TS-06-22:** Buat chart visualisasi perolehan suara per kandidat menggunakan horizontal CSS bar chart. 🟩
+- [x] **TS-06-23:** Implementasikan toggle Projector Mode / Live Mode (menyembunyikan sidebar, topbar, dan kontrol admin). 🟩
+- [x] **TS-06-24:** Sediakan tombol exit projector mode di sudut bawah layar. 🟩
 
 ### 6. Audit Log & Settings
 
-- [ ] **TS-06-25:** Buat halaman audit log (`/admin/audit/page.tsx`) berisi tabel log aktivitas. ⬜
-- [ ] **TS-06-26:** Tambahkan filter bar (Action type, Actor, Result, Date picker range). ⬜
-- [ ] **TS-06-27:** Jadikan tabel baris log audit dapat diklik untuk menampilkan expand data detail metadata JSON. ⬜
-- [ ] **TS-06-28:** Buat halaman pengaturan pengguna admin (`/admin/settings/page.tsx`) khusus Super Admin. ⬜
-- [ ] **TS-06-29:** Buat form modal tambah/edit admin (Username, Email, Role, Ganti Password). ⬜
-- [ ] **TS-06-30:** Sediakan tombol nonaktifkan admin dengan logic validation bypass pencegahan _self-deactivation_. ⬜
-- [ ] **TS-06-31:** Buat reusable skeleton components (`SkeletonCard`, `SkeletonTable`) untuk layout stability saat loading data. ⬜
-- [ ] **TS-06-32:** Tampilkan visual empty states di setiap halaman tabel / list jika tidak ada data yang dimuat. ⬜
+- [x] **TS-06-25:** Buat halaman audit log (`/admin/audit/page.tsx`) berisi tabel log aktivitas. 🟩
+- [x] **TS-06-26:** Tambahkan filter bar (Action type, Actor, Result, Date picker range). 🟩
+- [x] **TS-06-27:** Jadikan tabel baris log audit dapat diklik untuk menampilkan expand data detail metadata JSON. 🟩
+- [x] **TS-06-28:** Buat halaman pengaturan pengguna admin (`/admin/settings/page.tsx`) khusus Super Admin. 🟩
+- [x] **TS-06-29:** Buat form modal tambah/edit admin (Username, Email, Role, Ganti Password). 🟩
+- [x] **TS-06-30:** Sediakan tombol nonaktifkan admin dengan logic validation bypass pencegahan _self-deactivation_. 🟩
+- [x] **TS-06-31:** Buat reusable skeleton components (`SkeletonCard`, `SkeletonTable`) untuk layout stability saat loading data. 🟩
+- [x] **TS-06-32:** Tampilkan visual empty states di setiap halaman tabel / list jika tidak ada data yang dimuat. 🟩
 
 ---
 
@@ -319,18 +319,18 @@ Mengimplementasikan antarmuka untuk domain admin di folder `src/app/admin/`.
 
 Implementasi pengerasan keamanan aplikasi pra-rilis.
 
-- [ ] **TS-07-01:** Verifikasi Next.js Middleware menyisipkan header CSP terenkripsi ketat tanpa inline scripts pihak ketiga. ⬜
-- [ ] **TS-07-02:** Pastikan header Strict-Transport-Security (HSTS) disematkan dengan benar pada HTTPS. ⬜
-- [ ] **TS-07-03:** Aktifkan rate limiter middleware pada endpoint API login admin (`/api/auth/signin`). ⬜
-- [ ] **TS-07-04:** Aktifkan rate limiter pada endpoint validasi token (`/api/vote/validate-token`) dan vote cast (`/api/vote/cast`). ⬜
-- [ ] **TS-07-05:** Pastikan format input divalidasi ketat dengan Zod schemas pada route handlers sebelum data diteruskan ke Service layer. ⬜
-- [ ] **TS-07-06:** Konfigurasikan library Helmet atau set header manual untuk pertahanan clickjacking (`X-Frame-Options: DENY`). ⬜
-- [ ] **TS-07-07:** Implementasikan validasi ganda file upload foto kandidat (ekstensi file, MIME type, magic bytes verification). ⬜
-- [ ] **TS-07-08:** Buat utilitas auto-rename file acak menggunakan CUID sebelum foto kandidat di-upload ke Supabase Storage. ⬜
-- [ ] **TS-07-09:** Set access rule Supabase Storage bucket candidate-photos ke public read-only, write/delete restricted. ⬜
-- [ ] **TS-07-10:** Pastikan token plaintext siswa tidak pernah dicatat oleh `LoggerService` di log server. ⬜
-- [ ] **TS-07-11:** Konfigurasikan secure session cookie flags (`HttpOnly`, `Secure`, `SameSite=Lax`) pada NextAuth. ⬜
-- [ ] **TS-07-12:** Pastikan API `/api/health` mengembalikan status data normal tanpa menampilkan system credentials / paths. ⬜
+- [x] **TS-07-01:** Verifikasi Next.js Proxy (formerly Middleware) menyisipkan header CSP terenkripsi ketat tanpa inline scripts pihak ketiga. 🟩 Verified via production smoke on port 6504.
+- [x] **TS-07-02:** Pastikan header Strict-Transport-Security (HSTS) disematkan dengan benar pada HTTPS. 🟩 `Strict-Transport-Security: max-age=31536000; includeSubDomains` verified.
+- [x] **TS-07-03:** Aktifkan rate limiter middleware pada endpoint API login admin (`/api/auth/signin`). 🟩 Also covers Auth.js credentials callback; request ke-6 terkena 429.
+- [x] **TS-07-04:** Aktifkan rate limiter pada endpoint validasi token (`/api/vote/validate-token`) dan vote cast (`/api/vote/cast`). 🟩 Token validation request ke-11 terkena 429.
+- [x] **TS-07-05:** Pastikan format input divalidasi ketat dengan Zod schemas pada route handlers sebelum data diteruskan ke Service layer. 🟩 Body, query, and route params use Zod schemas.
+- [x] **TS-07-06:** Konfigurasikan library Helmet atau set header manual untuk pertahanan clickjacking (`X-Frame-Options: DENY`). 🟩 Manual security headers are injected from Proxy and next.config.
+- [x] **TS-07-07:** Implementasikan validasi ganda file upload foto kandidat (ekstensi file, MIME type, magic bytes verification). 🟩 Upload route validates extension, MIME, size, and file signature.
+- [x] **TS-07-08:** Buat utilitas auto-rename file acak menggunakan CUID sebelum foto kandidat di-upload ke Supabase Storage. 🟩 Candidate photos use random CUID-style storage names.
+- [x] **TS-07-09:** Set access rule Supabase Storage bucket candidate-photos ke public read-only, write/delete restricted. 🟩 Production SQL policy provided in `docs/supabase-storage-policy.sql`.
+- [x] **TS-07-10:** Pastikan token plaintext siswa tidak pernah dicatat oleh `LoggerService` di log server. 🟩 Verified by code scan; token plaintext is only returned once to admin UI and never logged.
+- [x] **TS-07-11:** Konfigurasikan secure session cookie flags (`HttpOnly`, `Secure`, `SameSite=Lax`) pada NextAuth. 🟩 Auth.js session cookie options are explicit.
+- [x] **TS-07-12:** Pastikan API `/api/health` mengembalikan status data normal tanpa menampilkan system credentials / paths. 🟩 Health response only returns ok/error service states.
 
 ---
 
@@ -361,7 +361,7 @@ Penerapan testing menyeluruh sebelum sistem dirilis.
 
 Checklist deployment sistem ke lingkungan produksi.
 
-- [ ] **TS-09-01:** Jalankan kompilasi produksi Next.js `npm run build` lokal untuk memastikan build sukses tanpa error. ⬜
+- [x] **TS-09-01:** Jalankan kompilasi produksi Next.js `npm run build` lokal untuk memastikan build sukses tanpa error. 🟩
 - [ ] **TS-09-02:** Buat database instansi PostgreSQL produksi di platform Supabase. ⬜
 - [ ] **TS-09-03:** Konfigurasikan environment variables di platform deployment produksi (Vercel/VPS). ⬜
 - [ ] **TS-09-04:** Hubungkan custom domain sekolah (`pilketos.sch.id`) ke platform hosting Next.js. ⬜
@@ -372,7 +372,7 @@ Checklist deployment sistem ke lingkungan produksi.
 - [ ] **TS-09-09:** Konfigurasikan auto-backup database SQL harian terenkripsi ke cloud storage bucket terpisah. ⬜
 - [ ] **TS-09-10:** Setup monitoring ketersediaan server (seperti Uptime Robot) mengarah ke `/api/health`. ⬜
 - [ ] **TS-09-11:** Setup monitoring error log runtime server (seperti Sentry/Console logs tracker). ⬜
-- [ ] **TS-09-12:** Jalankan deployment smoke testing (verifikasi login admin dan fungsionalitas website utama setelah rilis). ⬜
+- [x] **TS-09-12:** Jalankan deployment smoke testing (verifikasi login admin dan fungsionalitas website utama setelah rilis). 🟩 Standalone runtime smoke test passed on port 6502; latest Next production smoke on port 6503 verified health 200, admin API guard 401, admin login 200, and vote page 200.
 
 ---
 
@@ -380,10 +380,10 @@ Checklist deployment sistem ke lingkungan produksi.
 
 Checklist sinkronisasi dokumentasi proyek.
 
-- [ ] **TS-10-01:** Buat file `README.md` utama di repositori yang menjelaskan cara install, setup env, seed, migrate, dan run local development. ⬜
-- [ ] **TS-10-02:** Dokumentasikan petunjuk penggunaan (User Guide) admin untuk panitia sekolah. ⬜
-- [ ] **TS-10-03:** Pastikan seluruh file panduan `.md` di folder `docs/` disinkronkan dengan status final arsitektur. ⬜
-- [ ] **TS-10-04:** Buat dokumentasi manual petunjuk recovery / troubleshooting jika terjadi crash database. ⬜
+- [x] **TS-10-01:** Buat file `README.md` utama di repositori yang menjelaskan cara install, setup env, seed, migrate, dan run local development. 🟩
+- [x] **TS-10-02:** Dokumentasikan petunjuk penggunaan (User Guide) admin untuk panitia sekolah. 🟩 See `docs/09_ADMIN_USER_GUIDE.md`.
+- [x] **TS-10-03:** Pastikan seluruh file panduan `.md` di folder `docs/` disinkronkan dengan status final arsitektur. 🟩 Port lokal dan Next.js Proxy terminology disinkronkan.
+- [x] **TS-10-04:** Buat dokumentasi manual petunjuk recovery / troubleshooting jika terjadi crash database. 🟩 README memuat reset volume lokal, migrasi deploy, seed bootstrap, healthcheck, dan catatan operasional.
 - [ ] **TS-10-05:** Buat walkthrough video tutorial singkat cara mengunggah foto kandidat dan generate token batch. ⬜
 
 ---
