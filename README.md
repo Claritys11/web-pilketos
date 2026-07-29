@@ -163,6 +163,8 @@ POSTGRES_PASSWORD=password
 POSTGRES_DB=pilketos
 APP_UID=1000
 APP_GID=1000
+DOCKER_SUBNET=172.31.50.0/24
+DOCKER_GATEWAY=172.31.50.1
 
 DATABASE_URL=postgresql://postgres:password@postgres:5432/pilketos
 DIRECT_URL=postgresql://postgres:password@postgres:5432/pilketos
@@ -239,6 +241,22 @@ curl -I "http://localhost:6500${CSS_PATH}"
 ```
 
 Respons yang benar adalah `200 OK` dengan `Content-Type: text/css`.
+
+Jika terjadi Docker subnet collision dengan project lain, ubah subnet Pilketos di `.env`:
+
+```env
+DOCKER_SUBNET=172.31.50.0/24
+DOCKER_GATEWAY=172.31.50.1
+```
+
+Lalu recreate hanya project Pilketos tanpa menghapus volume database:
+
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+Jangan gunakan `docker compose down -v` kecuali memang ingin menghapus data PostgreSQL.
 
 ## Deploy Di Coolify
 

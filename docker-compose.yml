@@ -76,3 +76,10 @@ services:
 
 volumes:
   pilketos_pgdata:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${DOCKER_SUBNET:-172.31.50.0/24}
+          gateway: ${DOCKER_GATEWAY:-172.31.50.1}
