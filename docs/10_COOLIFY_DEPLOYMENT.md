@@ -34,6 +34,7 @@ NEXT_PUBLIC_APP_URL=https://domain-kamu.example
 Opsional:
 
 ```env
+APP_PORT=6500
 POSTGRES_USER=postgres
 POSTGRES_DB=pilketos
 STORAGE_DRIVER=local
@@ -73,6 +74,14 @@ pilketos_uploads  -> /app/public/uploads
 7. Deploy.
 8. Buka `/api/health`.
 9. Login ke `/admin/login`.
+
+Jika domain app tidak dipakai dari Coolify, `docker-compose.coolify.yml` tetap mem-publish
+`${APP_PORT:-6500}:6500`, sehingga Cloudflare Tunnel bisa diarahkan langsung ke:
+
+```yaml
+- hostname: pilketos.clarityz.my.id
+  service: http://localhost:6500
+```
 
 Default seed admin:
 

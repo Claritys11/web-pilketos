@@ -289,6 +289,7 @@ NEXT_PUBLIC_APP_URL=https://domain-kamu.example
 Environment opsional:
 
 ```env
+APP_PORT=6500
 POSTGRES_USER=postgres
 POSTGRES_DB=pilketos
 STORAGE_DRIVER=local
@@ -306,6 +307,14 @@ Catatan penting Coolify:
 - Service `migrate` dan `seed` adalah job satu kali. Keduanya diberi `exclude_from_hc: true`.
 - Jika domain publik memakai HTTPS, pastikan `NEXTAUTH_URL` dan `NEXT_PUBLIC_APP_URL` juga HTTPS.
 - `TOKEN_HMAC_SECRET` harus dibuat sekali dan dipertahankan. Mengubahnya akan membuat token voting lama tidak valid.
+
+Jika tidak memakai domain app dari Coolify dan ingin mengarahkan Cloudflare Tunnel langsung ke host,
+`docker-compose.coolify.yml` sudah mem-publish `${APP_PORT:-6500}:6500`. Arahkan cloudflared ke:
+
+```yaml
+- hostname: pilketos.clarityz.my.id
+  service: http://localhost:6500
+```
 
 Setelah deploy, buka:
 

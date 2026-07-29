@@ -65,6 +65,8 @@ services:
     environment: *app-env
     expose:
       - "6500"
+    ports:
+      - "${APP_PORT:-6500}:6500"
     volumes:
       - pilketos_uploads:/app/public/uploads
 
