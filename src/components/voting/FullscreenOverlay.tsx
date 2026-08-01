@@ -4,25 +4,58 @@ import { useCallback, useEffect, useState } from "react";
 
 interface FullscreenOverlayProps {
   enabled?: boolean;
+  title?: string;
+  description?: string;
+  buttonLabel?: string;
 }
 
 type NavigatorWithKeyboardLock = Navigator & {
   keyboard?: {
-    lock?: () => Promise<void>;
+    lock?: (keys?: string[]) => Promise<void>;
+    unlock?: () => void;
   };
 };
+
+type FullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+};
+
+type FullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+};
+
+const LOCKED_KEYS = ["Escape", "F5"];
+
+function getFullscreenElement() {
+  const fullscreenDocument = document as FullscreenDocument;
+  return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? null;
+}
+
+async function requestElementFullscreen(element: FullscreenElement) {
+  if (element.requestFullscreen) {
+    await element.requestFullscreen();
+    return;
+  }
+
+  await element.webkitRequestFullscreen?.();
+}
+
+function isInterrupted() {
+  return !getFullscreenElement() || document.visibilityState !== "visible" || !document.hasFocus();
+}
 
 export function useFullscreenControl(enabled = true) {
   const [interrupted, setInterrupted] = useState(false);
 
   const requestFullscreen = useCallback(async () => {
-    const root = document.documentElement;
-    if (!document.fullscreenElement) {
-      await root.requestFullscreen();
+    const root = document.documentElement as FullscreenElement;
+    if (!getFullscreenElement()) {
+      await requestElementFullscreen(root);
     }
 
     const keyboard = (navigator as NavigatorWithKeyboardLock).keyboard;
-    await keyboard?.lock?.().catch(() => undefined);
+    await keyboard?.lock?.(LOCKED_KEYS).catch(() => undefined);
     setInterrupted(false);
   }, []);
 
@@ -32,28 +65,57 @@ export function useFullscreenControl(enabled = true) {
     }
 
     const checkInterruption = () => {
-      setInterrupted(!document.fullscreenElement || document.visibilityState !== "visible");
+      setInterrupted(isInterrupted());
+    };
+
+    const preventExitShortcuts = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      const isRefresh = key === "f5" || ((event.ctrlKey || event.metaKey) && key === "r");
+      const isEscape = event.key === "Escape";
+
+      if (isRefresh || isEscape) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    const preventUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
     };
 
     document.addEventListener("fullscreenchange", checkInterruption);
+    document.addEventListener("webkitfullscreenchange", checkInterruption);
     document.addEventListener("visibilitychange", checkInterruption);
+    document.addEventListener("keydown", preventExitShortcuts, true);
     window.addEventListener("blur", checkInterruption);
     window.addEventListener("focus", checkInterruption);
+    window.addEventListener("beforeunload", preventUnload);
 
     checkInterruption();
 
     return () => {
+      const keyboard = (navigator as NavigatorWithKeyboardLock).keyboard;
+      keyboard?.unlock?.();
       document.removeEventListener("fullscreenchange", checkInterruption);
+      document.removeEventListener("webkitfullscreenchange", checkInterruption);
       document.removeEventListener("visibilitychange", checkInterruption);
+      document.removeEventListener("keydown", preventExitShortcuts, true);
       window.removeEventListener("blur", checkInterruption);
       window.removeEventListener("focus", checkInterruption);
+      window.removeEventListener("beforeunload", preventUnload);
     };
   }, [enabled]);
 
   return { interrupted, requestFullscreen };
 }
 
-export function FullscreenOverlay({ enabled = true }: FullscreenOverlayProps) {
+export function FullscreenOverlay({
+  enabled = true,
+  title = "Mode layar penuh terjeda",
+  description = "Kembali ke layar penuh untuk melanjutkan proses voting dari posisi terakhir.",
+  buttonLabel = "Kembali ke Layar Penuh",
+}: FullscreenOverlayProps) {
   const { interrupted, requestFullscreen } = useFullscreenControl(enabled);
 
   if (!enabled || !interrupted) {
@@ -70,16 +132,14 @@ export function FullscreenOverlay({ enabled = true }: FullscreenOverlayProps) {
         <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-amber-50 text-2xl text-amber-700">
           !
         </div>
-        <h2 className="text-xl font-semibold text-neutral-950">Mode layar penuh terjeda</h2>
-        <p className="mt-2 text-sm leading-6 text-neutral-600">
-          Kembali ke layar penuh untuk melanjutkan proses voting dari posisi terakhir.
-        </p>
+        <h2 className="text-xl font-semibold text-neutral-950">{title}</h2>
+        <p className="mt-2 text-sm leading-6 text-neutral-600">{description}</p>
         <button
           type="button"
           onClick={() => void requestFullscreen()}
           className="mt-6 h-12 w-full rounded-lg bg-[var(--color-vote-primary)] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[var(--color-primary-700)] focus:outline-none focus:ring-2 focus:ring-[var(--color-vote-primary)] focus:ring-offset-2"
         >
-          Kembali ke Layar Penuh
+          {buttonLabel}
         </button>
       </section>
     </div>

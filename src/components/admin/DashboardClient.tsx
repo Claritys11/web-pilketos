@@ -25,6 +25,26 @@ function timeLabel(value: string | null) {
     : "-";
 }
 
+function numberLabel(value: number) {
+  return new Intl.NumberFormat("id-ID").format(value);
+}
+
+function percentLabel(value: number) {
+  return `${new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: value % 1 === 0 ? 0 : 1,
+  }).format(value)}%`;
+}
+
+async function requestDashboardFullscreen() {
+  await document.documentElement.requestFullscreen?.().catch(() => undefined);
+}
+
+async function exitDashboardFullscreen() {
+  if (document.fullscreenElement) {
+    await document.exitFullscreen?.().catch(() => undefined);
+  }
+}
+
 export function DashboardClient({ user }: { user: AdminSessionUser }) {
   const [elections, setElections] = useState<ElectionListItem[]>([]);
   const [selectedElectionId, setSelectedElectionId] = useState("");
@@ -114,40 +134,110 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
     };
   }, [loadStats, selectedElectionId]);
 
-  useDashboardPolling(() => {
-    void loadStats(selectedElectionId, true);
-  }, Boolean(selectedElectionId));
+  useDashboardPolling(
+    () => {
+      void loadStats(selectedElectionId, true);
+    },
+    Boolean(selectedElectionId),
+    liveMode ? 2000 : 5000,
+  );
 
   if (liveMode && stats) {
     return (
-      <main className="min-h-[calc(100vh-8rem)] bg-neutral-950 p-6 text-white">
-        <div className="flex items-center justify-between">
-          <Badge tone="danger">LIVE MODE</Badge>
-        </div>
-        <section className="mt-10">
-          <p className="text-sm font-semibold text-indigo-200">{stats.election.title}</p>
-          <h1 className="mt-2 text-4xl font-bold">{stats.totalVotes} suara masuk</h1>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <Stat label="Partisipasi" value={`${stats.participationRate}%`} dark />
-            <Stat label="Token digunakan" value={String(stats.usedTokens)} dark />
+      <main className="min-h-[calc(100vh-8rem)] bg-neutral-950 p-5 text-white sm:p-8 lg:p-10">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6">
+          <div className="flex flex-col gap-4 border-b border-white/10 pb-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.9)]" />
+                <Badge tone="danger">LIVE MODE</Badge>
+                <Badge tone={electionStatusTone(stats.election.status)}>
+                  {stats.election.status}
+                </Badge>
+              </div>
+              <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-indigo-200">
+                {stats.election.title}
+              </p>
+              <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+                {numberLabel(stats.totalVotes)} suara masuk
+              </h1>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => void requestDashboardFullscreen()}
+                className="h-11 rounded-lg border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur hover:bg-white/15"
+              >
+                Fullscreen
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLiveMode(false);
+                  void exitDashboardFullscreen();
+                }}
+                className="h-11 rounded-lg border border-white/15 bg-white px-4 text-sm font-semibold text-neutral-950 hover:bg-neutral-100"
+              >
+                Exit Live Mode
+              </button>
+            </div>
+          </div>
+
+          <section className="grid gap-5 lg:grid-cols-[360px_1fr]">
+            <div className="rounded-lg border border-white/10 bg-white/10 p-6 shadow-sm">
+              <p className="text-sm font-semibold text-neutral-300">Partisipasi</p>
+              <div className="mt-6 grid place-items-center">
+                <div
+                  className="grid h-56 w-56 place-items-center rounded-full"
+                  style={{
+                    background: `conic-gradient(#34d399 ${Math.min(stats.participationRate, 100)}%, rgba(255,255,255,0.12) 0)`,
+                  }}
+                >
+                  <div className="grid h-40 w-40 place-items-center rounded-full bg-neutral-950 text-center">
+                    <div>
+                      <p className="text-4xl font-bold">{percentLabel(stats.participationRate)}</p>
+                      <p className="mt-1 text-xs font-semibold uppercase text-neutral-400">
+                        dari token
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <Stat label="Token dipakai" value={numberLabel(stats.usedTokens)} dark compact />
+                <Stat
+                  label="Sisa token"
+                  value={numberLabel(Math.max(stats.totalTokens - stats.usedTokens, 0))}
+                  dark
+                  compact
+                />
+              </div>
+            </div>
+
+            <CandidateBars stats={stats} dark ranked />
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-4">
+            <Stat label="Total token" value={numberLabel(stats.totalTokens)} dark />
+            <Stat label="Token digunakan" value={numberLabel(stats.usedTokens)} dark />
             <Stat
               label="Sisa token"
-              value={String(Math.max(stats.totalTokens - stats.usedTokens, 0))}
+              value={numberLabel(Math.max(stats.totalTokens - stats.usedTokens, 0))}
               dark
             />
+            <Stat label="Suara terakhir" value={timeLabel(stats.lastVoteAt)} dark />
+          </section>
+
+          <div className="flex flex-col gap-2 border-t border-white/10 pt-4 text-sm text-neutral-300 sm:flex-row sm:items-center sm:justify-between">
+            <p>Terakhir diperbarui: {timeLabel(stats.generatedAt)}</p>
+            <p className="inline-flex items-center gap-2">
+              <span
+                className={`h-2 w-2 rounded-full ${polling ? "animate-pulse bg-amber-300" : "bg-emerald-400"}`}
+              />
+              Auto-refresh setiap 2 detik
+            </p>
           </div>
-          <CandidateBars stats={stats} dark />
-          <p className="mt-8 text-sm text-neutral-300">
-            Terakhir diperbarui: {timeLabel(stats.generatedAt)}
-          </p>
-        </section>
-        <button
-          type="button"
-          onClick={() => setLiveMode(false)}
-          className="fixed bottom-6 right-6 h-11 rounded-lg border border-white/20 bg-white/10 px-4 text-sm font-semibold backdrop-blur hover:bg-white/15"
-        >
-          Exit Live Mode
-        </button>
+        </div>
       </main>
     );
   }
@@ -178,16 +268,17 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
           >
             {polling ? "Memuat..." : "Refresh"}
           </button>
-          {user.role !== "VIEWER" ? (
-            <button
-              type="button"
-              onClick={() => setLiveMode(true)}
-              disabled={!stats}
-              className="h-11 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-            >
-              Live Mode
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              setLiveMode(true);
+              void requestDashboardFullscreen();
+            }}
+            disabled={!stats}
+            className="h-11 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            Live Mode
+          </button>
         </div>
       </div>
 
@@ -230,11 +321,11 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
           </section>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <Stat label="Total suara" value={String(stats.totalVotes)} />
-            <Stat label="Partisipasi" value={`${stats.participationRate}%`} />
+            <Stat label="Total suara" value={numberLabel(stats.totalVotes)} />
+            <Stat label="Partisipasi" value={percentLabel(stats.participationRate)} />
             <Stat
               label="Sisa token"
-              value={String(Math.max(stats.totalTokens - stats.usedTokens, 0))}
+              value={numberLabel(Math.max(stats.totalTokens - stats.usedTokens, 0))}
             />
           </div>
 
@@ -245,41 +336,85 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
   );
 }
 
-function Stat({ label, value, dark = false }: { label: string; value: string; dark?: boolean }) {
+function Stat({
+  label,
+  value,
+  dark = false,
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  dark?: boolean;
+  compact?: boolean;
+}) {
   return (
     <div
-      className={`rounded-lg border p-5 shadow-sm ${dark ? "border-white/10 bg-white/10" : "border-neutral-200 bg-white"}`}
+      className={`rounded-lg border shadow-sm ${compact ? "p-4" : "p-5"} ${dark ? "border-white/10 bg-white/10" : "border-neutral-200 bg-white"}`}
     >
       <p className={`text-sm font-medium ${dark ? "text-neutral-300" : "text-neutral-500"}`}>
         {label}
       </p>
-      <p className="mt-3 text-3xl font-bold">{value}</p>
+      <p className={`mt-3 font-bold ${compact ? "text-2xl" : "text-3xl"}`}>{value}</p>
     </div>
   );
 }
 
-function CandidateBars({ stats, dark = false }: { stats: DashboardStats; dark?: boolean }) {
+function CandidateBars({
+  stats,
+  dark = false,
+  ranked = false,
+}: {
+  stats: DashboardStats;
+  dark?: boolean;
+  ranked?: boolean;
+}) {
+  const candidates = ranked
+    ? [...stats.candidateStats].sort((first, second) => {
+        if (second.voteCount !== first.voteCount) {
+          return second.voteCount - first.voteCount;
+        }
+        return first.orderNumber - second.orderNumber;
+      })
+    : stats.candidateStats;
+
   return (
     <section
       className={`mt-6 rounded-lg border p-5 shadow-sm ${dark ? "border-white/10 bg-white/10" : "border-neutral-200 bg-white"}`}
     >
-      <h3 className="text-lg font-semibold">Hasil per kandidat</h3>
-      <div className="mt-5 space-y-4">
-        {stats.candidateStats.map((candidate) => (
-          <div key={candidate.candidateId}>
-            <div className="flex items-center justify-between gap-4 text-sm font-semibold">
-              <span>
+      <div className="flex items-center justify-between gap-4">
+        <h3 className="text-lg font-semibold">Hasil per kandidat</h3>
+        {ranked ? (
+          <span className="text-xs font-semibold text-neutral-400">Ranking live</span>
+        ) : null}
+      </div>
+      <div className="mt-5 space-y-5">
+        {candidates.map((candidate, index) => (
+          <div
+            key={candidate.candidateId}
+            className={
+              ranked && index === 0
+                ? "rounded-lg border border-emerald-300/40 bg-emerald-400/10 p-4"
+                : undefined
+            }
+          >
+            <div className="flex flex-col gap-2 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between">
+              <span className="min-w-0">
+                {ranked ? (
+                  <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs">
+                    #{index + 1}
+                  </span>
+                ) : null}
                 No. {candidate.orderNumber} {candidate.name}
               </span>
-              <span>
-                {candidate.voteCount} suara ({candidate.percentage}%)
+              <span className={dark ? "text-neutral-200" : "text-neutral-700"}>
+                {numberLabel(candidate.voteCount)} suara ({percentLabel(candidate.percentage)})
               </span>
             </div>
             <div
-              className={`mt-2 h-3 overflow-hidden rounded-full ${dark ? "bg-white/10" : "bg-neutral-100"}`}
+              className={`mt-3 h-4 overflow-hidden rounded-full ${dark ? "bg-white/10" : "bg-neutral-100"}`}
             >
               <div
-                className="h-full rounded-full bg-indigo-600"
+                className={`h-full rounded-full ${ranked && index === 0 ? "bg-emerald-400" : "bg-indigo-600"}`}
                 style={{ width: `${Math.min(candidate.percentage, 100)}%` }}
               />
             </div>

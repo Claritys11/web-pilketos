@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
+import { FullscreenOverlay } from "@/components/voting/FullscreenOverlay";
 import { Stepper } from "@/components/voting/Stepper";
 import { normalizeToken, saveVotingSession } from "@/lib/vote/client-state";
 
@@ -67,6 +68,11 @@ export default function VoteTokenPage() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-5 py-8 sm:px-8 lg:py-12">
+      <FullscreenOverlay
+        title="Masuk mode layar penuh"
+        description="Voting hanya bisa dilakukan dalam layar penuh. Tetap berada di halaman ini sampai suara selesai dikirim."
+        buttonLabel="Masuk Layar Penuh"
+      />
       <Stepper currentStep={1} />
 
       <section className="grid flex-1 place-items-center py-10">
