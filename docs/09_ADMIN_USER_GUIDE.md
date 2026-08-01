@@ -80,7 +80,7 @@ Token dibuat dari tab `Token` pada detail election.
 1. Pastikan election masih `SETUP`.
 2. Buka tab `Token`.
 3. Klik `Generate Token`.
-4. Masukkan jumlah token sesuai jumlah pemilih.
+4. Masukkan jumlah token sesuai jumlah pemilih. Satu batch mendukung sampai 2000 token.
 5. Klik `Generate`.
 6. Sistem menampilkan token plaintext satu kali dan mengunduh CSV otomatis.
 7. Simpan CSV di tempat aman.

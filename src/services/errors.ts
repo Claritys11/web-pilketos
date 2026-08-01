@@ -17,6 +17,7 @@ export type ServiceErrorCode =
   | "ORDER_NUMBER_TAKEN"
   | "TOKEN_ALREADY_USED"
   | "TOKEN_GENERATION_ACTIVE_ONLY"
+  | "TOKEN_GENERATION_FAILED"
   | "TOKEN_INVALID";
 
 export class ServiceError extends Error {

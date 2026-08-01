@@ -1534,7 +1534,7 @@ Setiap tombol aksi state machine memunculkan **Confirmation Dialog** sebelum eks
 | Generate Token Voting          [X]|
 +-----------------------------------+
 | Jumlah Token *                    |
-| [Input: number, min 1, max 1000]  |
+| [Input: number, min 1, max 2000]  |
 |                                   |
 | Estimasi: 150 siswa akan memilih  |
 | (helper text)                     |

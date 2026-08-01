@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { MAX_TOKEN_BATCH_SIZE } from "@/config/tokens";
+
 export const idSchema = z.string().trim().min(1).max(100);
 export const cuidSchema = idSchema;
 export const tokenSchema = z.string().trim().min(8).max(64);
@@ -64,7 +66,7 @@ export const candidateUpdateSchema = candidateCreateSchema
 
 export const tokenGenerateSchema = z.object({
   electionId: cuidSchema,
-  count: z.number().int().min(1).max(1000),
+  count: z.number().int().min(1).max(MAX_TOKEN_BATCH_SIZE),
 });
 
 export const adminRoleSchema = z.enum(["SUPER_ADMIN", "ADMIN", "VIEWER"]);

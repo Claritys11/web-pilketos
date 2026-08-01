@@ -1430,7 +1430,7 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 | Field        | Rule                               |
 | ------------ | ---------------------------------- |
 | `electionId` | Required; CUID valid               |
-| `count`      | Required; integer; min 1; max 1000 |
+| `count`      | Required; integer; min 1; max 2000 |
 
 ---
 

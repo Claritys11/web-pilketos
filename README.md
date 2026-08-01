@@ -421,7 +421,7 @@ Alur setup pemilihan:
 4. Masuk ke detail election.
 5. Buka tab `Kandidat`, tambah minimal 2 kandidat, isi nama, kelas, visi, misi, dan foto.
 6. Buka tab `Token`.
-7. Klik `Generate Token`, masukkan jumlah token sesuai jumlah pemilih.
+7. Klik `Generate Token`, masukkan jumlah token sesuai jumlah pemilih. Satu batch mendukung sampai 2000 token.
 8. Setelah generate sukses, sistem menampilkan plaintext token satu kali dan otomatis mengunduh CSV.
 9. Simpan CSV itu dengan aman, lalu cetak/bagikan satu token untuk satu siswa.
 10. Kembali ke detail election, klik `Tandai Siap`.

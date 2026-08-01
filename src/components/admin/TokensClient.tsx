@@ -7,6 +7,7 @@ import type { FormEvent } from "react";
 import { Badge, electionStatusTone } from "@/components/common/Badge";
 import { Modal } from "@/components/common/Modal";
 import { SkeletonCard } from "@/components/common/Skeleton";
+import { MAX_TOKEN_BATCH_SIZE } from "@/config/tokens";
 import { adminFetch } from "@/lib/admin/api";
 import type { AdminSessionUser, DashboardStats, ElectionDetail } from "@/lib/admin/types";
 
@@ -166,11 +167,14 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
               <input
                 type="number"
                 min={1}
-                max={1000}
+                max={MAX_TOKEN_BATCH_SIZE}
                 value={count}
                 onChange={(event) => setCount(Number(event.target.value))}
                 className="mt-2 h-11 w-full rounded-lg border border-neutral-200 px-3"
               />
+              <span className="mt-2 block text-xs font-medium text-neutral-500">
+                Maksimal {MAX_TOKEN_BATCH_SIZE} token per batch.
+              </span>
             </label>
             <div className="flex justify-end gap-3">
               <button

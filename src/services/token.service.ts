@@ -1,14 +1,17 @@
 import crypto from "node:crypto";
 
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { config } from "@/config/env";
+import { MAX_TOKEN_BATCH_SIZE } from "@/config/tokens";
 import { prisma } from "@/lib/prisma";
 import { auditService } from "@/services/audit.service";
 import { assertRole, ServiceError } from "@/services/errors";
 
 const TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const TOKEN_LENGTH = 12;
+const MAX_TOKEN_GENERATION_ATTEMPTS = 10;
+const MAX_TOKEN_INSERT_ATTEMPTS = 3;
 
 export interface GenerateTokenBatchInput {
   electionId: string;
@@ -66,18 +69,81 @@ export class TokenService {
   async generateTokenBatch(input: GenerateTokenBatchInput) {
     assertRole(input.actorRole, ["ADMIN", "SUPER_ADMIN"]);
 
-    if (input.count < 1 || input.count > 1000) {
-      throw new ServiceError("TOKEN_GENERATION_ACTIVE_ONLY", "Jumlah token harus 1-1000.", 422);
+    if (input.count < 1 || input.count > MAX_TOKEN_BATCH_SIZE) {
+      throw new ServiceError(
+        "TOKEN_GENERATION_ACTIVE_ONLY",
+        `Jumlah token harus 1-${MAX_TOKEN_BATCH_SIZE}.`,
+        422,
+      );
     }
 
-    const plaintextTokens = new Set<string>();
-    while (plaintextTokens.size < input.count) {
-      plaintextTokens.add(generatePlaintextToken());
+    for (let attempt = 1; attempt <= MAX_TOKEN_INSERT_ATTEMPTS; attempt += 1) {
+      const { tokens, hashes } = await this.generateUnusedTokens(input.count);
+
+      try {
+        await this.insertTokenBatch(input, hashes);
+
+        return {
+          electionId: input.electionId,
+          generatedCount: tokens.length,
+          tokens,
+        };
+      } catch (error) {
+        if (attempt < MAX_TOKEN_INSERT_ATTEMPTS && isUniqueTokenConstraintError(error)) {
+          continue;
+        }
+
+        throw error;
+      }
     }
 
-    const tokens = [...plaintextTokens];
-    const hashes = tokens.map((token) => hashVotingToken(token));
+    throw new ServiceError(
+      "TOKEN_GENERATION_FAILED",
+      "Gagal membuat token unik. Silakan coba lagi.",
+      500,
+    );
+  }
 
+  private async generateUnusedTokens(count: number) {
+    const tokenByHash = new Map<string, string>();
+
+    for (let attempt = 1; attempt <= MAX_TOKEN_GENERATION_ATTEMPTS; attempt += 1) {
+      while (tokenByHash.size < count) {
+        const token = generatePlaintextToken();
+        tokenByHash.set(hashVotingToken(token), token);
+      }
+
+      const existingTokens = await prisma.votingToken.findMany({
+        where: {
+          tokenHash: {
+            in: [...tokenByHash.keys()],
+          },
+        },
+        select: {
+          tokenHash: true,
+        },
+      });
+
+      if (existingTokens.length === 0) {
+        return {
+          tokens: [...tokenByHash.values()],
+          hashes: [...tokenByHash.keys()],
+        };
+      }
+
+      for (const existingToken of existingTokens) {
+        tokenByHash.delete(existingToken.tokenHash);
+      }
+    }
+
+    throw new ServiceError(
+      "TOKEN_GENERATION_FAILED",
+      "Gagal membuat token unik. Silakan coba lagi.",
+      500,
+    );
+  }
+
+  private async insertTokenBatch(input: GenerateTokenBatchInput, hashes: string[]) {
     await prisma.$transaction(async (tx) => {
       const election = await tx.election.findUnique({
         where: { id: input.electionId },
@@ -121,12 +187,6 @@ export class TokenService {
         tx,
       );
     });
-
-    return {
-      electionId: input.electionId,
-      generatedCount: tokens.length,
-      tokens,
-    };
   }
 
   async validateToken(
@@ -160,6 +220,15 @@ export class TokenService {
       electionTitle: votingToken.election.title,
     };
   }
+}
+
+function isUniqueTokenConstraintError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002" &&
+    Array.isArray(error.meta?.target) &&
+    error.meta.target.includes("token_hash")
+  );
 }
 
 export const tokenService = new TokenService();
