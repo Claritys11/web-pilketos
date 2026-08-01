@@ -21,15 +21,20 @@ RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+
 # Copy only manifests to leverage Docker layer caching
 COPY package.json package-lock.json ./
 
 # Install all dependencies (including dev) needed for the build step
 # Increase timeout/retries to prevent ETIMEDOUT on slow/proxy networks
-RUN npm config set fetch-retries 10 \
+RUN npm config set registry "$NPM_REGISTRY" \
+    && npm config set fetch-retries 10 \
+    && npm config set fetch-retry-factor 2 \
     && npm config set fetch-retry-mintimeout 30000 \
-    && npm config set fetch-retry-maxtimeout 300000 \
-    && npm config set fetch-timeout 600000 \
+    && npm config set fetch-retry-maxtimeout 600000 \
+    && npm config set fetch-timeout 900000 \
+    && npm config set maxsockets 3 \
     && npm ci --legacy-peer-deps --no-audit --prefer-offline
 
 # ---------------------------------------------------------------------------
