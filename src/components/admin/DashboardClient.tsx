@@ -15,6 +15,8 @@ import type {
   Paginated,
 } from "@/lib/admin/types";
 
+type LiveTheme = "black" | "white";
+
 function timeLabel(value: string | null) {
   return value
     ? new Date(value).toLocaleTimeString("id-ID", {
@@ -53,6 +55,7 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
   const [liveMode, setLiveMode] = useState(false);
+  const [liveTheme, setLiveTheme] = useState<LiveTheme>("black");
 
   const selectedElection = useMemo(
     () => elections.find((election) => election.id === selectedElectionId) ?? elections[0] ?? null,
@@ -143,10 +146,20 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
   );
 
   if (liveMode && stats) {
+    const isBlackMode = liveTheme === "black";
+    const liveClassName = isBlackMode
+      ? "bg-neutral-950 text-white"
+      : "bg-neutral-50 text-neutral-950";
+    const borderClassName = isBlackMode ? "border-white/10" : "border-neutral-200";
+    const mutedTextClassName = isBlackMode ? "text-neutral-300" : "text-neutral-600";
+    const eyebrowClassName = isBlackMode ? "text-indigo-200" : "text-indigo-700";
+
     return (
-      <main className="fixed inset-0 z-50 overflow-y-auto bg-neutral-950 p-5 text-white sm:p-8 lg:p-10">
+      <main className={`fixed inset-0 z-50 overflow-y-auto p-5 sm:p-8 lg:p-10 ${liveClassName}`}>
         <div className="mx-auto flex min-h-full w-full max-w-[1800px] flex-col gap-6">
-          <div className="flex flex-col gap-4 border-b border-white/10 pb-6 lg:flex-row lg:items-center lg:justify-between">
+          <div
+            className={`flex flex-col gap-4 border-b pb-6 lg:flex-row lg:items-center lg:justify-between ${borderClassName}`}
+          >
             <div>
               <div className="flex flex-wrap items-center gap-3">
                 <span className="inline-flex h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.9)]" />
@@ -155,7 +168,9 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
                   {stats.election.status}
                 </Badge>
               </div>
-              <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-indigo-200">
+              <p
+                className={`mt-4 text-sm font-semibold uppercase tracking-wide ${eyebrowClassName}`}
+              >
                 {stats.election.title}
               </p>
               <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
@@ -163,10 +178,40 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
               </h1>
             </div>
             <div className="flex flex-wrap gap-3">
+              <div
+                className={`flex h-11 overflow-hidden rounded-lg border ${isBlackMode ? "border-white/15 bg-white/10" : "border-neutral-200 bg-white"}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setLiveTheme("black")}
+                  className={`px-4 text-sm font-semibold transition ${
+                    isBlackMode
+                      ? "bg-neutral-900 text-white"
+                      : "text-neutral-600 hover:bg-neutral-100"
+                  }`}
+                >
+                  Black
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLiveTheme("white")}
+                  className={`px-4 text-sm font-semibold transition ${
+                    !isBlackMode
+                      ? "bg-neutral-950 text-white"
+                      : "text-neutral-200 hover:bg-white/10"
+                  }`}
+                >
+                  White
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => void requestDashboardFullscreen()}
-                className="h-11 rounded-lg border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur hover:bg-white/15"
+                className={`h-11 rounded-lg border px-4 text-sm font-semibold backdrop-blur ${
+                  isBlackMode
+                    ? "border-white/15 bg-white/10 text-white hover:bg-white/15"
+                    : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100"
+                }`}
               >
                 Fullscreen
               </button>
@@ -176,7 +221,11 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
                   setLiveMode(false);
                   void exitDashboardFullscreen();
                 }}
-                className="h-11 rounded-lg border border-white/15 bg-white px-4 text-sm font-semibold text-neutral-950 hover:bg-neutral-100"
+                className={`h-11 rounded-lg border px-4 text-sm font-semibold ${
+                  isBlackMode
+                    ? "border-white/15 bg-white text-neutral-950 hover:bg-neutral-100"
+                    : "border-neutral-900 bg-neutral-950 text-white hover:bg-neutral-800"
+                }`}
               >
                 Exit Live Mode
               </button>
@@ -184,19 +233,29 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
           </div>
 
           <section className="grid gap-5 lg:grid-cols-[360px_1fr]">
-            <div className="rounded-lg border border-white/10 bg-white/10 p-6 shadow-sm">
-              <p className="text-sm font-semibold text-neutral-300">Partisipasi</p>
+            <div
+              className={`rounded-lg border p-6 shadow-sm ${
+                isBlackMode ? "border-white/10 bg-white/10" : "border-neutral-200 bg-white"
+              }`}
+            >
+              <p className={`text-sm font-semibold ${mutedTextClassName}`}>Partisipasi</p>
               <div className="mt-6 grid place-items-center">
                 <div
                   className="grid h-56 w-56 place-items-center rounded-full"
                   style={{
-                    background: `conic-gradient(#34d399 ${Math.min(stats.participationRate, 100)}%, rgba(255,255,255,0.12) 0)`,
+                    background: `conic-gradient(#34d399 ${Math.min(stats.participationRate, 100)}%, ${isBlackMode ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.12)"} 0)`,
                   }}
                 >
-                  <div className="grid h-40 w-40 place-items-center rounded-full bg-neutral-950 text-center">
+                  <div
+                    className={`grid h-40 w-40 place-items-center rounded-full text-center ${
+                      isBlackMode ? "bg-neutral-950" : "bg-white"
+                    }`}
+                  >
                     <div>
                       <p className="text-4xl font-bold">{percentLabel(stats.participationRate)}</p>
-                      <p className="mt-1 text-xs font-semibold uppercase text-neutral-400">
+                      <p
+                        className={`mt-1 text-xs font-semibold uppercase ${isBlackMode ? "text-neutral-400" : "text-neutral-500"}`}
+                      >
                         dari token
                       </p>
                     </div>
@@ -204,31 +263,38 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
                 </div>
               </div>
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <Stat label="Token dipakai" value={numberLabel(stats.usedTokens)} dark compact />
+                <Stat
+                  label="Token dipakai"
+                  value={numberLabel(stats.usedTokens)}
+                  theme={liveTheme}
+                  compact
+                />
                 <Stat
                   label="Sisa token"
                   value={numberLabel(Math.max(stats.totalTokens - stats.usedTokens, 0))}
-                  dark
+                  theme={liveTheme}
                   compact
                 />
               </div>
             </div>
 
-            <CandidateBars stats={stats} dark ranked />
+            <CandidateBars stats={stats} theme={liveTheme} ranked />
           </section>
 
           <section className="grid gap-4 md:grid-cols-4">
-            <Stat label="Total token" value={numberLabel(stats.totalTokens)} dark />
-            <Stat label="Token digunakan" value={numberLabel(stats.usedTokens)} dark />
+            <Stat label="Total token" value={numberLabel(stats.totalTokens)} theme={liveTheme} />
+            <Stat label="Token digunakan" value={numberLabel(stats.usedTokens)} theme={liveTheme} />
             <Stat
               label="Sisa token"
               value={numberLabel(Math.max(stats.totalTokens - stats.usedTokens, 0))}
-              dark
+              theme={liveTheme}
             />
-            <Stat label="Suara terakhir" value={timeLabel(stats.lastVoteAt)} dark />
+            <Stat label="Suara terakhir" value={timeLabel(stats.lastVoteAt)} theme={liveTheme} />
           </section>
 
-          <div className="flex flex-col gap-2 border-t border-white/10 pt-4 text-sm text-neutral-300 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            className={`flex flex-col gap-2 border-t pt-4 text-sm sm:flex-row sm:items-center sm:justify-between ${borderClassName} ${mutedTextClassName}`}
+          >
             <p>Terakhir diperbarui: {timeLabel(stats.generatedAt)}</p>
             <p className="inline-flex items-center gap-2">
               <span
@@ -339,19 +405,21 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
 function Stat({
   label,
   value,
-  dark = false,
+  theme = "white",
   compact = false,
 }: {
   label: string;
   value: string;
-  dark?: boolean;
+  theme?: LiveTheme;
   compact?: boolean;
 }) {
+  const isBlackMode = theme === "black";
+
   return (
     <div
-      className={`rounded-lg border shadow-sm ${compact ? "p-4" : "p-5"} ${dark ? "border-white/10 bg-white/10" : "border-neutral-200 bg-white"}`}
+      className={`rounded-lg border shadow-sm ${compact ? "p-4" : "p-5"} ${isBlackMode ? "border-white/10 bg-white/10" : "border-neutral-200 bg-white"}`}
     >
-      <p className={`text-sm font-medium ${dark ? "text-neutral-300" : "text-neutral-500"}`}>
+      <p className={`text-sm font-medium ${isBlackMode ? "text-neutral-300" : "text-neutral-500"}`}>
         {label}
       </p>
       <p className={`mt-3 font-bold ${compact ? "text-2xl" : "text-3xl"}`}>{value}</p>
@@ -361,13 +429,14 @@ function Stat({
 
 function CandidateBars({
   stats,
-  dark = false,
+  theme = "white",
   ranked = false,
 }: {
   stats: DashboardStats;
-  dark?: boolean;
+  theme?: LiveTheme;
   ranked?: boolean;
 }) {
+  const isBlackMode = theme === "black";
   const candidates = ranked
     ? [...stats.candidateStats].sort((first, second) => {
         if (second.voteCount !== first.voteCount) {
@@ -379,7 +448,7 @@ function CandidateBars({
 
   return (
     <section
-      className={`mt-6 rounded-lg border p-5 shadow-sm ${dark ? "border-white/10 bg-white/10" : "border-neutral-200 bg-white"}`}
+      className={`mt-6 rounded-lg border p-5 shadow-sm ${isBlackMode ? "border-white/10 bg-white/10" : "border-neutral-200 bg-white"}`}
     >
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-lg font-semibold">Hasil per kandidat</h3>
@@ -393,7 +462,7 @@ function CandidateBars({
             key={candidate.candidateId}
             className={
               ranked && index === 0
-                ? "rounded-lg border border-emerald-300/40 bg-emerald-400/10 p-4"
+                ? `rounded-lg border p-4 ${isBlackMode ? "border-emerald-300/40 bg-emerald-400/10" : "border-emerald-200 bg-emerald-50"}`
                 : undefined
             }
           >
@@ -406,12 +475,12 @@ function CandidateBars({
                 ) : null}
                 No. {candidate.orderNumber} {candidate.name}
               </span>
-              <span className={dark ? "text-neutral-200" : "text-neutral-700"}>
+              <span className={isBlackMode ? "text-neutral-200" : "text-neutral-700"}>
                 {numberLabel(candidate.voteCount)} suara ({percentLabel(candidate.percentage)})
               </span>
             </div>
             <div
-              className={`mt-3 h-4 overflow-hidden rounded-full ${dark ? "bg-white/10" : "bg-neutral-100"}`}
+              className={`mt-3 h-4 overflow-hidden rounded-full ${isBlackMode ? "bg-white/10" : "bg-neutral-100"}`}
             >
               <div
                 className={`h-full rounded-full ${ranked && index === 0 ? "bg-emerald-400" : "bg-indigo-600"}`}
