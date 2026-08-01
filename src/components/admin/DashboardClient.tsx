@@ -144,8 +144,8 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
 
   if (liveMode && stats) {
     return (
-      <main className="min-h-[calc(100vh-8rem)] bg-neutral-950 p-5 text-white sm:p-8 lg:p-10">
-        <div className="mx-auto flex max-w-7xl flex-col gap-6">
+      <main className="fixed inset-0 z-50 overflow-y-auto bg-neutral-950 p-5 text-white sm:p-8 lg:p-10">
+        <div className="mx-auto flex min-h-full w-full max-w-[1800px] flex-col gap-6">
           <div className="flex flex-col gap-4 border-b border-white/10 pb-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-3">
