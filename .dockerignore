@@ -7,11 +7,16 @@
 node_modules/
 coverage/
 .nyc_output/
+_reference/
 
 # Environment files — never include secrets in Docker image
 .env
 .env.local
 .env.*.local
+client_secret_*.json
+credentials*.json
+google-oauth-token*.json
+gmail-token*.json
 
 # Runtime uploads are mounted/persisted outside the image
 public/uploads/**

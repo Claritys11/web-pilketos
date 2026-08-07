@@ -52,6 +52,7 @@ function buildContentSecurityPolicy(nonce: string): string {
     `img-src 'self' data: blob: ${appConfig.supabase.url}`,
     `connect-src 'self' ${appConfig.supabase.url}`,
     "font-src 'self' data:",
+    "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

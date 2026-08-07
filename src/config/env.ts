@@ -43,6 +43,27 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url("NEXT_PUBLIC_APP_URL must be a valid URL"),
   APP_VERSION: z.string().default("0.1.0"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+
+  // Mail
+  EMAIL_DRIVER: z.enum(["smtp", "gmail_api", "none"]).default("smtp"),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  SMTP_SECURE: z
+    .enum(["true", "false", "1", "0"])
+    .optional()
+    .transform((value) => value === "true" || value === "1"),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+  GMAIL_CLIENT_ID: z.string().optional(),
+  GMAIL_CLIENT_SECRET: z.string().optional(),
+  GMAIL_REFRESH_TOKEN: z.string().optional(),
+  GMAIL_REDIRECT_URI: z.string().url().optional(),
+  GMAIL_FROM: z.string().optional(),
+  GMAIL_SECONDARY_CLIENT_ID: z.string().optional(),
+  GMAIL_SECONDARY_CLIENT_SECRET: z.string().optional(),
+  GMAIL_SECONDARY_REFRESH_TOKEN: z.string().optional(),
+  GMAIL_SECONDARY_FROM: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -80,6 +101,22 @@ const _env = _parsed.success
       NEXT_PUBLIC_APP_URL: "http://localhost:6500",
       APP_VERSION: "0.1.0",
       NODE_ENV: "production",
+      EMAIL_DRIVER: "none",
+      SMTP_HOST: undefined,
+      SMTP_PORT: undefined,
+      SMTP_SECURE: undefined,
+      SMTP_USER: undefined,
+      SMTP_PASSWORD: undefined,
+      SMTP_FROM: undefined,
+      GMAIL_CLIENT_ID: undefined,
+      GMAIL_CLIENT_SECRET: undefined,
+      GMAIL_REFRESH_TOKEN: undefined,
+      GMAIL_REDIRECT_URI: undefined,
+      GMAIL_FROM: undefined,
+      GMAIL_SECONDARY_CLIENT_ID: undefined,
+      GMAIL_SECONDARY_CLIENT_SECRET: undefined,
+      GMAIL_SECONDARY_REFRESH_TOKEN: undefined,
+      GMAIL_SECONDARY_FROM: undefined,
     } as unknown as z.infer<typeof envSchema>);
 
 if (isSkippingEnvValidation && configIsRuntime()) {
@@ -150,6 +187,58 @@ export const config = {
     isDevelopment: _env.NODE_ENV === "development",
     isProduction: _env.NODE_ENV === "production",
     isTest: _env.NODE_ENV === "test",
+  },
+
+  mail: {
+    driver: _env.EMAIL_DRIVER,
+    smtpHost: _env.SMTP_HOST,
+    smtpPort: _env.SMTP_PORT,
+    smtpSecure: _env.SMTP_SECURE ?? false,
+    smtpUser: _env.SMTP_USER,
+    smtpPassword: _env.SMTP_PASSWORD,
+    from: _env.SMTP_FROM,
+    gmailClientId: _env.GMAIL_CLIENT_ID,
+    gmailClientSecret: _env.GMAIL_CLIENT_SECRET,
+    gmailRefreshToken: _env.GMAIL_REFRESH_TOKEN,
+    gmailRedirectUri: _env.GMAIL_REDIRECT_URI,
+    gmailFrom: _env.GMAIL_FROM,
+    gmailProviders: [
+      _env.GMAIL_CLIENT_ID &&
+      _env.GMAIL_CLIENT_SECRET &&
+      _env.GMAIL_REFRESH_TOKEN &&
+      _env.GMAIL_FROM
+        ? {
+            name: "primary",
+            clientId: _env.GMAIL_CLIENT_ID,
+            clientSecret: _env.GMAIL_CLIENT_SECRET,
+            refreshToken: _env.GMAIL_REFRESH_TOKEN,
+            from: _env.GMAIL_FROM,
+          }
+        : null,
+      _env.GMAIL_SECONDARY_CLIENT_ID &&
+      _env.GMAIL_SECONDARY_CLIENT_SECRET &&
+      _env.GMAIL_SECONDARY_REFRESH_TOKEN &&
+      (_env.GMAIL_SECONDARY_FROM || _env.GMAIL_FROM)
+        ? {
+            name: "secondary",
+            clientId: _env.GMAIL_SECONDARY_CLIENT_ID,
+            clientSecret: _env.GMAIL_SECONDARY_CLIENT_SECRET,
+            refreshToken: _env.GMAIL_SECONDARY_REFRESH_TOKEN,
+            from: _env.GMAIL_SECONDARY_FROM || _env.GMAIL_FROM || "",
+          }
+        : null,
+    ].filter((provider) => provider !== null),
+    enabled:
+      _env.EMAIL_DRIVER === "smtp"
+        ? Boolean(_env.SMTP_HOST && _env.SMTP_PORT && _env.SMTP_FROM)
+        : _env.EMAIL_DRIVER === "gmail_api"
+          ? Boolean(
+              _env.GMAIL_CLIENT_ID &&
+              _env.GMAIL_CLIENT_SECRET &&
+              _env.GMAIL_REFRESH_TOKEN &&
+              _env.GMAIL_FROM,
+            )
+          : false,
   },
 } as const;
 

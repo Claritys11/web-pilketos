@@ -236,7 +236,7 @@ Siswa tidak memiliki akun atau session. Autentikasi bersifat **stateless berbasi
 | Authentication   | `/api/auth`             | 3               | N/A (NextAuth)              |
 | Election         | `/api/admin/elections`  | 4               | Admin session               |
 | Candidate        | `/api/admin/candidates` | 4               | Admin session               |
-| Token            | `/api/admin/tokens`     | 2               | Admin session               |
+| Token            | `/api/admin/tokens`     | 3               | Admin session               |
 | Dashboard        | `/api/admin/dashboard`  | 1               | Admin session               |
 | Audit            | `/api/admin/audit`      | 1               | Admin session               |
 | Admin Management | `/api/admin/admins`     | 2               | Admin session (SUPER_ADMIN) |
@@ -1408,7 +1408,7 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **`POST /api/admin/tokens/generate`**
 
-**Purpose:** Membangkitkan batch token baru dalam satu operasi atomik. Token plaintext hanya dikembalikan sekali dalam response ini — tidak pernah disimpan di database. Database hanya menyimpan HMAC-SHA256 hash.
+**Purpose:** Membangkitkan batch token baru dalam satu operasi atomik. Untuk mode per pemilih, token plaintext dikirim lewat email dan tidak dikembalikan ke admin. Database menyimpan HMAC-SHA256 hash untuk validasi dan ciphertext token khusus untuk retry email server-side.
 
 **Authentication:** Admin session.
 
@@ -1420,17 +1420,36 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Request Body:**
 
-| Field        | Type      | Required | Deskripsi                          |
-| ------------ | --------- | -------- | ---------------------------------- |
-| `electionId` | `string`  | Yes      | CUID election yang dituju          |
-| `count`      | `integer` | Yes      | Jumlah token yang akan di-generate |
+| Field        | Type      | Required | Deskripsi                                           |
+| ------------ | --------- | -------- | --------------------------------------------------- |
+| `electionId` | `string`  | Yes      | CUID election yang dituju                           |
+| `count`      | `integer` | No       | Jumlah token batch biasa                            |
+| `students`   | `array`   | No       | Daftar pemilih untuk mode satu token per siswa/guru |
+
+`count` dan `students` saling eksklusif. Isi salah satu.
+
+`students[]`:
+
+| Field               | Type     | Required | Deskripsi                |
+| ------------------- | -------- | -------- | ------------------------ |
+| `studentIdentifier` | `string` | Yes      | NIS/ID unik per pemilih  |
+| `studentName`       | `string` | Yes      | Nama pemilih             |
+| `studentClass`      | `string` | No       | Kelas/jabatan            |
+| `studentEmail`      | `string` | No       | Email tujuan token       |
+| `voterType`         | `string` | No       | `STUDENT` atau `TEACHER` |
 
 **Validation Rules:**
 
-| Field        | Rule                               |
-| ------------ | ---------------------------------- |
-| `electionId` | Required; CUID valid               |
-| `count`      | Required; integer; min 1; max 2000 |
+| Field                          | Rule                                     |
+| ------------------------------ | ---------------------------------------- |
+| `electionId`                   | Required; CUID valid                     |
+| `count`                        | Optional; integer; min 1; max 2000       |
+| `students`                     | Optional; min 1; max 2000                |
+| `students[].studentIdentifier` | Required; max 100; unik dalam satu batch |
+| `students[].studentName`       | Required; max 255                        |
+| `students[].studentClass`      | Optional; max 100                        |
+| `students[].studentEmail`      | Optional; valid email; max 255           |
+| `students[].voterType`         | Optional; `STUDENT` atau `TEACHER`       |
 
 ---
 
@@ -1442,23 +1461,40 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
   "data": {
     "electionId": "clxxx...",
     "generatedCount": 200,
-    "tokens": ["TKN-A3F8K2", "TKN-B7X9P1", "..."],
-    "note": "PENTING: Simpan token ini sekarang. Token plaintext tidak akan bisa diakses lagi setelah response ini."
+    "tokens": [],
+    "assignedTokens": [
+      {
+        "studentIdentifier": "12345",
+        "studentName": "Nama Siswa",
+        "studentClass": "XII RPL 1",
+        "studentEmail": "siswa@example.com",
+        "voterType": "STUDENT",
+        "emailStatus": "SENT",
+        "emailError": null
+      }
+    ],
+    "emailSummary": {
+      "sent": 1,
+      "failed": 0,
+      "skipped": 0
+    }
   }
 }
 ```
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code                     | Kondisi                            |
-| ----------- | ------------------------------ | ---------------------------------- |
-| 400         | `VALIDATION_ERROR`             | Field tidak valid                  |
-| 404         | `ELECTION_NOT_FOUND`           | Election tidak ditemukan           |
-| 422         | `TOKEN_GENERATION_ACTIVE_ONLY` | Election bukan dalam state `SETUP` |
-| 401         | `UNAUTHORIZED`                 | Tidak terautentikasi               |
-| 403         | `FORBIDDEN`                    | Role tidak memiliki akses          |
-| 429         | `RATE_LIMIT_EXCEEDED`          | Rate limit terlampaui              |
-| 500         | `INTERNAL_ERROR`               | DB error                           |
+| HTTP Status | Error Code                       | Kondisi                             |
+| ----------- | -------------------------------- | ----------------------------------- |
+| 400         | `VALIDATION_ERROR`               | Field tidak valid                   |
+| 404         | `ELECTION_NOT_FOUND`             | Election tidak ditemukan            |
+| 409         | `TOKEN_STUDENT_ALREADY_ASSIGNED` | Siswa sudah punya token di election |
+| 422         | `TOKEN_GENERATION_ACTIVE_ONLY`   | Election bukan dalam state `SETUP`  |
+| 422         | `TOKEN_STUDENT_DUPLICATE`        | NIS/ID siswa duplikat dalam batch   |
+| 401         | `UNAUTHORIZED`                   | Tidak terautentikasi                |
+| 403         | `FORBIDDEN`                      | Role tidak memiliki akses           |
+| 429         | `RATE_LIMIT_EXCEEDED`            | Rate limit terlampaui               |
+| 500         | `INTERNAL_ERROR`                 | DB error                            |
 
 ---
 
@@ -1466,10 +1502,14 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 1. Hanya bisa di-generate saat election `status = SETUP`. _(PRD §3)_
 2. Untuk setiap token: generate string random yang aman secara kriptografis (minimum 12 karakter).
-3. Hitung `HMAC-SHA256(tokenPlaintext, TOKEN_HMAC_SECRET)` — simpan hash ke database, bukan plaintext. _(PRD §3)_
+3. Hitung `HMAC-SHA256(tokenPlaintext, TOKEN_HMAC_SECRET)` untuk validasi.
 4. Semua INSERT dilakukan dalam satu transaksi database. Jika ada yang gagal, semua di-rollback. _(DB TX-3)_
-5. Token plaintext dikembalikan dalam response untuk satu kali — setelah ini tidak bisa diakses lagi.
+5. Untuk mode per pemilih, token plaintext tidak dikembalikan ke admin; token dikirim lewat email.
 6. Tidak ada batas total token per election — admin bertanggung jawab atas jumlah yang wajar.
+7. Untuk mode per siswa, `studentIdentifier` harus unik dalam satu election.
+8. Metadata siswa disimpan hanya untuk distribusi dan status token, bukan untuk menghubungkan siswa ke kandidat.
+9. Jika email provider dikonfigurasi dan `studentEmail` tersedia, sistem mencoba mengirim token ke email pemilih setelah token berhasil tersimpan.
+10. Kegagalan email tidak membatalkan token yang sudah dibuat. Status email dicatat di `email_sent_at` atau `email_error`.
 
 **Side Effects:**
 
@@ -1481,8 +1521,8 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Notes:**
 
-- Frontend harus segera menawarkan download CSV setelah menerima response ini.
-- Token plaintext tidak bisa di-recover dari database — jika hilang, harus generate ulang.
+- Frontend tidak boleh menampilkan/download plaintext token untuk mode per pemilih.
+- Email gagal dapat dikirim ulang melalui endpoint retry selama token belum dipakai.
 
 **PRD Reference:** §3 (Manajemen Token)
 **DB Tables:** `VotingToken`, `AuditLog`
@@ -1494,7 +1534,7 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **`GET /api/admin/tokens/export`**
 
-**Purpose:** Mengekspor token plaintext dalam format CSV. **PENTING:** Endpoint ini hanya bisa dipanggil segera setelah generate (dalam window tertentu) — **bukan** untuk recovery token yang sudah lama di-generate (karena plaintext tidak tersimpan di DB). Lihat Business Rules.
+**Purpose:** Mengekspor metadata token dalam format CSV, termasuk metadata siswa dan status sudah/belum dipakai. Endpoint ini tidak mengekspor plaintext token karena plaintext tidak disimpan di database.
 
 **Authentication:** Admin session.
 
@@ -1504,7 +1544,7 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 > **Catatan Arsitektur Penting:** Token plaintext **tidak pernah tersimpan di database**. Database hanya menyimpan HMAC hash. Endpoint ini tidak dapat mengembalikan token plaintext dari database.
 >
-> **Desain yang direkomendasikan:** Setelah `POST /api/admin/tokens/generate`, frontend secara otomatis menawarkan download CSV dari response tersebut tanpa perlu endpoint export terpisah.
+> **Desain saat ini:** Frontend tidak menampilkan atau mengunduh plaintext token untuk mode per pemilih. Distribusi token dilakukan melalui email dan retry server-side.
 >
 > Lihat **Review Notes** di bagian akhir dokumen untuk detail konflik desain ini.
 
@@ -1520,12 +1560,43 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 Content-Type: text/csv; charset=utf-8
 Content-Disposition: attachment; filename="tokens-pilketos-2026.csv"
 
-token_number,created_at
-1,2026-07-20T10:00:00.000Z
-2,2026-07-20T10:00:00.000Z
+token_number,student_identifier,student_name,student_class,student_email,voter_type,status,email_status,email_sent_at,email_error,created_at,used_at
+1,12345,Nama Siswa,XII RPL 1,siswa@example.com,STUDENT,UNUSED,SENT,2026-07-20T10:00:03.000Z,,2026-07-20T10:00:00.000Z,
+2,G001,Nama Guru,Guru,guru@example.com,TEACHER,USED,FAILED,,SMTP timeout,2026-07-20T10:00:00.000Z,2026-07-20T11:00:00.000Z
 ```
 
-> **Catatan:** CSV hanya berisi metadata token (nomor urut, timestamp), bukan token plaintext — karena plaintext tidak tersimpan di DB. Frontend yang bertanggung jawab menyimpan dan mengekspos plaintext dari response generate.
+> **Catatan:** CSV hanya berisi metadata token, bukan token plaintext.
+
+### T-03 — Retry Failed Token Emails
+
+**`POST /api/admin/tokens/retry-email`**
+
+**Purpose:** Mengirim ulang email token yang belum terkirim untuk election tertentu. Endpoint ini
+memakai token terenkripsi server-side dan tidak mengembalikan plaintext token.
+
+**Request Body:**
+
+```json
+{
+  "electionId": "clxxx..."
+}
+```
+
+**Success Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "attempted": 10,
+    "sent": 9,
+    "failed": 1,
+    "skipped": 0
+  }
+}
+```
+
+**Audit Logging:** `TOKEN_EMAIL_RETRIED`.
 
 **Possible Error Responses:**
 
@@ -1539,6 +1610,54 @@ token_number,created_at
 **Audit Logging:** `TOKEN_BATCH_EXPORTED` dengan `metadata: { electionId, tokenCount }`.
 
 **PRD Reference:** §3
+**DB Tables:** `VotingToken`
+
+---
+
+### T-03 — List Token Metadata
+
+**`GET /api/admin/tokens`**
+
+**Purpose:** Menampilkan metadata token untuk dashboard admin, termasuk status token sudah dipakai atau belum.
+
+**Authentication:** Admin session.
+
+**Authorization:** `VIEWER`, `ADMIN`, `SUPER_ADMIN`.
+
+**Query Parameters:**
+
+| Parameter    | Type | Required | Deskripsi   |
+| ------------ | ---- | -------- | ----------- |
+| `electionId` | CUID | Yes      | ID election |
+
+**Success Response — `200 OK`:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "clxxx...",
+      "studentIdentifier": "12345",
+      "studentName": "Nama Siswa",
+      "studentClass": "XII RPL 1",
+      "studentEmail": "siswa@example.com",
+      "emailSentAt": "2026-07-20T10:00:03.000Z",
+      "emailError": null,
+      "createdAt": "2026-07-20T10:00:00.000Z",
+      "usedAt": null
+    }
+  ]
+}
+```
+
+**Security Notes:**
+
+- Response tidak mengandung plaintext token.
+- Response tidak mengandung kandidat yang dipilih.
+- `usedAt` hanya menunjukkan bahwa token sudah digunakan, bukan pilihan siswa.
+- `studentEmail`, `emailSentAt`, dan `emailError` hanya dipakai untuk distribusi token dan pengecekan operasional.
+
 **DB Tables:** `VotingToken`
 
 ---

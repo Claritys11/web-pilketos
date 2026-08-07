@@ -4,7 +4,7 @@ export function SkeletonLine({ className = "" }: { className?: string }) {
 
 export function SkeletonCard() {
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
+    <div className="rounded-lg border border-red-100 bg-white p-5 shadow-sm shadow-red-950/5">
       <SkeletonLine className="h-4 w-1/3" />
       <SkeletonLine className="mt-4 h-8 w-2/3" />
       <SkeletonLine className="mt-3 h-4 w-full" />
@@ -15,7 +15,7 @@ export function SkeletonCard() {
 
 export function SkeletonTable({ rows = 5, columns = 5 }: { rows?: number; columns?: number }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+    <div className="overflow-hidden rounded-lg border border-red-100 bg-white shadow-sm shadow-red-950/5">
       {Array.from({ length: rows }).map((_, rowIndex) => (
         <div
           key={rowIndex}

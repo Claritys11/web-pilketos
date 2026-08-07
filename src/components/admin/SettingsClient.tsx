@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { Alert } from "@/components/common/Alert";
 import { Badge, roleTone } from "@/components/common/Badge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Modal } from "@/components/common/Modal";
@@ -195,24 +197,26 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-indigo-700">Settings</p>
-          <h2 className="mt-1 text-2xl font-bold text-neutral-950">Admin Management</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">
-            Kelola akun panitia, role RBAC, dan status akses admin.
-          </p>
-        </div>
+      <AdminPageHeader
+        eyebrow="Settings"
+        title="Admin Management"
+        description="Kelola akun panitia, role RBAC, dan status akses admin. Gunakan VIEWER untuk pemantau yang tidak boleh mengubah data."
+      >
         <button
           type="button"
           onClick={() => setForm(EMPTY_FORM)}
-          className="h-11 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700"
+          className="h-11 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)]"
         >
           Tambah Admin
         </button>
-      </div>
+      </AdminPageHeader>
 
-      <section className="grid gap-3 rounded-lg border border-neutral-200 bg-white p-4 sm:grid-cols-3">
+      <Alert tone="info" title="Role akses">
+        SUPER_ADMIN mengelola semua akun, ADMIN mengelola election/kandidat/token, VIEWER hanya
+        membaca dashboard dan audit.
+      </Alert>
+
+      <section className="grid gap-3 rounded-lg border border-red-100 bg-white p-4 shadow-sm shadow-red-950/5 sm:grid-cols-3">
         <label className="block">
           <span className="text-xs font-semibold uppercase text-neutral-500">Role</span>
           <select
@@ -256,17 +260,17 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
       </section>
 
       {notice ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+        <Alert tone="success" title="Berhasil">
           {notice}
-        </div>
+        </Alert>
       ) : null}
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+        <Alert tone="danger" title="Settings gagal diproses">
           {error}
-        </div>
+        </Alert>
       ) : null}
 
-      <section className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+      <section className="overflow-hidden rounded-lg border border-red-100 bg-white shadow-sm shadow-red-950/5">
         {loading ? (
           <div className="p-4">
             <SkeletonTable rows={6} />
@@ -281,7 +285,7 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-neutral-200 text-sm">
-              <thead className="bg-neutral-50 text-left text-xs font-bold uppercase text-neutral-500">
+              <thead className="bg-red-50/70 text-left text-xs font-bold uppercase text-neutral-500">
                 <tr>
                   <th className="px-4 py-3">Username</th>
                   <th className="px-4 py-3">Email</th>
@@ -299,7 +303,7 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
                       <td className="px-4 py-4">
                         <div className="font-semibold text-neutral-950">{admin.username}</div>
                         {isSelf ? (
-                          <div className="mt-1 text-xs font-semibold text-indigo-700">
+                          <div className="mt-1 text-xs font-semibold text-[var(--color-primary-700)]">
                             Akun aktif
                           </div>
                         ) : null}
@@ -446,7 +450,7 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
               </button>
               <button
                 type="submit"
-                className="h-10 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white"
+                className="h-10 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)]"
               >
                 Simpan
               </button>

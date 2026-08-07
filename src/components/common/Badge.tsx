@@ -4,7 +4,7 @@ type BadgeTone = "neutral" | "primary" | "success" | "warning" | "danger" | "inf
 
 const TONE_CLASS: Record<BadgeTone, string> = {
   neutral: "bg-neutral-100 text-neutral-700 ring-neutral-200",
-  primary: "bg-indigo-50 text-indigo-700 ring-indigo-200",
+  primary: "bg-red-50 text-[var(--color-primary-700)] ring-red-200",
   success: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   warning: "bg-amber-50 text-amber-800 ring-amber-200",
   danger: "bg-red-50 text-red-700 ring-red-200",

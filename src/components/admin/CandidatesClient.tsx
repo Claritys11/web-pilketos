@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { Alert } from "@/components/common/Alert";
 import { Badge, electionStatusTone } from "@/components/common/Badge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Modal } from "@/components/common/Modal";
@@ -208,52 +210,50 @@ export function CandidatesClient({
     <div className="space-y-6">
       <Link
         href={`/admin/elections/${electionId}`}
-        className="text-sm font-semibold text-indigo-700 hover:underline"
+        className="text-sm font-semibold text-[var(--color-primary-700)] hover:underline"
       >
         Kembali ke detail election
       </Link>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-indigo-700">{election?.title ?? "Election"}</p>
-          <h2 className="mt-1 text-2xl font-bold text-neutral-950">Kandidat</h2>
-          {election ? (
-            <div className="mt-2">
-              <Badge tone={electionStatusTone(election.status)}>{election.status}</Badge>
-            </div>
-          ) : null}
-        </div>
+      <AdminPageHeader
+        eyebrow={election?.title ?? "Election"}
+        title="Kandidat"
+        description="Kelola nomor urut, profil, visi-misi, dan foto kandidat. Minimal dua kandidat diperlukan sebelum election bisa READY."
+      >
+        {election ? (
+          <Badge tone={electionStatusTone(election.status)}>{election.status}</Badge>
+        ) : null}
         {canManage ? (
           <button
             type="button"
             onClick={() => setForm({ ...EMPTY_FORM, orderNumber: candidates.length + 1 })}
             disabled={candidates.length >= 5}
-            className="h-11 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="h-11 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-50"
           >
             Tambah Kandidat
           </button>
         ) : null}
-      </div>
+      </AdminPageHeader>
 
       {election && election.status !== "SETUP" ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+        <Alert tone="warning" title="Mode baca saja">
           Kandidat tidak dapat diubah setelah election keluar dari SETUP.
-        </div>
+        </Alert>
       ) : null}
       {candidates.length < 2 ? (
-        <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm font-semibold text-sky-800">
+        <Alert tone="info" title="Prasyarat belum lengkap">
           Minimal 2 kandidat diperlukan sebelum election bisa ditandai READY.
-        </div>
+        </Alert>
       ) : null}
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+        <Alert tone="danger" title="Kandidat gagal diproses">
           {error}
-        </div>
+        </Alert>
       ) : null}
       {notice ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+        <Alert tone="success" title="Berhasil">
           {notice}
-        </div>
+        </Alert>
       ) : null}
 
       {loading ? (
@@ -272,7 +272,7 @@ export function CandidatesClient({
           {candidates.map((candidate) => (
             <article
               key={candidate.id}
-              className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm"
+              className="rounded-lg border border-red-100 bg-white p-5 shadow-sm shadow-red-950/5"
             >
               <div className="flex items-start gap-4">
                 {candidate.photoUrl ? (
@@ -284,7 +284,7 @@ export function CandidatesClient({
                     className="h-20 w-20 rounded-lg object-cover"
                   />
                 ) : (
-                  <div className="grid h-20 w-20 place-items-center rounded-lg bg-emerald-50 text-xl font-bold text-emerald-700">
+                  <div className="grid h-20 w-20 place-items-center rounded-lg bg-red-50 text-xl font-bold text-[var(--color-primary-700)]">
                     {candidate.orderNumber}
                   </div>
                 )}
@@ -307,14 +307,14 @@ export function CandidatesClient({
                   <button
                     type="button"
                     onClick={() => editCandidate(candidate)}
-                    className="h-10 flex-1 rounded-lg border border-neutral-200 text-sm font-semibold"
+                    className="h-10 flex-1 rounded-lg border border-neutral-200 text-sm font-semibold hover:bg-neutral-50"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeleteTarget(candidate)}
-                    className="h-10 flex-1 rounded-lg border border-red-200 text-sm font-semibold text-red-700"
+                    className="h-10 flex-1 rounded-lg border border-red-200 text-sm font-semibold text-red-700 hover:bg-red-50"
                   >
                     Hapus
                   </button>
@@ -335,7 +335,7 @@ export function CandidatesClient({
                   onChange={(event) =>
                     setForm({ ...form, orderNumber: Number(event.target.value) })
                   }
-                  className="h-11 w-full rounded-lg border border-neutral-200 px-3"
+                  className="h-11 w-full rounded-lg border border-neutral-200 px-3 outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
                 >
                   {[1, 2, 3, 4, 5].map((number) => (
                     <option key={number} value={number}>
@@ -348,7 +348,7 @@ export function CandidatesClient({
                 <input
                   value={form.className}
                   onChange={(event) => setForm({ ...form, className: event.target.value })}
-                  className="h-11 w-full rounded-lg border border-neutral-200 px-3"
+                  className="h-11 w-full rounded-lg border border-neutral-200 px-3 outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
                 />
               </Field>
             </div>
@@ -356,7 +356,7 @@ export function CandidatesClient({
               <input
                 value={form.name}
                 onChange={(event) => setForm({ ...form, name: event.target.value })}
-                className="h-11 w-full rounded-lg border border-neutral-200 px-3"
+                className="h-11 w-full rounded-lg border border-neutral-200 px-3 outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
               />
             </Field>
             <Field label="Visi">
@@ -364,7 +364,7 @@ export function CandidatesClient({
                 value={form.vision}
                 onChange={(event) => setForm({ ...form, vision: event.target.value })}
                 rows={4}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2"
+                className="w-full rounded-lg border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
               />
             </Field>
             <Field label="Misi">
@@ -378,7 +378,7 @@ export function CandidatesClient({
                         missions[index] = event.target.value;
                         setForm({ ...form, missions });
                       }}
-                      className="h-11 min-w-0 flex-1 rounded-lg border border-neutral-200 px-3"
+                      className="h-11 min-w-0 flex-1 rounded-lg border border-neutral-200 px-3 outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
                     />
                     <button
                       type="button"
@@ -410,7 +410,7 @@ export function CandidatesClient({
                   event.preventDefault();
                   setPhotoFile(event.dataTransfer.files.item(0));
                 }}
-                className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-4 text-center text-sm text-neutral-600 hover:bg-neutral-100"
+                className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-red-200 bg-red-50/40 p-4 text-center text-sm text-neutral-600 hover:bg-red-50"
               >
                 {photoPreviewUrl ? (
                   <Image
@@ -433,7 +433,11 @@ export function CandidatesClient({
                 />
               </label>
               {photoError ? (
-                <p className="mt-2 text-sm font-semibold text-red-700">{photoError}</p>
+                <div className="mt-2">
+                  <Alert tone="danger" title="Upload foto bermasalah">
+                    {photoError}
+                  </Alert>
+                </div>
               ) : null}
             </Field>
             <div className="flex justify-end gap-3">
@@ -447,7 +451,7 @@ export function CandidatesClient({
               <button
                 type="submit"
                 disabled={submitting}
-                className="h-10 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                className="h-10 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-60"
               >
                 {submitting ? "Menyimpan..." : "Simpan"}
               </button>

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { Alert } from "@/components/common/Alert";
 import { Badge, electionStatusTone } from "@/components/common/Badge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Modal } from "@/components/common/Modal";
@@ -113,28 +115,33 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-indigo-700">Manajemen</p>
-          <h2 className="mt-1 text-2xl font-bold text-neutral-950">Elections</h2>
-        </div>
+      <AdminPageHeader
+        eyebrow="Manajemen"
+        title="Elections"
+        description="Buat election, cek kesiapan kandidat/token, lalu buka voting hanya saat semua prasyarat sudah siap."
+      >
         {canManage ? (
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="h-11 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700"
+            className="h-11 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white shadow-sm hover:bg-[var(--color-primary-700)]"
           >
             Buat Election
           </button>
         ) : null}
-      </div>
+      </AdminPageHeader>
 
-      <section className="grid gap-3 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm md:grid-cols-[1fr_180px]">
+      <Alert tone="info" title="Alur cepat">
+        Mulai dari SETUP, tambah minimal 2 kandidat, generate token, tandai READY, lalu buka OPEN
+        saat hari pemilihan.
+      </Alert>
+
+      <section className="grid gap-3 rounded-lg border border-red-100 bg-white p-4 shadow-sm shadow-red-950/5 md:grid-cols-[1fr_180px]">
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Cari election..."
-          className="h-11 rounded-lg border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+          className="h-11 rounded-lg border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
         />
         <select
           value={status}
@@ -142,7 +149,7 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
             setStatus(event.target.value as typeof status);
             setPage(1);
           }}
-          className="h-11 rounded-lg border border-neutral-200 px-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
+          className="h-11 rounded-lg border border-neutral-200 px-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
         >
           {STATUS_OPTIONS.map((option) => (
             <option key={option} value={option}>
@@ -153,14 +160,14 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
       </section>
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+        <Alert tone="danger" title="Elections gagal dimuat">
           {error}
-        </div>
+        </Alert>
       ) : null}
       {notice ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+        <Alert tone="success" title="Berhasil">
           {notice}
-        </div>
+        </Alert>
       ) : null}
 
       {loading ? (
@@ -174,7 +181,7 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
               <button
                 type="button"
                 onClick={() => setCreating(true)}
-                className="font-semibold text-indigo-700"
+                className="font-semibold text-[var(--color-primary-700)]"
               >
                 Buat Election Pertama
               </button>
@@ -182,9 +189,9 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-lg border border-red-100 bg-white shadow-sm shadow-red-950/5">
           <table className="w-full min-w-[760px] border-collapse text-sm">
-            <thead className="bg-neutral-50 text-xs uppercase text-neutral-500">
+            <thead className="bg-red-50/70 text-xs uppercase text-neutral-500">
               <tr>
                 <th className="px-4 py-3 text-left">Nama</th>
                 <th className="px-4 py-3 text-left">Status</th>
@@ -195,7 +202,7 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
             </thead>
             <tbody>
               {filtered.map((item) => (
-                <tr key={item.id} className="border-t border-neutral-100 hover:bg-neutral-50">
+                <tr key={item.id} className="border-t border-neutral-100 hover:bg-red-50/40">
                   <td className="px-4 py-4">
                     <p className="font-semibold text-neutral-950">{item.title}</p>
                     <p className="mt-1 text-xs text-neutral-500">
@@ -209,7 +216,7 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
                   <td className="px-4 py-4 text-neutral-700">{item._count?.tokens ?? 0}</td>
                   <td className="px-4 py-4 text-right">
                     <Link
-                      className="font-semibold text-indigo-700 hover:underline"
+                      className="font-semibold text-[var(--color-primary-700)] hover:underline"
                       href={`/admin/elections/${item.id}`}
                     >
                       Detail
@@ -257,7 +264,7 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
                 id="title"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                className="mt-2 h-11 w-full rounded-lg border border-neutral-200 px-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="mt-2 h-11 w-full rounded-lg border border-neutral-200 px-3 outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
               />
             </div>
             <div>
@@ -269,7 +276,7 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 rows={4}
-                className="mt-2 w-full rounded-lg border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="mt-2 w-full rounded-lg border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
               />
             </div>
             <div className="flex justify-end gap-3">
@@ -283,7 +290,7 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
               <button
                 type="submit"
                 disabled={submitting}
-                className="h-10 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                className="h-10 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-60"
               >
                 {submitting ? "Menyimpan..." : "Simpan"}
               </button>

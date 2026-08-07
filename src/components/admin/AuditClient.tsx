@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { Alert } from "@/components/common/Alert";
 import { Badge, resultTone } from "@/components/common/Badge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { SkeletonTable } from "@/components/common/Skeleton";
@@ -61,12 +63,13 @@ export function AuditClient({ initialTargetId }: { initialTargetId?: string }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-sm font-semibold text-indigo-700">Audit</p>
-        <h2 className="mt-1 text-2xl font-bold text-neutral-950">Audit Log</h2>
-      </div>
+      <AdminPageHeader
+        eyebrow="Audit"
+        title="Audit Log"
+        description="Lacak perubahan admin, status election, token, kandidat, dan hasil operasi penting."
+      />
 
-      <section className="grid gap-3 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm md:grid-cols-6">
+      <section className="grid gap-3 rounded-lg border border-red-100 bg-white p-4 shadow-sm shadow-red-950/5 md:grid-cols-6">
         <input
           value={action}
           onChange={(event) => {
@@ -142,9 +145,9 @@ export function AuditClient({ initialTargetId }: { initialTargetId?: string }) {
       </section>
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+        <Alert tone="danger" title="Audit log gagal dimuat">
           {error}
-        </div>
+        </Alert>
       ) : null}
 
       {loading ? (
@@ -155,9 +158,9 @@ export function AuditClient({ initialTargetId }: { initialTargetId?: string }) {
           description="Audit log akan muncul setelah ada aktivitas admin."
         />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-lg border border-red-100 bg-white shadow-sm shadow-red-950/5">
           <table className="w-full min-w-[900px] border-collapse text-sm">
-            <thead className="bg-neutral-50 text-xs uppercase text-neutral-500">
+            <thead className="bg-red-50/70 text-xs uppercase text-neutral-500">
               <tr>
                 <th className="px-4 py-3 text-left">Waktu</th>
                 <th className="px-4 py-3 text-left">Actor</th>
@@ -219,7 +222,7 @@ function FragmentRow({
   return (
     <>
       <tr
-        className="cursor-pointer border-t border-neutral-100 hover:bg-neutral-50"
+        className="cursor-pointer border-t border-neutral-100 hover:bg-red-50/40"
         onClick={onToggle}
       >
         <td className="px-4 py-4">{new Date(item.createdAt).toLocaleString("id-ID")}</td>

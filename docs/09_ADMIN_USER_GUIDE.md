@@ -80,16 +80,51 @@ Token dibuat dari tab `Token` pada detail election.
 1. Pastikan election masih `SETUP`.
 2. Buka tab `Token`.
 3. Klik `Generate Token`.
-4. Masukkan jumlah token sesuai jumlah pemilih. Satu batch mendukung sampai 2000 token.
+4. Pilih mode `Per Siswa`, lalu upload Excel/CSV atau paste daftar pemilih.
 5. Klik `Generate`.
-6. Sistem menampilkan token plaintext satu kali dan mengunduh CSV otomatis.
-7. Simpan CSV di tempat aman.
+6. Sistem mengirim token ke email pemilih. Plaintext token tidak ditampilkan dan tidak diunduh.
+7. Jika ada email gagal, gunakan `Retry Email Gagal`.
+
+Mode `Per Siswa` direkomendasikan untuk pemilihan nyata dan bisa berisi siswa maupun guru.
+Dashboard admin menyimpan metadata pemilih, status email, dan status token dipakai, tetapi tidak
+menampilkan plaintext token.
+
+Format daftar pemilih:
+
+```text
+12345,Nama Siswa 1,XII RPL 1,siswa1@example.com,SISWA
+G001,Nama Guru 1,Guru,guru1@example.com,GURU
+```
+
+Header Excel/CSV yang dikenali: `student_identifier`/`nis`/`id`, `student_name`/`nama`,
+`student_class`/`kelas`/`jabatan`, `student_email`/`email`, dan `voter_type`/`role`/`tipe`.
+Pemisah manual boleh koma, titik koma, atau tab. ID tidak boleh duplikat dalam satu election.
+Email bersifat opsional per baris, tetapi token hanya dikirim otomatis untuk pemilih yang punya email.
+
+## Mengecek Status Token Siswa
+
+Di tab `Token`, tabel `Status Token Siswa` menampilkan:
+
+- NIS/ID siswa.
+- Nama siswa.
+- Kelas.
+- Tipe pemilih `Siswa` atau `Guru`.
+- Email siswa.
+- Status `Belum dipakai` atau `Sudah dipakai`.
+- Status email token `Belum`, `Terkirim`, atau `Gagal`.
+- Waktu token dipakai.
+
+Gunakan pencarian untuk menemukan siswa tertentu. Tombol `Refresh` memuat ulang status terbaru.
+`Export Metadata` mengunduh CSV metadata dan status token, bukan plaintext token.
 
 Aturan penting:
 
 - Satu token untuk satu siswa.
 - Token plaintext tidak disimpan di database.
-- Jika CSV hilang, token lama tidak bisa ditampilkan ulang.
+- Sistem menyimpan metadata siswa untuk distribusi dan pengecekan status token.
+- Sistem menyimpan email siswa untuk pengiriman token dan pengecekan siapa yang belum voting.
+- Sistem tidak menyimpan relasi token ke kandidat yang dipilih.
+- Token gagal kirim bisa di-retry dari server selama belum dipakai.
 - Token hanya bisa digunakan saat election berstatus `OPEN`.
 - Token yang sudah digunakan tidak bisa dipakai lagi.
 

@@ -291,8 +291,8 @@ Mengimplementasikan antarmuka untuk domain admin di folder `src/app/admin/`.
 - [x] **TS-06-15:** Buat sub-halaman token manager (`/admin/elections/[id]/tokens/page.tsx`). 🟩
 - [x] **TS-06-16:** Tampilkan panel statistik token (Total, Digunakan, Sisa, Partisipasi %). 🟩
 - [x] **TS-06-17:** Buat modal generator token batch (input jumlah token). 🟩
-- [x] **TS-06-18:** Buat modal post-generate token (tampilan satu kali plaintext tokens list). 🟩
-- [x] **TS-06-19:** Hubungkan pemicu download CSV token plaintext otomatis sesaat setelah token sukses di-generate. 🟩
+- [x] **TS-06-18:** Buat modal post-generate token yang menampilkan ringkasan pengiriman email tanpa plaintext token. 🟩
+- [x] **TS-06-19:** Hilangkan download CSV plaintext token otomatis dan gunakan distribusi email + retry server-side. 🟩
 
 ### 5. Dashboard & Projector Mode
 

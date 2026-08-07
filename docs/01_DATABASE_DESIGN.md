@@ -86,6 +86,12 @@ erDiagram
         cuid    id           PK
         cuid    election_id  FK
         string  token_hash   UK
+        string  student_identifier
+        string  student_name
+        string  student_class
+        string  student_email
+        datetime email_sent_at
+        string  email_error
         datetime used_at
         datetime created_at
         cuid    created_by   FK
@@ -347,20 +353,29 @@ ARCHIVED -> (tidak ada transisi; SUPER_ADMIN bisa hard-delete)
 
 ### 4. `VotingToken`
 
-**Purpose:** Menyimpan token anonim yang dibagikan ke siswa. Token disimpan sebagai HMAC-SHA256 hash, bukan plaintext. Setelah dipakai (`used_at` tidak null), token tidak bisa dipakai lagi. _(PRD §3)_
+**Purpose:** Menyimpan token anonim yang dibagikan ke pemilih. Validasi token memakai HMAC-SHA256 hash. Untuk distribusi email, sistem juga menyimpan ciphertext token server-side agar email gagal bisa di-retry tanpa menampilkan plaintext token ke admin. Setelah dipakai (`used_at` tidak null), token tidak bisa dipakai lagi dan ciphertext dibersihkan. _(PRD §3)_
 
-| Kolom         | Tipe          | Nullable | Default | Deskripsi                                                    |
-| ------------- | ------------- | -------- | ------- | ------------------------------------------------------------ |
-| `id`          | `CUID`        | No       | auto    | Primary key                                                  |
-| `election_id` | `CUID`        | No       | —       | FK ke `Election.id`                                          |
-| `token_hash`  | `VARCHAR(64)` | No       | —       | HMAC-SHA256 hex-encoded hash dari token plaintext _(PRD §3)_ |
-| `used_at`     | `TIMESTAMPTZ` | Yes      | `null`  | Timestamp saat token dipakai; null = belum dipakai           |
-| `created_by`  | `CUID`        | No       | —       | FK ke `Admin.id` yang meng-generate token                    |
-| `created_at`  | `TIMESTAMPTZ` | No       | `now()` | Waktu pembuatan (UTC)                                        |
+| Kolom                | Tipe           | Nullable | Default | Deskripsi                                                    |
+| -------------------- | -------------- | -------- | ------- | ------------------------------------------------------------ |
+| `id`                 | `CUID`         | No       | auto    | Primary key                                                  |
+| `election_id`        | `CUID`         | No       | —       | FK ke `Election.id`                                          |
+| `token_hash`         | `VARCHAR(64)`  | No       | —       | HMAC-SHA256 hex-encoded hash dari token plaintext _(PRD §3)_ |
+| `token_ciphertext`   | `TEXT`         | Yes      | `null`  | Token terenkripsi untuk retry email server-side              |
+| `voter_type`         | `VoterType`    | Yes      | `null`  | `STUDENT` atau `TEACHER`                                     |
+| `student_identifier` | `VARCHAR(100)` | Yes      | `null`  | ID pemilih untuk distribusi satu token per orang             |
+| `student_name`       | `VARCHAR(255)` | Yes      | `null`  | Nama pemilih untuk distribusi token                          |
+| `student_class`      | `VARCHAR(100)` | Yes      | `null`  | Kelas/jabatan pemilih                                        |
+| `student_email`      | `VARCHAR(255)` | Yes      | `null`  | Email pemilih untuk pengiriman token                         |
+| `email_sent_at`      | `TIMESTAMPTZ`  | Yes      | `null`  | Timestamp token berhasil dikirim email                       |
+| `email_error`        | `TEXT`         | Yes      | `null`  | Pesan error pengiriman email terakhir                        |
+| `used_at`            | `TIMESTAMPTZ`  | Yes      | `null`  | Timestamp saat token dipakai; null = belum dipakai           |
+| `created_by`         | `CUID`         | No       | —       | FK ke `Admin.id` yang meng-generate token                    |
+| `created_at`         | `TIMESTAMPTZ`  | No       | `now()` | Waktu pembuatan (UTC)                                        |
 
 **Constraints:**
 
 - `UNIQUE(token_hash)` — global uniqueness, mencegah hash collision aktif
+- `UNIQUE(election_id, student_identifier)` — satu ID pemilih hanya mendapat satu token per election
 - `FK(election_id) REFERENCES Election(id) ON DELETE CASCADE`
 - `FK(created_by) REFERENCES Admin(id) ON DELETE RESTRICT`
 - `CHECK(used_at IS NULL OR used_at >= created_at)` — temporal consistency
@@ -369,13 +384,18 @@ ARCHIVED -> (tidak ada transisi; SUPER_ADMIN bisa hard-delete)
 
 - `idx_voting_token_hash` — critical path: lookup saat validasi token (harus cepat)
 - `idx_voting_token_election_id` — list token per election
-- `idx_voting_token_used_at` (partial: `WHERE used_at IS NULL`) — count token belum dipakai
+- `idx_voting_token_election_used_at` — count token sudah/belum dipakai per election
+- `idx_voting_token_election_student_email` — pencarian email pemilih per election
+- `idx_voting_token_election_email_retry` — daftar email belum terkirim yang bisa di-retry
+- `idx_voting_token_election_voter_type` — filter siswa/guru per election
 - `idx_voting_token_created_by` — audit: siapa generate batch ini
 
 **Lifecycle:**
 
 - Di-generate dalam batch oleh admin saat state `SETUP`.
+- Bisa dibuat sebagai batch biasa atau mode satu token per siswa dengan metadata NIS/ID, nama, kelas, dan email.
 - Plaintext hanya ada di memory saat generate dan di CSV export; tidak pernah disimpan di DB.
+- Jika SMTP aktif, token dikirim ke email siswa dan statusnya dicatat di `email_sent_at`/`email_error`.
 - Saat siswa vote: `used_at` di-set dalam transaksi atomik bersama insert `Vote`. _(PRD §7.1)_
 - `used_at` bersifat **write-once** — tidak pernah di-update setelah di-set.
 - Cascade delete saat election dihapus.
@@ -383,8 +403,9 @@ ARCHIVED -> (tidak ada transisi; SUPER_ADMIN bisa hard-delete)
 **Rationale:**
 
 - Tidak ada kolom `candidate_id` atau referensi apapun ke `Vote` — ini adalah penegasan anonimitas _(PRD §7.2)_.
+- Metadata siswa dan email hanya dipakai untuk distribusi token dan pengecekan status `used_at`; metadata ini tidak mencatat kandidat yang dipilih.
 - `token_hash` adalah HMAC-SHA256 (64 hex char) bukan bcrypt — performa lookup O(1) vs O(n) untuk hash verification.
-- Partial index pada `used_at IS NULL` mempercepat query partisipasi tanpa membebani index dengan token yang sudah terpakai.
+- Index gabungan `election_id, used_at` mempercepat query partisipasi dan status token per election.
 
 ---
 
@@ -608,10 +629,11 @@ BEGIN TRANSACTION
   1. Validate election status = SETUP
   2. Generate N plaintext tokens in memory
   3. Compute HMAC-SHA256(token, SERVER_SECRET) for each
-  4. INSERT batch into VotingToken (election_id, token_hash, created_by)
-  5. INSERT AuditLog (TOKEN_BATCH_GENERATED, metadata: {count: N})
+  4. Encrypt token untuk pengiriman email server-side bila ada email tujuan
+  5. INSERT batch into VotingToken (election_id, token_hash, token_ciphertext, voter_type, created_by)
+  6. INSERT AuditLog (TOKEN_BATCH_GENERATED, metadata: {count: N})
 COMMIT
--- Plaintext tokens dikembalikan ke admin hanya dalam respons ini, tidak disimpan
+-- Plaintext token mode per pemilih dikirim lewat email dan tidak ditampilkan ke admin
 ```
 
 ---
@@ -636,29 +658,32 @@ COMMIT
 
 ## Indexes Summary
 
-| Tabel         | Index                          | Tipe             | Tujuan                            |
-| ------------- | ------------------------------ | ---------------- | --------------------------------- |
-| `Admin`       | `idx_admin_username`           | B-tree unique    | Login lookup                      |
-| `Admin`       | `idx_admin_email`              | B-tree unique    | Deduplikasi                       |
-| `Admin`       | `idx_admin_role`               | B-tree           | RBAC filtering                    |
-| `Admin`       | `idx_admin_is_active`          | B-tree           | Filter aktif                      |
-| `Election`    | `idx_election_status`          | B-tree           | Filter state                      |
-| `Election`    | `idx_one_active_election`      | Partial unique   | Satu election aktif               |
-| `Candidate`   | `idx_candidate_election_id`    | B-tree           | Lookup per election               |
-| `Candidate`   | `idx_candidate_election_order` | B-tree composite | Urutan kandidat                   |
-| `VotingToken` | `idx_voting_token_hash`        | B-tree unique    | **Critical path**: validasi token |
-| `VotingToken` | `idx_voting_token_election_id` | B-tree           | List token per election           |
-| `VotingToken` | `idx_voting_token_unused`      | Partial B-tree   | Count token belum terpakai        |
-| `VotingToken` | `idx_voting_token_created_by`  | B-tree           | Audit: siapa generate             |
-| `Vote`        | `idx_vote_election_id`         | B-tree           | Total suara per election          |
-| `Vote`        | `idx_vote_candidate_id`        | B-tree           | Suara per kandidat                |
-| `Vote`        | `idx_vote_election_candidate`  | B-tree composite | Dashboard aggregate               |
-| `Vote`        | `idx_vote_voted_at`            | B-tree           | Waktu vote terakhir               |
-| `AuditLog`    | `idx_audit_actor_id`           | B-tree           | Riwayat per admin                 |
-| `AuditLog`    | `idx_audit_action`             | B-tree           | Filter jenis aksi                 |
-| `AuditLog`    | `idx_audit_created_at`         | B-tree desc      | Time-range query                  |
-| `AuditLog`    | `idx_audit_target`             | B-tree composite | Riwayat per entitas               |
-| `AuditLog`    | `idx_audit_result`             | B-tree           | Filter aksi gagal                 |
+| Tabel         | Index                                     | Tipe             | Tujuan                            |
+| ------------- | ----------------------------------------- | ---------------- | --------------------------------- |
+| `Admin`       | `idx_admin_username`                      | B-tree unique    | Login lookup                      |
+| `Admin`       | `idx_admin_email`                         | B-tree unique    | Deduplikasi                       |
+| `Admin`       | `idx_admin_role`                          | B-tree           | RBAC filtering                    |
+| `Admin`       | `idx_admin_is_active`                     | B-tree           | Filter aktif                      |
+| `Election`    | `idx_election_status`                     | B-tree           | Filter state                      |
+| `Election`    | `idx_one_active_election`                 | Partial unique   | Satu election aktif               |
+| `Candidate`   | `idx_candidate_election_id`               | B-tree           | Lookup per election               |
+| `Candidate`   | `idx_candidate_election_order`            | B-tree composite | Urutan kandidat                   |
+| `VotingToken` | `idx_voting_token_hash`                   | B-tree unique    | **Critical path**: validasi token |
+| `VotingToken` | `idx_voting_token_election_id`            | B-tree           | List token per election           |
+| `VotingToken` | `idx_voting_token_election_used_at`       | B-tree composite | Count token sudah/belum dipakai   |
+| `VotingToken` | `idx_voting_token_election_student_email` | B-tree composite | Cari email siswa per election     |
+| `VotingToken` | `idx_voting_token_election_email_retry`   | Partial index    | Retry email token gagal           |
+| `VotingToken` | `idx_voting_token_election_voter_type`    | B-tree composite | Filter siswa/guru                 |
+| `VotingToken` | `idx_voting_token_created_by`             | B-tree           | Audit: siapa generate             |
+| `Vote`        | `idx_vote_election_id`                    | B-tree           | Total suara per election          |
+| `Vote`        | `idx_vote_candidate_id`                   | B-tree           | Suara per kandidat                |
+| `Vote`        | `idx_vote_election_candidate`             | B-tree composite | Dashboard aggregate               |
+| `Vote`        | `idx_vote_voted_at`                       | B-tree           | Waktu vote terakhir               |
+| `AuditLog`    | `idx_audit_actor_id`                      | B-tree           | Riwayat per admin                 |
+| `AuditLog`    | `idx_audit_action`                        | B-tree           | Filter jenis aksi                 |
+| `AuditLog`    | `idx_audit_created_at`                    | B-tree desc      | Time-range query                  |
+| `AuditLog`    | `idx_audit_target`                        | B-tree composite | Riwayat per entitas               |
+| `AuditLog`    | `idx_audit_result`                        | B-tree           | Filter aksi gagal                 |
 
 ---
 

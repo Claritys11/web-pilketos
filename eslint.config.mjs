@@ -13,6 +13,7 @@ const eslintConfig = defineConfig([
     "prisma/generated/**",
     "coverage/**",
     "node_modules/**",
+    "_reference/**",
   ]),
   {
     rules: {

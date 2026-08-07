@@ -3,18 +3,20 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  --color-primary-50: #eef2ff;
-  --color-primary-100: #e0e7ff;
-  --color-primary-200: #c7d2fe;
-  --color-primary-300: #a5b4fc;
-  --color-primary-600: #4f46e5;
-  --color-primary-700: #4338ca;
-  --color-vote-primary: #6366f1;
-  --color-vote-surface: #f8f7ff;
+  --color-primary-50: #fff1f2;
+  --color-primary-100: #ffe4e6;
+  --color-primary-200: #fecdd3;
+  --color-primary-300: #fda4af;
+  --color-primary-600: #b6252a;
+  --color-primary-700: #8f1d22;
+  --color-vote-primary: #b6252a;
+  --color-vote-surface: #fff6f6;
   --color-vote-card: #ffffff;
-  --color-vote-selected: #eef2ff;
-  --color-vote-border-selected: #6366f1;
+  --color-vote-selected: #fff1f2;
+  --color-vote-border-selected: #b6252a;
   --color-vote-muted: #4b5563;
+  --color-pilketos-accent: #ed1e28;
+  --color-pilketos-gold: #f59e0b;
 }
 
 @theme inline {

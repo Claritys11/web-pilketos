@@ -36,6 +36,7 @@ enum AuditAction {
   CANDIDATE_DELETED
   TOKEN_BATCH_GENERATED
   TOKEN_BATCH_EXPORTED
+  TOKEN_EMAIL_RETRIED
   VOTE_CAST
   BACKUP_RESTORED
 }
@@ -43,6 +44,11 @@ enum AuditAction {
 enum AuditResult {
   SUCCESS
   FAILURE
+}
+
+enum VoterType {
+  STUDENT
+  TEACHER
 }
 
 model Admin {
@@ -104,17 +110,28 @@ model Candidate {
 }
 
 model VotingToken {
-  id          String    @id @default(cuid())
-  electionId  String    @map("election_id")
-  tokenHash   String    @unique @map("token_hash") @db.VarChar(64)
-  usedAt      DateTime? @map("used_at") @db.Timestamptz(6)
-  createdById String    @map("created_by")
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  election    Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
-  createdBy   Admin     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  id                String     @id @default(cuid())
+  electionId        String     @map("election_id")
+  tokenHash         String     @unique @map("token_hash") @db.VarChar(64)
+  tokenCiphertext   String?    @map("token_ciphertext") @db.Text
+  voterType         VoterType? @map("voter_type")
+  studentIdentifier String?    @map("student_identifier") @db.VarChar(100)
+  studentName       String?    @map("student_name") @db.VarChar(255)
+  studentClass      String?    @map("student_class") @db.VarChar(100)
+  studentEmail      String?    @map("student_email") @db.VarChar(255)
+  emailSentAt       DateTime?  @map("email_sent_at") @db.Timestamptz(6)
+  emailError        String?    @map("email_error") @db.Text
+  usedAt            DateTime?  @map("used_at") @db.Timestamptz(6)
+  createdById       String     @map("created_by")
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  election          Election   @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  createdBy         Admin      @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
+  @@unique([electionId, studentIdentifier], map: "voting_token_election_student_identifier_key")
   @@index([tokenHash], map: "idx_voting_token_hash")
   @@index([electionId], map: "idx_voting_token_election_id")
+  @@index([electionId, usedAt], map: "idx_voting_token_election_used_at")
+  @@index([electionId, studentEmail], map: "idx_voting_token_election_student_email")
   @@index([createdById], map: "idx_voting_token_created_by")
 }
 

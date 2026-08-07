@@ -36,7 +36,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Tutup dialog"
-            className="grid h-11 w-11 place-items-center rounded-lg border border-neutral-200 text-xl text-neutral-600 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="grid h-11 w-11 place-items-center rounded-lg border border-neutral-200 text-xl text-neutral-600 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
           >
             x
           </button>

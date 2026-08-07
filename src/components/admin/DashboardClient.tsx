@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { Badge, electionStatusTone } from "@/components/common/Badge";
+import { Alert } from "@/components/common/Alert";
 import { EmptyState } from "@/components/common/EmptyState";
 import { SkeletonCard } from "@/components/common/Skeleton";
 import { useDashboardPolling } from "@/components/admin/useDashboardPolling";
@@ -152,7 +154,7 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
       : "bg-neutral-50 text-neutral-950";
     const borderClassName = isBlackMode ? "border-white/10" : "border-neutral-200";
     const mutedTextClassName = isBlackMode ? "text-neutral-300" : "text-neutral-600";
-    const eyebrowClassName = isBlackMode ? "text-indigo-200" : "text-indigo-700";
+    const eyebrowClassName = isBlackMode ? "text-red-100" : "text-[var(--color-primary-700)]";
 
     return (
       <main className={`fixed inset-0 z-50 overflow-y-auto p-5 sm:p-8 lg:p-10 ${liveClassName}`}>
@@ -186,7 +188,7 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
                   onClick={() => setLiveTheme("black")}
                   className={`px-4 text-sm font-semibold transition ${
                     isBlackMode
-                      ? "bg-neutral-900 text-white"
+                      ? "bg-[var(--color-vote-primary)] text-white"
                       : "text-neutral-600 hover:bg-neutral-100"
                   }`}
                 >
@@ -310,11 +312,11 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-indigo-700">Monitoring</p>
-          <h2 className="mt-1 text-2xl font-bold text-neutral-950">Dashboard</h2>
-        </div>
+      <AdminPageHeader
+        eyebrow="Monitoring"
+        title="Dashboard"
+        description="Pantau partisipasi dan hasil sementara. Gunakan Live Mode untuk layar proyektor/publik."
+      >
         <div className="flex flex-col gap-3 sm:flex-row">
           <select
             value={selectedElectionId}
@@ -341,17 +343,17 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
               void requestDashboardFullscreen();
             }}
             disabled={!stats}
-            className="h-11 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="h-11 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-50"
           >
             Live Mode
           </button>
         </div>
-      </div>
+      </AdminPageHeader>
 
       {error ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+        <Alert tone="warning" title="Dashboard belum sinkron">
           {error}
-        </div>
+        </Alert>
       ) : null}
 
       {loading ? (
@@ -366,7 +368,10 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
           description="Buat election terlebih dahulu, tambah kandidat, lalu generate token."
           action={
             user.role !== "VIEWER" ? (
-              <Link className="font-semibold text-indigo-700" href="/admin/elections">
+              <Link
+                className="font-semibold text-[var(--color-primary-700)]"
+                href="/admin/elections"
+              >
                 Buka Elections
               </Link>
             ) : null
@@ -374,7 +379,7 @@ export function DashboardClient({ user }: { user: AdminSessionUser }) {
         />
       ) : (
         <>
-          <section className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
+          <section className="rounded-lg border border-red-100 bg-white p-5 shadow-sm shadow-red-950/5">
             <div className="flex flex-wrap items-center gap-3">
               <h3 className="text-lg font-semibold text-neutral-950">{stats.election.title}</h3>
               <Badge tone={electionStatusTone(stats.election.status)}>
@@ -417,7 +422,7 @@ function Stat({
 
   return (
     <div
-      className={`rounded-lg border shadow-sm ${compact ? "p-4" : "p-5"} ${isBlackMode ? "border-white/10 bg-white/10" : "border-neutral-200 bg-white"}`}
+      className={`rounded-lg border shadow-sm ${compact ? "p-4" : "p-5"} ${isBlackMode ? "border-white/10 bg-white/10" : "border-red-100 bg-white shadow-red-950/5"}`}
     >
       <p className={`text-sm font-medium ${isBlackMode ? "text-neutral-300" : "text-neutral-500"}`}>
         {label}
@@ -448,7 +453,7 @@ function CandidateBars({
 
   return (
     <section
-      className={`mt-6 rounded-lg border p-5 shadow-sm ${isBlackMode ? "border-white/10 bg-white/10" : "border-neutral-200 bg-white"}`}
+      className={`mt-6 rounded-lg border p-5 shadow-sm ${isBlackMode ? "border-white/10 bg-white/10" : "border-red-100 bg-white shadow-red-950/5"}`}
     >
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-lg font-semibold">Hasil per kandidat</h3>
@@ -483,7 +488,7 @@ function CandidateBars({
               className={`mt-3 h-4 overflow-hidden rounded-full ${isBlackMode ? "bg-white/10" : "bg-neutral-100"}`}
             >
               <div
-                className={`h-full rounded-full ${ranked && index === 0 ? "bg-emerald-400" : "bg-indigo-600"}`}
+                className={`h-full rounded-full ${ranked && index === 0 ? "bg-emerald-400" : "bg-[var(--color-vote-primary)]"}`}
                 style={{ width: `${Math.min(candidate.percentage, 100)}%` }}
               />
             </div>

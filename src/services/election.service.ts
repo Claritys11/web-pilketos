@@ -244,11 +244,15 @@ export class ElectionService {
             id: { not: input.electionId },
             status: { in: ["OPEN", "PAUSED"] },
           },
-          select: { id: true },
+          select: { title: true, status: true },
         });
 
         if (activeElection) {
-          throw new ServiceError("ACTIVE_ELECTION_EXISTS", "Sudah ada election aktif.", 422);
+          throw new ServiceError(
+            "ACTIVE_ELECTION_EXISTS",
+            `Sudah ada election aktif: ${activeElection.title} (${activeElection.status}). Tutup election itu sebelum membuka election lain.`,
+            422,
+          );
         }
       }
 

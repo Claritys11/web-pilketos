@@ -7,6 +7,7 @@ interface FullscreenOverlayProps {
   title?: string;
   description?: string;
   buttonLabel?: string;
+  restoreOnExit?: boolean;
 }
 
 type NavigatorWithKeyboardLock = Navigator & {
@@ -64,18 +65,33 @@ export function useFullscreenControl(enabled = true) {
       return;
     }
 
+    const restoreFullscreen = () => {
+      if (!getFullscreenElement()) {
+        void requestFullscreen().catch(() => undefined);
+      }
+    };
+
     const checkInterruption = () => {
-      setInterrupted(isInterrupted());
+      const interruptedNow = isInterrupted();
+      setInterrupted(interruptedNow);
+
+      if (interruptedNow && document.visibilityState === "visible" && document.hasFocus()) {
+        window.setTimeout(restoreFullscreen, 250);
+      }
     };
 
     const preventExitShortcuts = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       const isRefresh = key === "f5" || ((event.ctrlKey || event.metaKey) && key === "r");
-      const isEscape = event.key === "Escape";
+      const isEscape = event.key === "Escape" || event.code === "Escape";
+      const isCloseTab = (event.ctrlKey || event.metaKey) && key === "w";
+      const isDevTools =
+        key === "f12" || ((event.ctrlKey || event.metaKey) && event.shiftKey && key === "i");
 
-      if (isRefresh || isEscape) {
+      if (isRefresh || isEscape || isCloseTab || isDevTools) {
         event.preventDefault();
         event.stopPropagation();
+        checkInterruption();
       }
     };
 
@@ -105,7 +121,7 @@ export function useFullscreenControl(enabled = true) {
       window.removeEventListener("focus", checkInterruption);
       window.removeEventListener("beforeunload", preventUnload);
     };
-  }, [enabled]);
+  }, [enabled, requestFullscreen]);
 
   return { interrupted, requestFullscreen };
 }
@@ -113,7 +129,7 @@ export function useFullscreenControl(enabled = true) {
 export function FullscreenOverlay({
   enabled = true,
   title = "Mode layar penuh terjeda",
-  description = "Kembali ke layar penuh untuk melanjutkan proses voting dari posisi terakhir.",
+  description = "Kembali ke layar penuh untuk melanjutkan proses voting dari posisi terakhir. Jika tombol Esc ditekan, browser bisa keluar sesaat dan sistem akan meminta masuk layar penuh lagi.",
   buttonLabel = "Kembali ke Layar Penuh",
 }: FullscreenOverlayProps) {
   const { interrupted, requestFullscreen } = useFullscreenControl(enabled);

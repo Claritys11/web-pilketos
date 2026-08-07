@@ -29,6 +29,12 @@ const nextConfig: NextConfig = {
   output: "standalone",
 
   // -------------------------------------------------------------------------
+  // Server-only packages that must stay available in the standalone runtime.
+  // Nodemailer is loaded from the admin token route for SMTP delivery.
+  // -------------------------------------------------------------------------
+  serverExternalPackages: ["nodemailer"],
+
+  // -------------------------------------------------------------------------
   // Image optimization — allow Supabase Storage as trusted image source
   // Reference: 05_SECURITY.md §Browser Security
   // -------------------------------------------------------------------------
@@ -79,6 +85,7 @@ const nextConfig: NextConfig = {
               `img-src 'self' data: blob: ${supabaseUrl}`,
               `connect-src 'self' ${supabaseUrl}`,
               "font-src 'self'",
+              "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

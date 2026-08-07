@@ -1506,7 +1506,7 @@ Setiap tombol aksi state machine memunculkan **Confirmation Dialog** sebelum eks
 
 ### Screen A-06 — Token Management (`/admin/elections/[id]/tokens`)
 
-**Purpose:** Generate batch token, lihat status penggunaan, download CSV.
+**Purpose:** Import pemilih, generate token per siswa/guru, lihat status penggunaan, retry email gagal, dan export metadata non-plaintext.
 
 **Layout:**
 
@@ -2047,7 +2047,7 @@ Tidak ada offline mode di v1. Jika offline:
 | Buat kandidat          | Toast success + kandidat muncul di list                              |
 | Update kandidat        | Toast success                                                        |
 | Hapus kandidat         | Toast success + baris hilang dari list                               |
-| Generate token         | Modal satu kali dengan token plaintext + download CSV                |
+| Generate token         | Modal ringkasan email tanpa plaintext token                          |
 | Upload foto            | Preview foto langsung muncul di form                                 |
 | Buat admin baru        | Toast success + baris baru di tabel                                  |
 | Export CSV             | Browser download dialog terbuka otomatis                             |

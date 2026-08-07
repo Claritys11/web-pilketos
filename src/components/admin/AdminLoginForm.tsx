@@ -1,10 +1,12 @@
 "use client";
 
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent } from "react";
+
+import { Alert } from "@/components/common/Alert";
 
 export function AdminLoginForm() {
   const router = useRouter();
@@ -45,22 +47,25 @@ export function AdminLoginForm() {
   }
 
   return (
-    <section className="w-full max-w-md rounded-lg border border-neutral-200 bg-white p-6 shadow-md sm:p-8">
+    <section className="w-full max-w-md rounded-lg border border-red-100 bg-white p-6 shadow-xl shadow-red-950/10 sm:p-8">
       <div>
-        <p className="text-sm font-bold uppercase text-indigo-700">Pilketos</p>
+        <div className="grid h-12 w-12 place-items-center rounded-lg bg-red-50 text-[var(--color-primary-700)]">
+          <ShieldCheck aria-hidden="true" size={24} />
+        </div>
+        <p className="mt-5 text-sm font-bold uppercase tracking-wide text-[var(--color-primary-700)]">
+          Pilketos
+        </p>
         <h1 className="mt-3 text-3xl font-bold text-neutral-950">Masuk Admin</h1>
         <p className="mt-2 text-sm leading-6 text-neutral-600">
-          Gunakan akun panitia untuk mengelola pemilihan.
+          Gunakan akun panitia resmi. Semua aktivitas penting tercatat di audit log.
         </p>
       </div>
 
       {error ? (
-        <div
-          role="alert"
-          aria-live="assertive"
-          className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700"
-        >
-          {error}
+        <div className="mt-6">
+          <Alert tone="danger" title="Login gagal">
+            {error}
+          </Alert>
         </div>
       ) : null}
 
@@ -76,7 +81,7 @@ export function AdminLoginForm() {
             autoComplete="username"
             autoFocus
             disabled={isSubmitting}
-            className="mt-2 h-12 w-full rounded-lg border border-neutral-200 bg-white px-4 text-neutral-950 outline-none transition focus:ring-2 focus:ring-indigo-500 disabled:bg-neutral-100"
+            className="mt-2 h-12 w-full rounded-lg border border-red-100 bg-white px-4 text-neutral-950 outline-none transition focus:ring-2 focus:ring-[var(--color-primary-600)] disabled:bg-neutral-100"
           />
         </div>
 
@@ -84,7 +89,7 @@ export function AdminLoginForm() {
           <label htmlFor="password" className="text-sm font-semibold text-neutral-800">
             Password
           </label>
-          <div className="mt-2 flex rounded-lg border border-neutral-200 bg-white focus-within:ring-2 focus-within:ring-indigo-500">
+          <div className="mt-2 flex rounded-lg border border-red-100 bg-white focus-within:ring-2 focus-within:ring-[var(--color-primary-600)]">
             <input
               id="password"
               value={password}
@@ -113,7 +118,7 @@ export function AdminLoginForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="h-12 w-full rounded-lg bg-indigo-600 px-5 text-base font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60"
+          className="h-12 w-full rounded-lg bg-[var(--color-vote-primary)] px-5 text-base font-semibold text-white shadow-sm transition hover:bg-[var(--color-primary-700)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-600)] focus:ring-offset-2 disabled:opacity-60"
         >
           {isSubmitting ? "Memverifikasi..." : "Masuk"}
         </button>

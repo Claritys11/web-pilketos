@@ -12,6 +12,8 @@ Yang sudah berjalan:
 - API voting, admin CRUD, token generation/export, audit, dashboard stats, dan health check.
 - UI siswa `/vote` sampai `/vote/done`.
 - UI admin `/admin/login`, dashboard live, election/candidate/token/audit/settings.
+- Token bisa dibuat sebagai batch biasa atau satu token per siswa dengan metadata NIS/ID, nama,
+  kelas, email, status sudah/belum dipakai, dan status pengiriman email token.
 - Security hardening: headers, rate limiter, upload signature validation, secure session cookie.
 - Docker production image dengan standalone output.
 - Docker Compose lokal dengan PostgreSQL di port `5434` dan app di port `6500`.
@@ -76,6 +78,55 @@ openssl rand -hex 32
 ```
 
 Gunakan hasilnya untuk `AUTH_SECRET` dan `TOKEN_HMAC_SECRET`.
+
+Konfigurasi email token bersifat opsional. Untuk mode per pemilih, plaintext token tidak
+ditampilkan atau diunduh dari dashboard; gunakan email agar token sampai langsung ke pemilih.
+
+Pilih provider:
+
+```env
+EMAIL_DRIVER=smtp
+```
+
+atau:
+
+```env
+EMAIL_DRIVER=gmail_api
+```
+
+SMTP:
+
+```env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=akun_smtp
+SMTP_PASSWORD=password_smtp
+SMTP_FROM="Pilketos <noreply@example.com>"
+```
+
+Gmail API:
+
+```bash
+npm run gmail:auth -- ./client_secret_xxx.apps.googleusercontent.com.json
+```
+
+Tambahkan output script ke `.env`/Coolify env:
+
+```env
+EMAIL_DRIVER=gmail_api
+GMAIL_CLIENT_ID=...
+GMAIL_CLIENT_SECRET=...
+GMAIL_REFRESH_TOKEN=...
+GMAIL_REDIRECT_URI=http://localhost:6500/api/gmail-oauth/callback
+GMAIL_FROM="Pilketos <alamat-gmail-yang-dipakai-login@gmail.com>"
+
+# Opsional: credential kedua untuk fallback saat credential utama kena limit/provider error
+GMAIL_SECONDARY_CLIENT_ID=
+GMAIL_SECONDARY_CLIENT_SECRET=
+GMAIL_SECONDARY_REFRESH_TOKEN=
+GMAIL_SECONDARY_FROM=
+```
 
 ## Development Lokal
 
@@ -179,6 +230,19 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=local-placeholder
 SUPABASE_SERVICE_ROLE_KEY=local-placeholder
 STORAGE_DRIVER=local
 APP_VERSION=0.1.0
+
+EMAIL_DRIVER=smtp
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM=
+GMAIL_CLIENT_ID=
+GMAIL_CLIENT_SECRET=
+GMAIL_REFRESH_TOKEN=
+GMAIL_REDIRECT_URI=http://localhost:6500/api/auth/gmail/callback
+GMAIL_FROM=
 ```
 
 Penting: `TOKEN_HMAC_SECRET` harus tetap sama selama token voting yang sudah dibuat
@@ -412,6 +476,7 @@ http://localhost:6500/admin/login
 
 Panduan panitia yang lebih lengkap ada di
 [`docs/09_ADMIN_USER_GUIDE.md`](docs/09_ADMIN_USER_GUIDE.md).
+Panduan deployment VPS ada di [`docs/11_VPS_DEPLOYMENT.md`](docs/11_VPS_DEPLOYMENT.md).
 
 Alur setup pemilihan:
 
@@ -421,24 +486,38 @@ Alur setup pemilihan:
 4. Masuk ke detail election.
 5. Buka tab `Kandidat`, tambah minimal 2 kandidat, isi nama, kelas, visi, misi, dan foto.
 6. Buka tab `Token`.
-7. Klik `Generate Token`, masukkan jumlah token sesuai jumlah pemilih. Satu batch mendukung sampai 2000 token.
-8. Setelah generate sukses, sistem menampilkan plaintext token satu kali dan otomatis mengunduh CSV.
-9. Simpan CSV itu dengan aman, lalu cetak/bagikan satu token untuk satu siswa.
-10. Kembali ke detail election, klik `Tandai Siap`.
-11. Saat voting dimulai, klik `Buka Voting`.
-12. Siswa membuka `/vote`, memasukkan token, memilih kandidat, lalu mengirim suara.
-13. Pantau hasil masuk di `/admin/dashboard`.
-14. Setelah selesai, ubah status election ke `CLOSED`, lalu `ARCHIVED` jika hasil sudah disahkan.
+7. Klik `Generate Token`.
+8. Untuk distribusi rapi, gunakan mode `Per Siswa`, upload Excel/CSV atau paste daftar
+   `ID, Nama, Kelas/Jabatan, Email, Tipe`, lalu generate.
+9. Setelah generate sukses, sistem mengirim token lewat email. Plaintext token tidak ditampilkan
+   dan tidak diunduh dari dashboard.
+10. Jika ada email gagal, gunakan tombol `Retry Email Gagal`; server akan mengirim ulang dari token
+    terenkripsi tanpa mengekspos plaintext ke admin.
+11. Pastikan email pemilih valid sebelum election dibuka.
+12. Pantau tabel `Status Token Siswa` untuk melihat siapa yang belum voting dan status email token.
+13. Kembali ke detail election, klik `Tandai Siap`.
+14. Saat voting dimulai, klik `Buka Voting`.
+15. Siswa membuka `/vote`, memasukkan token, memilih kandidat, lalu mengirim suara.
+16. Pantau hasil masuk di `/admin/dashboard`.
+17. Setelah selesai, ubah status election ke `CLOSED`, lalu `ARCHIVED` jika hasil sudah disahkan.
 
 Catatan token:
 
-- Token plaintext hanya muncul satu kali setelah generate. Database hanya menyimpan hash HMAC.
-- Jika CSV hilang, token lama tidak bisa ditampilkan ulang. Generate batch baru bila masih di status `SETUP`.
+- Database menyimpan hash HMAC untuk validasi token dan ciphertext token khusus untuk retry email
+  server-side. Plaintext token tidak ditampilkan/download di admin.
+- Untuk mode per siswa/guru, database menyimpan metadata pemilih dan `used_at`, tetapi tidak
+  menyimpan kandidat yang dipilih oleh pemilih tersebut.
+- Email siswa disimpan untuk distribusi dan pengecekan status. `email_sent_at` dan `email_error`
+  membantu operator melihat token mana yang terkirim atau gagal dikirim.
+- Jika email gagal, retry dari dashboard selama token belum dipakai dan ciphertext masih tersedia.
 - Token hanya valid saat election berstatus `OPEN`.
 - Satu token hanya bisa dipakai sekali.
 - Jangan kirim token lewat channel publik.
 
 ## Production Deploy Dengan Docker
+
+Panduan lengkap requirement VPS, firewall, env production, backup, dan operasi harian ada di
+[`docs/11_VPS_DEPLOYMENT.md`](docs/11_VPS_DEPLOYMENT.md).
 
 Untuk deployment sederhana di VPS dengan Compose, isi env production di `docker-compose.yml`
 atau gunakan file override Compose milik server, lalu jalankan:

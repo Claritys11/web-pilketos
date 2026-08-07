@@ -19,6 +19,10 @@ export const electionIdQuerySchema = z.object({
   electionId: cuidSchema,
 });
 
+export const electionIdBodySchema = z.object({
+  electionId: cuidSchema,
+});
+
 export const validateTokenSchema = z.object({
   token: tokenSchema,
 });
@@ -64,10 +68,52 @@ export const candidateUpdateSchema = candidateCreateSchema
     message: "Minimal satu field harus dikirim.",
   });
 
-export const tokenGenerateSchema = z.object({
-  electionId: cuidSchema,
-  count: z.number().int().min(1).max(MAX_TOKEN_BATCH_SIZE),
+export const tokenStudentSchema = z.object({
+  studentIdentifier: z.string().trim().min(1).max(100),
+  studentName: z.string().trim().min(1).max(255),
+  studentClass: z.string().trim().max(100).optional(),
+  studentEmail: z.string().trim().email().max(255).optional(),
+  voterType: z.enum(["STUDENT", "TEACHER"]).default("STUDENT"),
 });
+
+export const tokenGenerateSchema = z
+  .object({
+    electionId: cuidSchema,
+    count: z.number().int().min(1).max(MAX_TOKEN_BATCH_SIZE).optional(),
+    students: z.array(tokenStudentSchema).min(1).max(MAX_TOKEN_BATCH_SIZE).optional(),
+  })
+  .superRefine((value, context) => {
+    if (!value.count && !value.students) {
+      context.addIssue({
+        code: "custom",
+        message: "Isi count atau daftar siswa.",
+        path: ["count"],
+      });
+    }
+
+    if (value.count && value.students) {
+      context.addIssue({
+        code: "custom",
+        message: "Pilih salah satu: count atau daftar siswa.",
+        path: ["students"],
+      });
+    }
+
+    if (value.students) {
+      const identifiers = new Set<string>();
+      for (const [index, student] of value.students.entries()) {
+        const normalizedIdentifier = student.studentIdentifier.trim().toUpperCase();
+        if (identifiers.has(normalizedIdentifier)) {
+          context.addIssue({
+            code: "custom",
+            message: "NIS/ID siswa tidak boleh duplikat dalam satu batch.",
+            path: ["students", index, "studentIdentifier"],
+          });
+        }
+        identifiers.add(normalizedIdentifier);
+      }
+    }
+  });
 
 export const adminRoleSchema = z.enum(["SUPER_ADMIN", "ADMIN", "VIEWER"]);
 
@@ -114,6 +160,7 @@ export const auditActionSchema = z.enum([
   "CANDIDATE_DELETED",
   "TOKEN_BATCH_GENERATED",
   "TOKEN_BATCH_EXPORTED",
+  "TOKEN_EMAIL_RETRIED",
   "VOTE_CAST",
   "BACKUP_RESTORED",
 ]);

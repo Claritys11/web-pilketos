@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent } from "react";
@@ -67,7 +69,7 @@ export default function VoteTokenPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-5 py-8 sm:px-8 lg:py-12">
+    <main className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col overflow-hidden px-5 py-8 sm:px-8 lg:py-12">
       <FullscreenOverlay
         title="Masuk mode layar penuh"
         description="Voting hanya bisa dilakukan dalam layar penuh. Tetap berada di halaman ini sampai suara selesai dikirim."
@@ -75,19 +77,51 @@ export default function VoteTokenPage() {
       />
       <Stepper currentStep={1} />
 
-      <section className="grid flex-1 place-items-center py-10">
-        <div className="w-full max-w-xl rounded-lg border border-neutral-200 bg-white p-6 shadow-md sm:p-8">
-          <div className="mb-8">
-            <p className="text-sm font-semibold uppercase text-emerald-700">Pilketos E-Voting</p>
-            <h1 className="mt-3 text-4xl font-bold leading-tight text-neutral-950 sm:text-5xl">
-              Masukkan token voting
-            </h1>
-            <p className="mt-4 text-base leading-7 text-neutral-600">
-              Gunakan token dari panitia. Token hanya bisa dipakai satu kali dan pilihan tidak akan
-              ditampilkan kembali setelah dikirim.
-            </p>
+      <section className="grid flex-1 items-center gap-8 py-10 lg:grid-cols-[1fr_420px]">
+        <div className="order-2 lg:order-1">
+          <div className="flex items-center gap-3">
+            <img
+              src="/e-pilketos-copy/logo-osis.png"
+              alt="Logo OSIS"
+              className="h-14 w-14 object-contain"
+            />
+            <img
+              src="/e-pilketos-copy/logo-mpk.png"
+              alt="Logo MPK"
+              className="h-14 w-14 object-contain"
+            />
           </div>
+          <p className="mt-8 text-sm font-semibold uppercase text-[var(--color-primary-700)]">
+            E-Pilketos
+          </p>
+          <h1 className="mt-3 max-w-2xl text-4xl font-bold leading-tight text-neutral-950 sm:text-6xl">
+            Pemungutan suara ketua OSIS
+          </h1>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-neutral-600">
+            Gunakan token resmi dari email panitia. Token hanya bisa dipakai satu kali dan proses
+            voting harus tetap berada dalam mode layar penuh.
+          </p>
+          <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
+            {["Token unik", "Layar penuh", "Satu suara"].map((item) => (
+              <div
+                key={item}
+                className="rounded-lg border border-red-100 bg-white/80 px-4 py-3 text-sm font-semibold text-[var(--color-primary-700)] shadow-sm"
+              >
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
 
+        <div className="order-1 w-full rounded-lg border border-red-100 bg-white p-6 shadow-lg sm:p-8 lg:order-2">
+          <div className="mb-8">
+            <p className="text-sm font-semibold uppercase text-[var(--color-primary-700)]">
+              Masuk voting
+            </p>
+            <h2 className="mt-3 text-3xl font-bold leading-tight text-neutral-950">
+              Masukkan token
+            </h2>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="token" className="text-sm font-semibold text-neutral-800">
@@ -106,7 +140,7 @@ export default function VoteTokenPage() {
                 spellCheck={false}
                 placeholder="CONTOH12345"
                 className={`mt-2 h-14 w-full rounded-lg border px-4 font-mono text-lg font-semibold text-neutral-950 outline-none transition focus:ring-2 focus:ring-[var(--color-vote-primary)] ${
-                  error ? "border-red-500 bg-red-50" : "border-neutral-200 bg-neutral-50"
+                  error ? "border-red-500 bg-red-50" : "border-red-100 bg-neutral-50"
                 }`}
               />
               {error ? <p className="mt-2 text-sm font-medium text-red-700">{error}</p> : null}

@@ -81,7 +81,7 @@ export class VoteService {
 
       await tx.votingToken.update({
         where: { id: lockedToken.id },
-        data: { usedAt: new Date() },
+        data: { usedAt: new Date(), tokenCiphertext: null },
       });
     });
 

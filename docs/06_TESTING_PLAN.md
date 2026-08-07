@@ -175,7 +175,7 @@ E2E testing memverifikasi alur aplikasi lengkap dari perspektif pengguna nyata d
 3. **Langkah 3:** Navigasi ke `/admin/elections` dan klik "Buat Election".
 4. **Langkah 4:** Membuat election baru berstatus `SETUP`.
 5. **Langkah 5:** Masuk ke tab kandidat, menambahkan 2 kandidat (mengisi visi, misi, dan mengunggah foto dummy).
-6. **Langkah 6:** Navigasi ke tab Token, generate 50 token. Memverifikasi modal token plaintext muncul dan trigger download CSV otomatis berjalan.
+6. **Langkah 6:** Navigasi ke tab Token, import data pemilih, generate token, dan verifikasi status email terkirim/gagal tanpa plaintext token tampil di dashboard.
 7. **Langkah 7:** Mengubah status election dari `SETUP` -> `READY` -> `OPEN`.
 8. **Langkah 8:** Membuka jendela penyamaran browser baru, masuk ke `/vote` menggunakan salah satu token yang baru saja di-generate, dan berikan suara.
 9. **Langkah 9:** Kembali ke dashboard admin, memverifikasi perolehan suara bertambah menjadi 1 dan partisipasi naik.
