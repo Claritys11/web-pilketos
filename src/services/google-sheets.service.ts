@@ -43,6 +43,13 @@ export interface SheetTokenRow {
   usedAt: Date | string | null;
 }
 
+export interface SheetsSyncResult {
+  status: "SYNCED" | "DISABLED" | "FAILED";
+  spreadsheetId: string | null;
+  spreadsheetUrl: string | null;
+  error: string | null;
+}
+
 class GoogleSheetsService {
   private accessToken: { value: string; expiresAt: number } | null = null;
 
@@ -52,27 +59,32 @@ class GoogleSheetsService {
 
   async syncTokenRows(rows: SheetTokenRow[]) {
     if (!this.enabled || rows.length === 0) {
-      return;
+      return this.result("DISABLED", null, null);
     }
 
     try {
       const firstRow = rows[0];
       if (!firstRow) {
-        return;
+        return this.result("DISABLED", null, null);
       }
 
       const spreadsheetId = await this.resolveSpreadsheetId(firstRow);
       const sheetTitle = sheetTitleForElection(firstRow);
       await this.ensureHeader(spreadsheetId, sheetTitle);
       await this.appendRows(spreadsheetId, sheetTitle, rows.map(formatTokenRow));
+      await this.recordSyncSuccess(firstRow.electionId, spreadsheetId);
+      return this.result("SYNCED", spreadsheetId, null);
     } catch (error) {
       logSheetsWarning("Gagal sync token ke Google Sheets", error);
+      const message = errorMessage(error);
+      await this.recordSyncFailure(rows[0]?.electionId, message);
+      return this.result("FAILED", null, message);
     }
   }
 
   async syncTokenRow(row: SheetTokenRow) {
     if (!this.enabled) {
-      return;
+      return this.result("DISABLED", null, null);
     }
 
     try {
@@ -85,13 +97,93 @@ class GoogleSheetsService {
       } else {
         await this.appendRows(spreadsheetId, sheetTitle, [formatTokenRow(row)]);
       }
+      await this.recordSyncSuccess(row.electionId, spreadsheetId);
+      return this.result("SYNCED", spreadsheetId, null);
     } catch (error) {
       logSheetsWarning("Gagal update token di Google Sheets", error);
+      const message = errorMessage(error);
+      await this.recordSyncFailure(row.electionId, message);
+      return this.result("FAILED", null, message);
+    }
+  }
+
+  async syncElection(electionId: string) {
+    const election = await prisma.election.findUnique({
+      where: { id: electionId },
+      select: {
+        id: true,
+        title: true,
+        tokens: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            electionId: true,
+            voterType: true,
+            studentIdentifier: true,
+            studentName: true,
+            studentClass: true,
+            studentEmail: true,
+            emailSentAt: true,
+            emailError: true,
+            usedAt: true,
+          },
+        },
+      },
+    });
+    if (!election) {
+      throw new Error("Election tidak ditemukan.");
+    }
+    if (election.tokens.length === 0) {
+      throw new Error("Belum ada token untuk disinkronkan.");
+    }
+    if (!this.enabled) {
+      return this.result("DISABLED", null, null);
+    }
+    const rows = election.tokens.map((token) => ({
+      tokenId: token.id,
+      electionId: token.electionId,
+      electionTitle: election.title,
+      voterType: token.voterType,
+      studentIdentifier: token.studentIdentifier,
+      studentName: token.studentName,
+      studentClass: token.studentClass,
+      studentEmail: token.studentEmail,
+      emailSentAt: token.emailSentAt,
+      emailError: token.emailError,
+      usedAt: token.usedAt,
+    }));
+
+    try {
+      const firstRow = rows[0];
+      if (!firstRow) {
+        return this.result("DISABLED", null, null);
+      }
+      const spreadsheetId = await this.resolveSpreadsheetId(firstRow);
+      const sheetTitle = sheetTitleForElection(firstRow);
+      await this.ensureHeader(spreadsheetId, sheetTitle);
+      await this.clearRange(spreadsheetId, sheetTitle, "A2:N");
+      await this.updateRange(
+        spreadsheetId,
+        sheetTitle,
+        `A2:N${rows.length + 1}`,
+        rows.map(formatTokenRow),
+      );
+      await this.recordSyncSuccess(electionId, spreadsheetId);
+      return this.result("SYNCED", spreadsheetId, null);
+    } catch (error) {
+      const message = errorMessage(error);
+      logSheetsWarning("Gagal sinkron ulang election ke Google Sheets", error);
+      await this.recordSyncFailure(electionId, message);
+      return this.result("FAILED", null, message);
     }
   }
 
   private async resolveSpreadsheetId(row: Pick<SheetTokenRow, "electionId" | "electionTitle">) {
     if (config.sheets.spreadsheetId) {
+      await prisma.election.update({
+        where: { id: row.electionId },
+        data: { googleSheetsSpreadsheetId: config.sheets.spreadsheetId },
+      });
       return config.sheets.spreadsheetId;
     }
 
@@ -122,6 +214,44 @@ class GoogleSheetsService {
     });
 
     return spreadsheetId;
+  }
+
+  private async recordSyncSuccess(electionId: string, spreadsheetId: string) {
+    await prisma.election.update({
+      where: { id: electionId },
+      data: {
+        googleSheetsSpreadsheetId: spreadsheetId,
+        googleSheetsSyncedAt: new Date(),
+        googleSheetsSyncError: null,
+      },
+    });
+  }
+
+  private async recordSyncFailure(electionId: string | undefined, message: string) {
+    if (!electionId) {
+      return;
+    }
+    await prisma.election
+      .update({
+        where: { id: electionId },
+        data: { googleSheetsSyncError: message.slice(0, 2000) },
+      })
+      .catch(() => undefined);
+  }
+
+  private result(
+    status: SheetsSyncResult["status"],
+    spreadsheetId: string | null,
+    error: string | null,
+  ): SheetsSyncResult {
+    return {
+      status,
+      spreadsheetId,
+      spreadsheetUrl: spreadsheetId
+        ? `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}`
+        : null,
+      error,
+    };
   }
 
   private async createSpreadsheet(row: Pick<SheetTokenRow, "electionId" | "electionTitle">) {
@@ -226,6 +356,16 @@ class GoogleSheetsService {
       },
     );
 
+    if (!response.ok) {
+      throw new Error(`Sheets API ${response.status}: ${await response.text()}`);
+    }
+  }
+
+  private async clearRange(spreadsheetId: string, sheetTitle: string, range: string) {
+    const response = await this.fetchGoogle(
+      `${this.baseUrl(spreadsheetId)}/values/${encodeURIComponent(sheetRange(sheetTitle, range))}:clear`,
+      { method: "POST", body: "{}" },
+    );
     if (!response.ok) {
       throw new Error(`Sheets API ${response.status}: ${await response.text()}`);
     }
@@ -387,7 +527,7 @@ function formatTokenRow(row: SheetTokenRow) {
     row.tokenId,
     row.electionId,
     row.electionTitle,
-    row.voterType === "TEACHER" ? "GURU" : "SISWA",
+    sheetVoterTypeLabel(row.voterType),
     row.studentIdentifier ?? "",
     row.studentName ?? "",
     row.studentClass ?? "",
@@ -407,6 +547,22 @@ function toIso(value: Date | string | null) {
   }
 
   return value instanceof Date ? value.toISOString() : value;
+}
+
+function sheetVoterTypeLabel(value: VoterType | null) {
+  if (value === "TEACHER" || value === "GURU") {
+    return "GURU";
+  }
+  if (value === "OSIS") {
+    return "OSIS";
+  }
+  if (value === "MPK") {
+    return "MPK";
+  }
+  if (value === "STUDENT") {
+    return "SISWA";
+  }
+  return "";
 }
 
 function sheetTitleForElection(row: Pick<SheetTokenRow, "electionId" | "electionTitle">) {
@@ -448,6 +604,10 @@ function base64Url(value: string | Buffer) {
 function logSheetsWarning(message: string, error: unknown) {
   const detail = error instanceof Error ? error.message : String(error);
   console.warn(`[Pilketos] ${message}: ${detail}`);
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export const googleSheetsService = new GoogleSheetsService();

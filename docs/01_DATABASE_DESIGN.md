@@ -36,7 +36,7 @@ Sistem Pilketos membutuhkan 6 entitas inti:
 2. **Append-only untuk vote dan audit log:** Record tidak pernah di-UPDATE atau di-DELETE. _(PRD §7.1, §7.3)_
 3. **Transaksi atomik** untuk operasi kritis (token validation + vote insert). _(PRD §7.1)_
 4. **Satu election aktif:** Hanya satu election boleh berada di state `OPEN` atau `PAUSED` dalam satu waktu. _(PRD Design Decisions)_
-5. **Kandidat 2–5:** Constraint jumlah kandidat per election. _(PRD §2)_
+5. **Mode kandidat:** Mode biasa minimal 2 kandidat; mode berbobot tepat 5 kandidat. _(PRD §2)_
 6. **Token sebagai HMAC-SHA256 hash:** Plaintext tidak pernah disimpan di DB. _(PRD §3, §9.2)_
 
 ---
@@ -261,18 +261,21 @@ FAILURE
 
 **Purpose:** Merepresentasikan satu sesi pemilihan Ketua OSIS dengan state machine 6 state. Hanya satu election boleh berada dalam state `OPEN` atau `PAUSED` dalam satu waktu. _(PRD §6, Design Decisions)_
 
-| Kolom                          | Tipe             | Nullable | Default | Deskripsi                                   |
-| ------------------------------ | ---------------- | -------- | ------- | ------------------------------------------- |
-| `id`                           | `CUID`           | No       | auto    | Primary key                                 |
-| `title`                        | `VARCHAR(255)`   | No       | —       | Judul election (e.g., "Pilketos 2025/2026") |
-| `description`                  | `TEXT`           | Yes      | `null`  | Deskripsi singkat opsional                  |
-| `status`                       | `ElectionStatus` | No       | `SETUP` | State machine saat ini _(PRD §6)_           |
-| `opened_at`                    | `TIMESTAMPTZ`    | Yes      | `null`  | Waktu state berubah ke OPEN                 |
-| `closed_at`                    | `TIMESTAMPTZ`    | Yes      | `null`  | Waktu state berubah ke CLOSED               |
-| `google_sheets_spreadsheet_id` | `VARCHAR(128)`   | Yes      | `null`  | Spreadsheet status pemilih per election     |
-| `created_by`                   | `CUID`           | No       | —       | FK ke `Admin.id` yang membuat election      |
-| `created_at`                   | `TIMESTAMPTZ`    | No       | `now()` | Waktu pembuatan (UTC)                       |
-| `updated_at`                   | `TIMESTAMPTZ`    | No       | `now()` | Waktu update terakhir (UTC), auto-update    |
+| Kolom                          | Tipe             | Nullable | Default    | Deskripsi                                    |
+| ------------------------------ | ---------------- | -------- | ---------- | -------------------------------------------- |
+| `id`                           | `CUID`           | No       | auto       | Primary key                                  |
+| `title`                        | `VARCHAR(255)`   | No       | —          | Judul election (e.g., "Pilketos 2025/2026")  |
+| `description`                  | `TEXT`           | Yes      | `null`     | Deskripsi singkat opsional                   |
+| `status`                       | `ElectionStatus` | No       | `SETUP`    | State machine saat ini _(PRD §6)_            |
+| `mode`                         | `ElectionMode`   | No       | `STANDARD` | Mode kandidat bebas atau 5 kandidat berbobot |
+| `opened_at`                    | `TIMESTAMPTZ`    | Yes      | `null`     | Waktu state berubah ke OPEN                  |
+| `closed_at`                    | `TIMESTAMPTZ`    | Yes      | `null`     | Waktu state berubah ke CLOSED                |
+| `google_sheets_spreadsheet_id` | `VARCHAR(128)`   | Yes      | `null`     | Spreadsheet status pemilih per election      |
+| `google_sheets_synced_at`      | `TIMESTAMPTZ`    | Yes      | `null`     | Waktu sync Sheets terakhir yang berhasil     |
+| `google_sheets_sync_error`     | `TEXT`           | Yes      | `null`     | Error sync terakhir yang terlihat di admin   |
+| `created_by`                   | `CUID`           | No       | —          | FK ke `Admin.id` yang membuat election       |
+| `created_at`                   | `TIMESTAMPTZ`    | No       | `now()`    | Waktu pembuatan (UTC)                        |
+| `updated_at`                   | `TIMESTAMPTZ`    | No       | `now()`    | Waktu update terakhir (UTC), auto-update     |
 
 **Constraints:**
 
@@ -290,7 +293,7 @@ FAILURE
 **State Transition Rules (enforced at application layer + audit log):**
 
 ```
-SETUP    -> READY    (oleh ADMIN/SUPER_ADMIN, ketika ada >= 2 kandidat dan >= 1 token)
+SETUP    -> READY    (oleh ADMIN/SUPER_ADMIN, ketika kandidat sesuai mode dan ada >= 1 token)
 READY    -> OPEN     (oleh ADMIN/SUPER_ADMIN)
 OPEN     -> PAUSED   (oleh ADMIN/SUPER_ADMIN)
 PAUSED   -> OPEN     (oleh ADMIN/SUPER_ADMIN)
@@ -313,13 +316,14 @@ ARCHIVED -> (tidak ada transisi; SUPER_ADMIN bisa hard-delete)
 
 ### 3. `Candidate`
 
-**Purpose:** Menyimpan profil kandidat yang bisa dipilih siswa. Kandidat terikat ke satu election. Jumlah kandidat per election: minimal 2, maksimal 5. _(PRD §2)_
+**Purpose:** Menyimpan profil kandidat yang bisa dipilih pemilih. Kandidat terikat ke satu election.
+Mode biasa memiliki minimal 2 kandidat; mode berbobot memiliki tepat 5 kandidat. _(PRD §2)_
 
 | Kolom          | Tipe           | Nullable | Default | Deskripsi                                                       |
 | -------------- | -------------- | -------- | ------- | --------------------------------------------------------------- |
 | `id`           | `CUID`         | No       | auto    | Primary key                                                     |
 | `election_id`  | `CUID`         | No       | —       | FK ke `Election.id`                                             |
-| `order_number` | `SMALLINT`     | No       | —       | Nomor urut kandidat (1–5), unik per election _(PRD §2)_         |
+| `order_number` | `SMALLINT`     | No       | —       | Nomor urut kandidat, unik per election _(PRD §2)_               |
 | `name`         | `VARCHAR(255)` | No       | —       | Nama lengkap kandidat                                           |
 | `class_name`   | `VARCHAR(50)`  | No       | —       | Kelas kandidat (e.g., "XII IPA 1")                              |
 | `photo_url`    | `TEXT`         | No       | —       | URL foto kandidat (storage eksternal / Supabase Storage)        |
@@ -333,7 +337,7 @@ ARCHIVED -> (tidak ada transisi; SUPER_ADMIN bisa hard-delete)
 - `UNIQUE(election_id, order_number)` — nomor urut unik per election
 - `CHECK(order_number BETWEEN 1 AND 5)` — batas nomor urut
 - `FK(election_id) REFERENCES Election(id) ON DELETE CASCADE`
-- Constraint jumlah kandidat (max 5) di-enforce di application layer, bukan database-level CHECK (karena CHECK tidak bisa count rows).
+- Constraint jumlah kandidat sesuai mode di-enforce di application layer karena CHECK tidak bisa menghitung row.
 
 **Indexes:**
 
@@ -363,7 +367,7 @@ ARCHIVED -> (tidak ada transisi; SUPER_ADMIN bisa hard-delete)
 | `election_id`        | `CUID`         | No       | —       | FK ke `Election.id`                                          |
 | `token_hash`         | `VARCHAR(64)`  | No       | —       | HMAC-SHA256 hex-encoded hash dari token plaintext _(PRD §3)_ |
 | `token_ciphertext`   | `TEXT`         | Yes      | `null`  | Token terenkripsi untuk retry email server-side              |
-| `voter_type`         | `VoterType`    | Yes      | `null`  | `STUDENT` atau `TEACHER`                                     |
+| `voter_type`         | `VoterType`    | Yes      | `null`  | `STUDENT`, `TEACHER`, `OSIS`, `MPK`, atau `GURU`             |
 | `student_identifier` | `VARCHAR(100)` | Yes      | `null`  | ID pemilih untuk distribusi satu token per orang             |
 | `student_name`       | `VARCHAR(255)` | Yes      | `null`  | Nama pemilih untuk distribusi token                          |
 | `student_class`      | `VARCHAR(100)` | Yes      | `null`  | Kelas/jabatan pemilih                                        |
@@ -415,12 +419,13 @@ ARCHIVED -> (tidak ada transisi; SUPER_ADMIN bisa hard-delete)
 
 **Purpose:** Menyimpan record suara yang diberikan siswa. Entitas ini **append-only dan immutable**. Tidak ada referensi ke `VotingToken` — ini adalah keputusan privacy-by-design. _(PRD §7.1, §7.2)_
 
-| Kolom          | Tipe          | Nullable | Default | Deskripsi                   |
-| -------------- | ------------- | -------- | ------- | --------------------------- |
-| `id`           | `CUID`        | No       | auto    | Primary key                 |
-| `election_id`  | `CUID`        | No       | —       | FK ke `Election.id`         |
-| `candidate_id` | `CUID`        | No       | —       | FK ke `Candidate.id`        |
-| `voted_at`     | `TIMESTAMPTZ` | No       | `now()` | Timestamp suara masuk (UTC) |
+| Kolom          | Tipe          | Nullable | Default | Deskripsi                                 |
+| -------------- | ------------- | -------- | ------- | ----------------------------------------- |
+| `id`           | `CUID`        | No       | auto    | Primary key                               |
+| `election_id`  | `CUID`        | No       | —       | FK ke `Election.id`                       |
+| `candidate_id` | `CUID`        | No       | —       | FK ke `Candidate.id`                      |
+| `voter_type`   | `VoterType`   | Yes      | `null`  | Role kelompok anonim untuk hasil berbobot |
+| `voted_at`     | `TIMESTAMPTZ` | No       | `now()` | Timestamp suara masuk (UTC)               |
 
 **Constraints:**
 
@@ -444,6 +449,7 @@ ARCHIVED -> (tidak ada transisi; SUPER_ADMIN bisa hard-delete)
 **Lifecycle:**
 
 - **Hanya INSERT, tidak pernah UPDATE atau DELETE** (kecuali cascade dari election delete).
+- `voter_type` tidak mengandung identitas dan hanya dipakai menghitung distribusi OSIS/MPK/GURU.
 - Tidak ada UI atau API untuk mengedit atau menghapus vote individual.
 
 **Rationale:**
@@ -512,7 +518,7 @@ Admin
   └── menghasilkan banyak AuditLog (actor_id)
 
 Election
-  ├── memiliki 2–5 Candidate (election_id)
+  ├── memiliki Candidate sesuai mode (election_id)
   ├── memiliki banyak VotingToken (election_id)
   └── mengumpulkan banyak Vote (election_id)
 
@@ -645,8 +651,8 @@ COMMIT
 | Rule                                            | Source (PRD)     | Enforcement Layer                           |
 | ----------------------------------------------- | ---------------- | ------------------------------------------- |
 | Satu election aktif (`OPEN` atau `PAUSED`)      | Design Decisions | Database (partial unique index)             |
-| Kandidat per election: min 2, max 5             | §2               | Application layer (Prisma + API)            |
-| Nomor urut kandidat: 1–5, unik per election     | §2               | Database (UNIQUE constraint + CHECK)        |
+| Kandidat sesuai mode: min 2 atau tepat 5        | §2               | Application layer (Prisma + API)            |
+| Nomor urut kandidat unik per election           | §2               | Database (UNIQUE constraint)                |
 | Token hash: global unik                         | §3               | Database (UNIQUE constraint)                |
 | Token: satu kali pakai                          | §3               | Database (used_at write-once) + TX-1        |
 | Vote tidak boleh referensi token                | §7.2             | Database (schema design, FK tidak ada)      |

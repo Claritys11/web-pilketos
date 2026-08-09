@@ -137,7 +137,7 @@ Implementasi business logic inti yang terisolasi di folder `src/services/`.
 
 - [x] **TS-03-13:** Implementasikan fungsi standard CRUD election. 🟩
 - [x] **TS-03-14:** Tulis logika transisi state machine status election (`transitionStatus`) di dalam transaksi database (TX-2). 🟩
-- [x] **TS-03-15:** Berikan validasi prasyarat minimal 2 kandidat dan 1 token sebelum status diizinkan beralih ke `READY`. 🟩
+- [x] **TS-03-15:** Validasi prasyarat kandidat sesuai mode (minimal 2 atau tepat 5) dan 1 token sebelum `READY`. 🟩
 - [x] **TS-03-16:** Buat constraint check sebelum state diubah ke `OPEN` agar tidak ada election aktif lain. 🟩
 
 ### 5. CandidateService (`src/services/candidate.service.ts`)

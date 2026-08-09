@@ -12,8 +12,8 @@ docker-compose.coolify.yml
 
 Compose ini dibuat khusus untuk Coolify:
 
-- Tidak memakai host `ports` untuk app.
-- App hanya `expose` port container `6500`.
+- App mengekspos port container `6500` dan mem-publish-nya hanya ke
+  `127.0.0.1:${APP_PORT:-6500}` untuk Cloudflare Tunnel lokal.
 - PostgreSQL dan upload kandidat memakai named volume persisten.
 - `migrate` dan `seed` berjalan sebagai one-off job sebelum app hidup.
 - `migrate` dan `seed` memakai `exclude_from_hc: true` khusus Coolify.
@@ -27,8 +27,16 @@ Wajib:
 POSTGRES_PASSWORD=isi_password_database_yang_kuat
 AUTH_SECRET=hasil_openssl_rand_base64_32
 TOKEN_HMAC_SECRET=hasil_openssl_rand_hex_32
+SEED_ADMIN_PASSWORD=password_bootstrap_unik_minimal_12_karakter
 NEXTAUTH_URL=https://domain-kamu.example
 NEXT_PUBLIC_APP_URL=https://domain-kamu.example
+```
+
+Untuk deploymentmu, dua URL tersebut harus persis:
+
+```env
+NEXTAUTH_URL=https://pilketos.clarityz.my.id
+NEXT_PUBLIC_APP_URL=https://pilketos.clarityz.my.id
 ```
 
 Opsional:
@@ -41,6 +49,27 @@ STORAGE_DRIVER=local
 APP_VERSION=0.1.0
 ```
 
+Email Gmail API dan Google Sheets per election:
+
+```env
+EMAIL_DRIVER=gmail_api
+GMAIL_CLIENT_ID=isi_dari_output_gmail_auth
+GMAIL_CLIENT_SECRET=isi_dari_output_gmail_auth
+GMAIL_REFRESH_TOKEN=refresh_token_dengan_scope_gmail_sheets_drive
+GMAIL_REDIRECT_URI=https://pilketos.clarityz.my.id/api/gmail-oauth/callback
+GMAIL_FROM="Pilketos <akun-google-pengirim@example.com>"
+TOKEN_EMAIL_SENDS_PER_MINUTE=50
+TOKEN_EMAIL_BATCH_SIZE=20
+
+GOOGLE_SHEETS_ENABLED=true
+GOOGLE_SHEETS_SPREADSHEET_ID=
+GOOGLE_SHEETS_SHEET_NAME=Pilketos
+```
+
+Refresh token harus dibuat dari script terbaru dan memiliki scope `gmail.send`, `spreadsheets`, dan
+`drive.file`. Refresh token lama yang hanya memiliki `gmail.send` tetap dapat mengirim email, tetapi
+tidak dapat membuat spreadsheet.
+
 Generate secret:
 
 ```bash
@@ -48,7 +77,8 @@ openssl rand -base64 32
 openssl rand -hex 32
 ```
 
-Pakai output pertama untuk `AUTH_SECRET`, output kedua untuk `TOKEN_HMAC_SECRET`.
+Pakai output pertama untuk `AUTH_SECRET`, output kedua untuk `TOKEN_HMAC_SECRET`. Buat password
+bootstrap berbeda untuk `SEED_ADMIN_PASSWORD`.
 Jangan rotate `TOKEN_HMAC_SECRET` selama token voting lama masih dipakai.
 
 ## Persistent Storage
@@ -76,21 +106,21 @@ pilketos_uploads  -> /app/public/uploads
 9. Login ke `/admin/login`.
 
 Jika domain app tidak dipakai dari Coolify, `docker-compose.coolify.yml` tetap mem-publish
-`${APP_PORT:-6500}:6500`, sehingga Cloudflare Tunnel bisa diarahkan langsung ke:
+`127.0.0.1:${APP_PORT:-6500}:6500`, sehingga Cloudflare Tunnel bisa diarahkan langsung ke:
 
 ```yaml
 - hostname: pilketos.clarityz.my.id
   service: http://localhost:6500
 ```
 
-Default seed admin:
+Username bootstrap default:
 
 ```text
 username: superadmin
-password: PilketosAdmin123
 ```
 
-Ganti password setelah login pertama.
+Password login pertama adalah nilai `SEED_ADMIN_PASSWORD` di Coolify. Seeder tidak mereset akun
+yang sudah ada.
 
 ## Voting Setup
 
@@ -100,11 +130,16 @@ Ganti password setelah login pertama.
 4. Tambah minimal dua kandidat.
 5. Buka tab `Token`.
 6. Generate token sesuai jumlah pemilih.
-7. Simpan CSV karena plaintext token hanya tampil satu kali.
+7. Pastikan email token berhasil atau gunakan `Retry Email Gagal`; plaintext token per pemilih tidak
+   ditampilkan maupun diunduh dari dashboard.
 8. Tandai election `READY`.
 9. Saat pemilihan dimulai, ubah ke `OPEN`.
 10. Siswa membuka `/vote`, memasukkan token, lalu memilih kandidat.
 11. Setelah selesai, ubah election ke `CLOSED`.
+
+Pengiriman email berjalan dalam batch pendek agar tidak terkena timeout Cloudflare/Coolify. Jika tab
+ditutup atau jaringan putus, buka halaman token lalu tekan `Kirim Email Antre`; proses melanjutkan
+baris yang masih pending tanpa membuat token baru.
 
 ## Troubleshooting
 
@@ -113,7 +148,8 @@ Jika token invalid:
 - Pastikan election sudah `OPEN`.
 - Pastikan token belum pernah dipakai.
 - Pastikan `TOKEN_HMAC_SECRET` tidak berubah setelah token dibuat.
-- Generate batch token baru jika CSV lama hilang atau secret pernah berubah.
+- Jika `TOKEN_HMAC_SECRET` pernah berubah, token lama tidak dapat dipulihkan dan harus dibuat ulang
+  saat election masih `SETUP`.
 
 Jika CSS tidak muncul:
 
@@ -132,3 +168,11 @@ Jika admin action gagal:
 - Pastikan `NEXTAUTH_URL` sama dengan domain publik.
 - Pastikan memakai HTTPS untuk domain production.
 - Logout lalu login ulang setelah mengganti `NEXTAUTH_URL`.
+
+Jika Google Spreadsheet tidak dibuat:
+
+- Pastikan Gmail API, Google Sheets API, dan Google Drive API aktif pada project OAuth.
+- Generate ulang refresh token memakai `npm run gmail:auth -- ./client_secret_xxx.json`.
+- Pastikan consent mencantumkan Gmail, Sheets, dan Drive; refresh token lama tidak mendapat scope
+  tambahan secara otomatis.
+- Biarkan `GOOGLE_SHEETS_SPREADSHEET_ID` kosong untuk satu spreadsheet baru per election.

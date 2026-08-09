@@ -785,10 +785,11 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 **Request Body:**
 
-| Field         | Type     | Required | Deskripsi                  |
-| ------------- | -------- | -------- | -------------------------- |
-| `title`       | `string` | Yes      | Judul election             |
-| `description` | `string` | No       | Deskripsi singkat opsional |
+| Field         | Type     | Required | Deskripsi                                 |
+| ------------- | -------- | -------- | ----------------------------------------- |
+| `title`       | `string` | Yes      | Judul election                            |
+| `description` | `string` | No       | Deskripsi singkat opsional                |
+| `mode`        | `string` | No       | `STANDARD` (default) atau `WEIGHTED_FIVE` |
 
 **Validation Rules:**
 
@@ -807,6 +808,7 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
     "title": "Pilketos 2025/2026",
     "description": null,
     "status": "SETUP",
+    "mode": "WEIGHTED_FIVE",
     "candidateCount": 0,
     "tokenCount": 0,
     "usedTokenCount": 0,
@@ -1151,7 +1153,7 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 | Field         | Rule                                                                        |
 | ------------- | --------------------------------------------------------------------------- |
 | `electionId`  | Required; CUID valid                                                        |
-| `orderNumber` | Required; integer; min 1; max 5                                             |
+| `orderNumber` | Required; integer; min 1; max 100 (mode berbobot dibatasi 1–5)              |
 | `name`        | Required; string; min 2; max 255                                            |
 | `className`   | Required; string; min 1; max 50                                             |
 | `vision`      | Required; string; min 10; max 1000                                          |
@@ -1236,7 +1238,7 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 | Field         | Rule                                                                        |
 | ------------- | --------------------------------------------------------------------------- |
-| `orderNumber` | Opsional; integer; min 1; max 5                                             |
+| `orderNumber` | Opsional; integer; min 1; max 100 (mode berbobot dibatasi 1–5)              |
 | `name`        | Opsional; string; min 2; max 255                                            |
 | `className`   | Opsional; string; min 1; max 50                                             |
 | `vision`      | Opsional; string; min 10; max 1000                                          |
@@ -1433,26 +1435,29 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 `students[]`:
 
-| Field               | Type     | Required | Deskripsi                |
-| ------------------- | -------- | -------- | ------------------------ |
-| `studentIdentifier` | `string` | Yes      | NIS/ID unik per pemilih  |
-| `studentName`       | `string` | Yes      | Nama pemilih             |
-| `studentClass`      | `string` | No       | Kelas/jabatan            |
-| `studentEmail`      | `string` | No       | Email tujuan token       |
-| `voterType`         | `string` | No       | `STUDENT` atau `TEACHER` |
+| Field               | Type     | Required    | Deskripsi                                                        |
+| ------------------- | -------- | ----------- | ---------------------------------------------------------------- |
+| `studentIdentifier` | `string` | Conditional | Wajib pada mode biasa; tidak dipakai pada mode berbobot          |
+| `studentName`       | `string` | Yes         | Nama pemilih                                                     |
+| `studentClass`      | `string` | No          | Kelas/jabatan                                                    |
+| `studentEmail`      | `string` | No          | Email tujuan token                                               |
+| `voterType`         | `string` | No          | `STUDENT`/`TEACHER`, atau `OSIS`/`MPK`/`GURU` pada mode berbobot |
 
 **Validation Rules:**
 
-| Field                          | Rule                                     |
-| ------------------------------ | ---------------------------------------- |
-| `electionId`                   | Required; CUID valid                     |
-| `count`                        | Optional; integer; min 1; max 2000       |
-| `students`                     | Optional; min 1; max 2000                |
-| `students[].studentIdentifier` | Required; max 100; unik dalam satu batch |
-| `students[].studentName`       | Required; max 255                        |
-| `students[].studentClass`      | Optional; max 100                        |
-| `students[].studentEmail`      | Optional; valid email; max 255           |
-| `students[].voterType`         | Optional; `STUDENT` atau `TEACHER`       |
+| Field                          | Rule                                                           |
+| ------------------------------ | -------------------------------------------------------------- |
+| `electionId`                   | Required; CUID valid                                           |
+| `count`                        | Optional; integer; min 1; max 2000                             |
+| `students`                     | Optional; min 1; max 2000                                      |
+| `students[].studentIdentifier` | Wajib mode biasa; kosong mode berbobot; max 100                |
+| `students[].studentName`       | Required; max 255                                              |
+| `students[].studentClass`      | Optional; max 100                                              |
+| `students[].studentEmail`      | Optional; valid email; max 255                                 |
+| `students[].voterType`         | Mode biasa: `STUDENT`/`TEACHER`; berbobot: `OSIS`/`MPK`/`GURU` |
+
+Mode `WEIGHTED_FIVE` wajib memakai `students`, email wajib, kelas wajib untuk OSIS/MPK, dan kelas
+GURU diabaikan. Mode ini tidak menerima generate token melalui `count`.
 
 ---
 
@@ -1472,14 +1477,15 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
         "studentClass": "XII RPL 1",
         "studentEmail": "siswa@example.com",
         "voterType": "STUDENT",
-        "emailStatus": "SENT",
+        "emailStatus": "PENDING",
         "emailError": null
       }
     ],
     "emailSummary": {
-      "sent": 1,
+      "sent": 0,
       "failed": 0,
-      "skipped": 0
+      "skipped": 0,
+      "pending": 1
     }
   }
 }
@@ -1598,20 +1604,25 @@ student_identifier,student_name,student_class,student_email,voter_type
 G001,Nama Guru 1,Guru,guru1@example.com,GURU
 ```
 
-### T-03 — Retry Failed Token Emails
+### T-03 — Deliver Pending / Retry Failed Token Emails
 
 **`POST /api/admin/tokens/retry-email`**
 
-**Purpose:** Mengirim ulang email token yang belum terkirim untuk election tertentu. Endpoint ini
-memakai token terenkripsi server-side dan tidak mengembalikan plaintext token.
+**Purpose:** Mengirim satu batch pendek email pending atau mencoba ulang email gagal. Endpoint ini
+memakai token terenkripsi server-side, tidak mengembalikan plaintext token, dan dapat dipanggil
+berulang sampai `remaining` bernilai `0`.
 
 **Request Body:**
 
 ```json
 {
-  "electionId": "clxxx..."
+  "electionId": "clxxx...",
+  "mode": "PENDING"
 }
 ```
+
+`mode` bernilai `PENDING` untuk melanjutkan antrean awal atau `FAILED` untuk mencoba ulang email yang
+memiliki error. Jumlah record per request dibatasi `TOKEN_EMAIL_BATCH_SIZE`.
 
 **Success Response:**
 
@@ -1622,7 +1633,8 @@ memakai token terenkripsi server-side dan tidak mengembalikan plaintext token.
     "attempted": 10,
     "sent": 9,
     "failed": 1,
-    "skipped": 0
+    "skipped": 0,
+    "remaining": 23
   }
 }
 ```
@@ -1631,12 +1643,13 @@ memakai token terenkripsi server-side dan tidak mengembalikan plaintext token.
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code           | Kondisi                   |
-| ----------- | -------------------- | ------------------------- |
-| 400         | `VALIDATION_ERROR`   | `electionId` tidak valid  |
-| 404         | `ELECTION_NOT_FOUND` | Election tidak ditemukan  |
-| 401         | `UNAUTHORIZED`       | Tidak terautentikasi      |
-| 403         | `FORBIDDEN`          | Role tidak memiliki akses |
+| HTTP Status | Error Code                  | Kondisi                                            |
+| ----------- | --------------------------- | -------------------------------------------------- |
+| 400         | `VALIDATION_ERROR`          | `electionId` tidak valid                           |
+| 404         | `ELECTION_NOT_FOUND`        | Election tidak ditemukan                           |
+| 409         | `TOKEN_EMAIL_DELIVERY_BUSY` | Batch lain untuk election yang sama masih berjalan |
+| 401         | `UNAUTHORIZED`              | Tidak terautentikasi                               |
+| 403         | `FORBIDDEN`                 | Role tidak memiliki akses                          |
 
 **Audit Logging:** `TOKEN_BATCH_EXPORTED` dengan `metadata: { electionId, tokenCount }`.
 
@@ -1725,6 +1738,7 @@ memakai token terenkripsi server-side dan tidak mengembalikan plaintext token.
       "id": "clxxx...",
       "title": "Pilketos 2025/2026",
       "status": "OPEN",
+      "mode": "WEIGHTED_FIVE",
       "openedAt": "2026-07-27T08:00:00.000Z"
     },
     "totalVotes": 87,
@@ -1738,7 +1752,11 @@ memakai token terenkripsi server-side dan tidak mengembalikan plaintext token.
         "orderNumber": 1,
         "name": "Budi Santoso",
         "voteCount": 34,
-        "percentage": 39.08
+        "percentage": 39.08,
+        "weightedScore": 41.25,
+        "roleBreakdown": [
+          { "role": "OSIS", "voteCount": 12, "totalVotes": 25, "percentage": 48, "weight": 40 }
+        ]
       },
       {
         "candidateId": "claaa...",

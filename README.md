@@ -129,7 +129,16 @@ GMAIL_SECONDARY_FROM=
 
 # Default 50 email/menit. Bisa dinaikkan sampai 100 jika provider aman.
 TOKEN_EMAIL_SENDS_PER_MINUTE=50
+
+# Maksimal email per request pendek; 20 aman untuk proxy/tunnel umum.
+TOKEN_EMAIL_BATCH_SIZE=20
 ```
+
+Untuk Coolify pada domain proyek ini, gunakan
+`GMAIL_REDIRECT_URI=https://pilketos.clarityz.my.id/api/gmail-oauth/callback` jika URI publik itu
+yang didaftarkan di Google Cloud. Redirect URI harus sama persis. Refresh token untuk Sheets harus
+dibuat ulang dengan scope Gmail, Sheets, dan Drive; menyalakan API saja tidak menambah scope pada
+refresh token lama.
 
 Email token berisi tombol voting ke `/vote?token=...`, sehingga token otomatis terisi di halaman
 voting dan pemilih tinggal menekan lanjut.
@@ -153,6 +162,10 @@ tidak dikirim ke spreadsheet.
 Jika `GOOGLE_SHEETS_SPREADSHEET_ID` kosong, sistem otomatis membuat spreadsheet baru per election
 di Drive akun OAuth tersebut. Jika `GOOGLE_SHEETS_SPREADSHEET_ID` diisi, sistem memakai satu
 spreadsheet manual dan membuat tab/sheet baru per election.
+
+Status sync, pesan error, tombol sinkron ulang, dan link langsung ke file tersedia pada halaman
+detail election. Generate token tetap berhasil bila Google sedang bermasalah, tetapi kegagalan sync
+akan terlihat oleh admin dan dapat dicoba ulang tanpa membuat baris token duplikat.
 
 Jika ingin memisahkan OAuth email dan Sheets, isi `GOOGLE_OAUTH_CLIENT_ID`,
 `GOOGLE_OAUTH_CLIENT_SECRET`, dan `GOOGLE_OAUTH_REFRESH_TOKEN`. Jika kosong, Sheets otomatis memakai
@@ -194,14 +207,14 @@ Login admin:  http://localhost:6500/admin/login
 Dashboard:    http://localhost:6500/admin/dashboard
 ```
 
-Default seed admin:
+Default seed admin untuk development lokal:
 
 ```text
 username: superadmin
 password: PilketosAdmin123
 ```
 
-Ganti password ini sebelum dipakai di lingkungan nyata.
+Production wajib mengisi `SEED_ADMIN_PASSWORD` sendiri; jangan memakai password development ini.
 
 ## Verifikasi
 
@@ -244,6 +257,9 @@ POSTGRES_PASSWORD=password
 POSTGRES_DB=pilketos
 APP_UID=1000
 APP_GID=1000
+SEED_ADMIN_USERNAME=superadmin
+SEED_ADMIN_EMAIL=superadmin@pilketos.local
+SEED_ADMIN_PASSWORD=password_bootstrap_unik_minimal_12_karakter
 DOCKER_SUBNET=172.31.50.0/24
 DOCKER_GATEWAY=172.31.50.1
 
@@ -376,6 +392,7 @@ Environment wajib untuk Coolify:
 POSTGRES_PASSWORD=isi_password_database_yang_kuat
 AUTH_SECRET=hasil_openssl_rand_base64_32
 TOKEN_HMAC_SECRET=hasil_openssl_rand_hex_32
+SEED_ADMIN_PASSWORD=password_bootstrap_unik_minimal_12_karakter
 NEXTAUTH_URL=https://domain-kamu.example
 NEXT_PUBLIC_APP_URL=https://domain-kamu.example
 ```
@@ -396,14 +413,16 @@ akan disimpan di volume `pilketos_uploads`, sedangkan database disimpan di volum
 
 Catatan penting Coolify:
 
-- Jangan tambah host `ports` untuk service `app` kecuali memang ingin membuka port langsung dari host.
+- Port app dipublish hanya ke `127.0.0.1:${APP_PORT:-6500}` agar Cloudflare Tunnel bisa mengaksesnya
+  tanpa membuka port mentah ke interface publik.
 - Jangan tambah custom Docker network manual; biarkan Coolify mengelola network resource.
 - Service `migrate` dan `seed` adalah job satu kali. Keduanya diberi `exclude_from_hc: true`.
 - Jika domain publik memakai HTTPS, pastikan `NEXTAUTH_URL` dan `NEXT_PUBLIC_APP_URL` juga HTTPS.
 - `TOKEN_HMAC_SECRET` harus dibuat sekali dan dipertahankan. Mengubahnya akan membuat token voting lama tidak valid.
 
 Jika tidak memakai domain app dari Coolify dan ingin mengarahkan Cloudflare Tunnel langsung ke host,
-`docker-compose.coolify.yml` sudah mem-publish `${APP_PORT:-6500}:6500`. Arahkan cloudflared ke:
+`docker-compose.coolify.yml` sudah mem-publish `127.0.0.1:${APP_PORT:-6500}:6500`. Arahkan
+cloudflared ke:
 
 ```yaml
 - hostname: pilketos.clarityz.my.id
@@ -418,14 +437,14 @@ Admin panel:  https://domain-kamu.example/admin/login
 Healthcheck:  https://domain-kamu.example/api/health
 ```
 
-Default seed admin:
+Username bootstrap default:
 
 ```text
 username: superadmin
-password: PilketosAdmin123
 ```
 
-Segera ganti password ini setelah login pertama.
+Password login pertama adalah nilai `SEED_ADMIN_PASSWORD` yang kamu isi di Coolify. Seeder tidak
+mereset password jika akun tersebut sudah ada.
 
 ## Simulasi Publik Dengan Cloudflare Tunnel
 
@@ -512,20 +531,21 @@ Alur setup pemilihan:
 
 1. Login ke `/admin/login` memakai akun Super Admin.
 2. Buka `Elections`.
-3. Buat election baru, atau gunakan election seed untuk percobaan.
+3. Buat election baru dan pilih mode `Kandidat bebas` atau `5 kandidat berbobot`.
 4. Masuk ke detail election.
-5. Buka tab `Kandidat`, tambah minimal 2 kandidat, isi nama, kelas, visi, misi, dan foto.
+5. Buka tab `Kandidat`. Mode biasa membutuhkan minimal 2 kandidat; mode berbobot wajib tepat 5.
 6. Buka tab `Token`.
 7. Klik `Generate Token`.
 8. Untuk distribusi rapi, gunakan mode `Per Siswa`, download template CSV, lalu upload Excel/CSV
-   atau paste daftar `ID, Nama, Kelas/Jabatan, Email, Tipe`.
+   atau paste daftar sesuai template mode election.
 9. Setelah generate sukses, sistem mengirim token lewat email secara bertahap sesuai
-   `TOKEN_EMAIL_SENDS_PER_MINUTE`. Plaintext token tidak ditampilkan dan tidak diunduh dari
-   dashboard.
+   `TOKEN_EMAIL_SENDS_PER_MINUTE` dalam request batch pendek. Jika browser atau jaringan terputus,
+   gunakan `Kirim Email Antre` untuk melanjutkan dari token yang belum dikirim. Plaintext token
+   tidak ditampilkan dan tidak diunduh dari dashboard.
 10. Jika ada email gagal, gunakan tombol `Retry Email Gagal`; server akan mengirim ulang dari token
     terenkripsi tanpa mengekspos plaintext ke admin.
 11. Pastikan email pemilih valid sebelum election dibuka.
-12. Pantau tabel `Status Token Siswa` atau Google Sheets untuk melihat siapa yang belum voting dan
+12. Pantau tabel `Status Token Pemilih` atau Google Sheets untuk melihat siapa yang belum voting dan
     status email token.
 13. Kembali ke detail election, klik `Tandai Siap`.
 14. Saat voting dimulai, klik `Buka Voting`.
@@ -547,6 +567,13 @@ Catatan token:
 - Token hanya valid saat election berstatus `OPEN`.
 - Satu token hanya bisa dipakai sekali.
 - Jangan kirim token lewat channel publik.
+
+Mode `5 kandidat berbobot` tidak memakai NIS/ID. Import wajib berisi nama, email, dan role
+`OSIS`/`MPK`/`GURU`; kelas wajib untuk OSIS dan MPK, sedangkan kelas GURU dikosongkan dan diabaikan.
+Election baru bisa ditandai `READY` setelah ketiga role memiliki token.
+Skor akhir kandidat adalah `(persentase suara OSIS x 40%) + (persentase suara MPK x 30%) +
+(persentase suara GURU x 30%)`. Vote hanya menyimpan role kelompok untuk agregasi, bukan identitas,
+email, atau token pemilih.
 
 ## Production Deploy Dengan Docker
 

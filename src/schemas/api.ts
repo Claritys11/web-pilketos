@@ -33,9 +33,12 @@ export const castVoteSchema = z.object({
   electionId: cuidSchema,
 });
 
+export const electionModeSchema = z.enum(["STANDARD", "WEIGHTED_FIVE"]);
+
 export const createElectionSchema = z.object({
   title: z.string().trim().min(3).max(255),
   description: z.string().trim().max(1000).nullable().optional(),
+  mode: electionModeSchema.default("STANDARD"),
 });
 
 export const electionStatusSchema = z.enum([
@@ -54,7 +57,7 @@ export const updateElectionStatusSchema = z.object({
 
 export const candidateCreateSchema = z.object({
   electionId: cuidSchema,
-  orderNumber: z.number().int().min(1).max(5),
+  orderNumber: z.number().int().min(1).max(100),
   name: z.string().trim().min(2).max(255),
   className: z.string().trim().min(1).max(50),
   vision: z.string().trim().min(10).max(1000),
@@ -68,12 +71,14 @@ export const candidateUpdateSchema = candidateCreateSchema
     message: "Minimal satu field harus dikirim.",
   });
 
+export const voterTypeSchema = z.enum(["STUDENT", "TEACHER", "OSIS", "MPK", "GURU"]);
+
 export const tokenStudentSchema = z.object({
-  studentIdentifier: z.string().trim().min(1).max(100),
+  studentIdentifier: z.string().trim().max(100).optional(),
   studentName: z.string().trim().min(1).max(255),
   studentClass: z.string().trim().max(100).optional(),
   studentEmail: z.string().trim().email().max(255).optional(),
-  voterType: z.enum(["STUDENT", "TEACHER"]).default("STUDENT"),
+  voterType: voterTypeSchema.default("STUDENT"),
 });
 
 export const tokenGenerateSchema = z
@@ -102,7 +107,10 @@ export const tokenGenerateSchema = z
     if (value.students) {
       const identifiers = new Set<string>();
       for (const [index, student] of value.students.entries()) {
-        const normalizedIdentifier = student.studentIdentifier.trim().toUpperCase();
+        const normalizedIdentifier = student.studentIdentifier?.trim().toUpperCase();
+        if (!normalizedIdentifier) {
+          continue;
+        }
         if (identifiers.has(normalizedIdentifier)) {
           context.addIssue({
             code: "custom",
@@ -114,6 +122,10 @@ export const tokenGenerateSchema = z
       }
     }
   });
+
+export const tokenEmailDeliverySchema = electionIdBodySchema.extend({
+  mode: z.enum(["PENDING", "FAILED"]).default("PENDING"),
+});
 
 export const adminRoleSchema = z.enum(["SUPER_ADMIN", "ADMIN", "VIEWER"]);
 

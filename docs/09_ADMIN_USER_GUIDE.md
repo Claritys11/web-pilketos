@@ -23,7 +23,7 @@ Setelah deploy pertama dengan Docker Compose, akun bootstrap tersedia:
 
 ```text
 username: superadmin
-password: PilketosAdmin123
+password: nilai SEED_ADMIN_PASSWORD saat deployment
 ```
 
 Segera lakukan salah satu dari dua pilihan ini:
@@ -38,7 +38,9 @@ Segera lakukan salah satu dari dua pilihan ini:
 1. Login ke `/admin/login`.
 2. Buka menu `Elections`.
 3. Klik `Tambah Election`.
-4. Isi judul dan deskripsi.
+4. Isi judul, deskripsi, dan pilih mode election:
+   - `Kandidat bebas`: minimal 2 kandidat dan hasil berdasarkan jumlah suara biasa.
+   - `5 kandidat berbobot`: tepat 5 kandidat dengan bobot OSIS 40%, MPK 30%, dan GURU 30%.
 5. Election baru selalu mulai dari status `SETUP`.
 
 Status election:
@@ -63,7 +65,8 @@ Status election:
 5. Isi nomor urut, nama, kelas, visi, misi, dan foto.
 6. Simpan.
 
-Minimal 2 kandidat dibutuhkan sebelum election bisa masuk ke `READY`.
+Mode biasa membutuhkan minimal 2 kandidat. Mode berbobot harus memiliki tepat 5 kandidat sebelum
+election bisa masuk ke `READY`.
 
 Foto kandidat:
 
@@ -84,7 +87,9 @@ Token dibuat dari tab `Token` pada detail election.
 5. Klik `Generate`.
 6. Sistem mengirim token ke email pemilih secara bertahap sesuai batas server. Email berisi tombol
    voting yang membuka `/vote?token=...`, jadi token otomatis terisi.
-7. Jika ada email gagal, gunakan `Retry Email Gagal`.
+7. Jika browser/jaringan terputus, gunakan `Kirim Email Antre` untuk melanjutkan token pending.
+8. Jika provider menolak email, gunakan `Retry Email Gagal`; retry membuka token terenkripsi di
+   server tanpa menampilkan plaintext kepada admin.
 
 Mode `Per Siswa` direkomendasikan untuk pemilihan nyata dan bisa berisi siswa maupun guru.
 Dashboard admin menyimpan metadata pemilih, status email, dan status token dipakai, tetapi tidak
@@ -97,6 +102,19 @@ Format daftar pemilih:
 G001,Nama Guru 1,Guru,guru1@example.com,GURU
 ```
 
+Untuk mode 5 kandidat berbobot, download template khusus mode tersebut. NIS/ID tidak digunakan:
+
+```text
+Nama Pengurus OSIS,XII RPL 1,osis@example.com,OSIS
+Nama Pengurus MPK,XI TKJ 1,mpk@example.com,MPK
+Nama Guru,,guru@example.com,GURU
+```
+
+Nama, email, dan role wajib. Kelas wajib untuk OSIS/MPK, sedangkan kelas GURU boleh kosong dan akan
+diabaikan. Mode berbobot tidak menyediakan generate berdasarkan jumlah karena setiap token harus
+memiliki role agar hasil dapat dihitung. Ketiga role harus memiliki minimal satu token sebelum
+election dapat ditandai `READY`.
+
 Header Excel/CSV yang dikenali: `student_identifier`/`nis`/`id`, `student_name`/`nama`,
 `student_class`/`kelas`/`jabatan`, `student_email`/`email`, dan `voter_type`/`role`/`tipe`.
 Pemisah manual boleh koma, titik koma, atau tab. ID tidak boleh duplikat dalam satu election.
@@ -104,9 +122,13 @@ Email bersifat opsional per baris, tetapi token hanya dikirim otomatis untuk pem
 Jika Google Sheets sync aktif, metadata pemilih, status email, dan status sudah/belum voting juga
 masuk ke spreadsheet. Pilihan kandidat tidak pernah dikirim ke spreadsheet.
 
-## Mengecek Status Token Siswa
+Di halaman detail election terdapat panel `Google Spreadsheet`. Panel ini menampilkan waktu sync,
+error terakhir, tombol `Sinkronkan Sekarang`, dan tombol `Buka Spreadsheet`. Sinkron ulang mengganti
+data token election secara utuh sehingga tidak membuat baris ganda.
 
-Di tab `Token`, tabel `Status Token Siswa` menampilkan:
+## Mengecek Status Token Pemilih
+
+Di tab `Token`, tabel `Status Token Pemilih` menampilkan:
 
 - NIS/ID siswa.
 - Nama siswa.
@@ -135,7 +157,7 @@ Aturan penting:
 
 ## Membuka Voting
 
-1. Pastikan kandidat minimal 2 dan token minimal 1.
+1. Pastikan kandidat minimal 2 untuk mode biasa atau tepat 5 untuk mode berbobot, serta token minimal 1.
 2. Dari detail election, klik `Tandai Siap`.
 3. Saat jam voting dimulai, klik `Buka Voting`.
 4. Siswa membuka `/vote`, memasukkan token, memilih kandidat, lalu konfirmasi suara.

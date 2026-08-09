@@ -5,7 +5,7 @@ import { config } from "@/config/env";
 export interface TokenEmailInput {
   to: string;
   studentName: string;
-  studentIdentifier: string;
+  studentIdentifier?: string | null;
   electionTitle: string;
   token: string;
   voteUrl: string;
@@ -87,7 +87,7 @@ export class EmailService {
           "",
           `Berikut token voting Pilketos untuk ${input.electionTitle}.`,
           "",
-          `NIS/ID: ${input.studentIdentifier}`,
+          ...(input.studentIdentifier ? [`NIS/ID: ${input.studentIdentifier}`] : []),
           `Token: ${input.token}`,
           `Link voting otomatis: ${input.voteUrl}`,
           "",
@@ -98,7 +98,9 @@ export class EmailService {
           `<p>Berikut token voting Pilketos untuk <strong>${escapeHtml(
             input.electionTitle,
           )}</strong>.</p>`,
-          `<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`,
+          ...(input.studentIdentifier
+            ? [`<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`]
+            : []),
           `<p><strong>Token:</strong> <code style="font-size:18px">${escapeHtml(
             input.token,
           )}</code></p>`,
@@ -174,7 +176,7 @@ export class EmailService {
           "",
           `Berikut token voting Pilketos untuk ${input.electionTitle}.`,
           "",
-          `NIS/ID: ${input.studentIdentifier}`,
+          ...(input.studentIdentifier ? [`NIS/ID: ${input.studentIdentifier}`] : []),
           `Token: ${input.token}`,
           `Link voting otomatis: ${input.voteUrl}`,
           "",
@@ -185,7 +187,9 @@ export class EmailService {
           `<p>Berikut token voting Pilketos untuk <strong>${escapeHtml(
             input.electionTitle,
           )}</strong>.</p>`,
-          `<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`,
+          ...(input.studentIdentifier
+            ? [`<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`]
+            : []),
           `<p><strong>Token:</strong> <code style="font-size:18px">${escapeHtml(
             input.token,
           )}</code></p>`,

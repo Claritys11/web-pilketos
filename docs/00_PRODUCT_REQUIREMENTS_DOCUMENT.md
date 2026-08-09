@@ -75,7 +75,9 @@ Sistem ini terdiri dari **dua domain yang sepenuhnya terpisah** dan tidak saling
 
 ### 2. Manajemen Kandidat
 
-- Admin dapat mengatur jumlah kandidat: **minimal 2, maksimal 5**.
+- Admin memilih mode election: **kandidat bebas** (minimal 2) atau **5 kandidat berbobot** (tepat 5).
+- Mode 5 kandidat menghitung skor per kandidat dari persentase internal tiap kelompok: OSIS 40%,
+  MPK 30%, dan GURU 30%.
 - Setiap kandidat memiliki atribut:
   - **Nomor urut** (integer, unik dalam election)
   - **Foto** (upload gambar)
@@ -220,7 +222,8 @@ Integritas vote di v1 dijamin melalui kombinasi:
 
 - Penandaan "token telah dipakai" dan proses "insert vote" berada dalam **satu transaksi database atomik**.
 - Tabel token dan tabel vote **tidak saling mereferensi secara langsung** (tidak ada foreign key `token_id` di tabel `votes`).
-- Korelasi antara token dan kandidat secara teknis tidak dapat dilakukan dari dalam database.
+- Korelasi antara token/identitas dan kandidat secara teknis tidak dapat dilakukan dari dalam
+  database. Pada mode berbobot, tabel vote hanya menyimpan role kelompok anonim untuk agregasi.
 
 #### 7.3 Audit Log
 

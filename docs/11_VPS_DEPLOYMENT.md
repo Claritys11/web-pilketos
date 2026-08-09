@@ -68,6 +68,9 @@ POSTGRES_PORT=5434
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=isi_password_database_yang_kuat
 POSTGRES_DB=pilketos
+SEED_ADMIN_USERNAME=superadmin
+SEED_ADMIN_EMAIL=superadmin@pilketos.local
+SEED_ADMIN_PASSWORD=password_bootstrap_unik_minimal_12_karakter
 APP_UID=1000
 APP_GID=1000
 DOCKER_SUBNET=172.31.50.0/24
@@ -87,6 +90,7 @@ SUPABASE_SERVICE_ROLE_KEY=local-placeholder
 STORAGE_DRIVER=local
 APP_VERSION=0.1.0
 
+EMAIL_DRIVER=smtp
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -115,10 +119,12 @@ GMAIL_SECONDARY_CLIENT_SECRET=
 GMAIL_SECONDARY_REFRESH_TOKEN=
 GMAIL_SECONDARY_FROM=
 TOKEN_EMAIL_SENDS_PER_MINUTE=50
+TOKEN_EMAIL_BATCH_SIZE=20
 ```
 
 `TOKEN_EMAIL_SENDS_PER_MINUTE` membatasi pengiriman token agar provider email tidak mudah kena
-limit. Default 50 email/menit, batas valid maksimum 100 email/menit.
+limit. `TOKEN_EMAIL_BATCH_SIZE` membatasi pekerjaan per request agar aman di belakang reverse proxy;
+request berikutnya melanjutkan token yang masih antre. Default 50 email/menit dan 20 email/request.
 
 Opsional Google Sheets sync:
 
@@ -177,10 +183,10 @@ Default bootstrap admin:
 
 ```text
 username: superadmin
-password: PilketosAdmin123
 ```
 
-Segera ganti password atau buat Super Admin baru setelah login pertama.
+Password login pertama berasal dari `SEED_ADMIN_PASSWORD`. Seeder tidak mereset password jika akun
+bootstrap tersebut sudah ada.
 
 ---
 
@@ -235,7 +241,7 @@ Restore database sebaiknya dilakukan saat aplikasi tidak sedang dipakai voting.
    terisi.
 8. Jika ada email gagal, tekan `Retry Email Gagal`.
 9. Pastikan semua token penting berstatus terkirim sebelum election dibuka.
-10. Pantau tabel `Status Token Siswa` atau spreadsheet untuk melihat token sudah dipakai atau
+10. Pantau tabel `Status Token Pemilih` atau spreadsheet untuk melihat token sudah dipakai atau
     belum.
 
 Sistem menyimpan metadata pemilih untuk distribusi dan status. Plaintext token tidak ditampilkan ke

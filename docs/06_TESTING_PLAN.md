@@ -129,7 +129,7 @@ Ini adalah pengujian paling kritis untuk menjamin integritas pemilihan (mencegah
 
 #### 3. Transaksi Transisi State Election (Status Machine - TX-2)
 
-- **IT-03-01 (SETUP -> READY):** Transisi status election ke `READY` harus berhasil jika dan hanya jika election tersebut memiliki minimal 2 kandidat dan minimal 1 token terasosiasi.
+- **IT-03-01 (SETUP -> READY):** Transisi ke `READY` berhasil jika mode biasa memiliki minimal 2 kandidat atau mode berbobot tepat 5 kandidat, serta minimal 1 token.
 - **IT-03-02 (Illegal Transition):** Percobaan transisi status langsung dari `SETUP` ke `CLOSED` harus ditolak dengan error `ELECTION_TRANSITION_INVALID`.
 - **IT-03-03 (Active Election Check):** Mencoba mengaktifkan status election ke `OPEN` ketika sudah ada election lain yang berstatus `OPEN` atau `PAUSED` harus ditolak oleh DB constraint (SQL error unique index) dan dibungkus menjadi error `ACTIVE_ELECTION_EXISTS`.
 

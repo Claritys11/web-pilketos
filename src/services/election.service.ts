@@ -1,4 +1,4 @@
-import type { ElectionStatus, Prisma } from "@prisma/client";
+import type { ElectionMode, ElectionStatus, Prisma, VoterType } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { auditService } from "@/services/audit.service";
@@ -23,7 +23,14 @@ export interface ActorContext {
 export interface CreateElectionInput extends ActorContext {
   title: string;
   description?: string | null | undefined;
+  mode: ElectionMode;
 }
+
+const WEIGHTED_ROLE_WEIGHTS: Record<"OSIS" | "MPK" | "GURU", number> = {
+  OSIS: 40,
+  MPK: 30,
+  GURU: 30,
+};
 
 export interface UpdateElectionInput extends ActorContext {
   id: string;
@@ -65,19 +72,24 @@ export class ElectionService {
         select: { votedAt: true },
       }),
       prisma.vote.groupBy({
-        by: ["candidateId"],
+        by: ["candidateId", "voterType"],
         where: { electionId },
         orderBy: { candidateId: "asc" },
         _count: { candidateId: true },
       }),
     ]);
 
-    const voteMap = new Map(
-      groupedVotes.map((item) => [
-        item.candidateId,
-        typeof item._count === "object" ? (item._count.candidateId ?? 0) : 0,
-      ]),
-    );
+    const voteMap = new Map<string, number>();
+    const roleVoteMap = new Map<string, number>();
+    const roleTotals = new Map<VoterType, number>();
+    for (const item of groupedVotes) {
+      const count = typeof item._count === "object" ? (item._count.candidateId ?? 0) : 0;
+      voteMap.set(item.candidateId, (voteMap.get(item.candidateId) ?? 0) + count);
+      if (item.voterType) {
+        roleVoteMap.set(`${item.candidateId}:${item.voterType}`, count);
+        roleTotals.set(item.voterType, (roleTotals.get(item.voterType) ?? 0) + count);
+      }
+    }
     const totalVotes = election._count.votes;
     const totalTokens = election._count.tokens;
 
@@ -86,6 +98,7 @@ export class ElectionService {
         id: election.id,
         title: election.title,
         status: election.status,
+        mode: election.mode,
         openedAt: election.openedAt,
       },
       totalVotes,
@@ -96,12 +109,32 @@ export class ElectionService {
       lastVoteAt: lastVote?.votedAt ?? null,
       candidateStats: election.candidates.map((candidate) => {
         const voteCount = voteMap.get(candidate.id) ?? 0;
+        const roleBreakdown = (["OSIS", "MPK", "GURU"] as const).map((role) => {
+          const roleVoteCount = roleVoteMap.get(`${candidate.id}:${role}`) ?? 0;
+          const roleTotal = roleTotals.get(role) ?? 0;
+          const rolePercentage =
+            roleTotal === 0 ? 0 : Number(((roleVoteCount / roleTotal) * 100).toFixed(2));
+          return {
+            role,
+            voteCount: roleVoteCount,
+            totalVotes: roleTotal,
+            percentage: rolePercentage,
+            weight: WEIGHTED_ROLE_WEIGHTS[role],
+          };
+        });
+        const weightedScore = Number(
+          roleBreakdown
+            .reduce((score, group) => score + (group.percentage * group.weight) / 100, 0)
+            .toFixed(2),
+        );
         return {
           candidateId: candidate.id,
           orderNumber: candidate.orderNumber,
           name: candidate.name,
           voteCount,
           percentage: totalVotes === 0 ? 0 : Number(((voteCount / totalVotes) * 100).toFixed(2)),
+          weightedScore: election.mode === "WEIGHTED_FIVE" ? weightedScore : null,
+          roleBreakdown: election.mode === "WEIGHTED_FIVE" ? roleBreakdown : [],
         };
       }),
       generatedAt: new Date(),
@@ -162,6 +195,7 @@ export class ElectionService {
         data: {
           title: input.title,
           description: input.description ?? null,
+          mode: input.mode,
           createdById: input.actorId,
         },
       });
@@ -175,7 +209,7 @@ export class ElectionService {
           result: "SUCCESS",
           ipAddress: input.ipAddress,
           userAgent: input.userAgent,
-          metadata: { title: input.title },
+          metadata: { title: input.title, mode: input.mode },
         },
         tx,
       );
@@ -225,16 +259,43 @@ export class ElectionService {
       }
 
       if (election.status === "SETUP" && input.status === "READY") {
-        if (election._count.candidates < 2) {
+        const requiredCandidates = election.mode === "WEIGHTED_FIVE" ? 5 : 2;
+        if (
+          election._count.candidates < requiredCandidates ||
+          (election.mode === "WEIGHTED_FIVE" && election._count.candidates !== 5)
+        ) {
           throw new ServiceError(
             "ELECTION_MIN_CANDIDATES",
-            "Election harus memiliki minimal 2 kandidat.",
+            election.mode === "WEIGHTED_FIVE"
+              ? "Mode 5 kandidat berbobot harus memiliki tepat 5 kandidat."
+              : "Election harus memiliki minimal 2 kandidat.",
             422,
           );
         }
 
         if (election._count.tokens < 1) {
           throw new ServiceError("ELECTION_WRONG_STATE", "Election harus memiliki token.", 422);
+        }
+
+        if (election.mode === "WEIGHTED_FIVE") {
+          const roleCounts = await tx.votingToken.groupBy({
+            by: ["voterType"],
+            where: { electionId: input.electionId },
+            _count: { voterType: true },
+          });
+          const availableRoles = new Set(
+            roleCounts.filter((item) => item._count.voterType > 0).map((item) => item.voterType),
+          );
+          const missingRoles = (["OSIS", "MPK", "GURU"] as const).filter(
+            (role) => !availableRoles.has(role),
+          );
+          if (missingRoles.length > 0) {
+            throw new ServiceError(
+              "ELECTION_WRONG_STATE",
+              `Token untuk role ${missingRoles.join(", ")} belum tersedia.`,
+              422,
+            );
+          }
         }
       }
 

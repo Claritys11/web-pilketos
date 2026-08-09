@@ -8,6 +8,7 @@ interface LockedVotingTokenRow {
   id: string;
   election_id: string;
   used_at: Date | null;
+  voter_type: "STUDENT" | "TEACHER" | "OSIS" | "MPK" | "GURU" | null;
 }
 
 export interface CastVoteInput {
@@ -26,7 +27,7 @@ export class VoteService {
           tokenId: string;
           electionId: string;
           electionTitle: string;
-          voterType: "STUDENT" | "TEACHER" | null;
+          voterType: "STUDENT" | "TEACHER" | "OSIS" | "MPK" | "GURU" | null;
           studentIdentifier: string | null;
           studentName: string | null;
           studentClass: string | null;
@@ -39,7 +40,7 @@ export class VoteService {
 
     await prisma.$transaction(async (tx) => {
       const lockedTokens = await tx.$queryRaw<LockedVotingTokenRow[]>`
-        SELECT id, election_id, used_at
+        SELECT id, election_id, used_at, voter_type
         FROM "VotingToken"
         WHERE token_hash = ${tokenHash}
         FOR UPDATE
@@ -60,7 +61,7 @@ export class VoteService {
 
       const election = await tx.election.findUnique({
         where: { id: input.electionId },
-        select: { id: true, title: true, status: true },
+        select: { id: true, title: true, status: true, mode: true },
       });
 
       if (!election) {
@@ -69,6 +70,17 @@ export class VoteService {
 
       if (election.status !== "OPEN") {
         throw new ServiceError("ELECTION_NOT_OPEN", "Voting sedang tidak berlangsung.", 422);
+      }
+
+      if (
+        election.mode === "WEIGHTED_FIVE" &&
+        (!lockedToken.voter_type || !["OSIS", "MPK", "GURU"].includes(lockedToken.voter_type))
+      ) {
+        throw new ServiceError(
+          "TOKEN_VOTER_TYPE_INVALID",
+          "Token tidak memiliki role OSIS, MPK, atau GURU yang valid.",
+          422,
+        );
       }
 
       const candidate = await tx.candidate.findUnique({
@@ -92,6 +104,7 @@ export class VoteService {
         data: {
           electionId: input.electionId,
           candidateId: input.candidateId,
+          voterType: lockedToken.voter_type,
         },
       });
 

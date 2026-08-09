@@ -14,6 +14,7 @@ import { adminFetch, buildQuery } from "@/lib/admin/api";
 import type {
   AdminSessionUser,
   ElectionListItem,
+  ElectionMode,
   ElectionStatus,
   Paginated,
 } from "@/lib/admin/types";
@@ -41,6 +42,7 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
   const [submitting, setSubmitting] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [mode, setMode] = useState<ElectionMode>("STANDARD");
   const canManage = user.role !== "VIEWER";
 
   const load = useCallback(async () => {
@@ -96,10 +98,15 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
     try {
       const created = await adminFetch<ElectionListItem>("/api/admin/elections", {
         method: "POST",
-        body: JSON.stringify({ title: title.trim(), description: description.trim() || null }),
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim() || null,
+          mode,
+        }),
       });
       setTitle("");
       setDescription("");
+      setMode("STANDARD");
       setCreating(false);
       setStatus("ALL");
       setPage(1);
@@ -195,6 +202,7 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
               <tr>
                 <th className="px-4 py-3 text-left">Nama</th>
                 <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Mode</th>
                 <th className="px-4 py-3 text-left">Kandidat</th>
                 <th className="px-4 py-3 text-left">Token</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
@@ -211,6 +219,9 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
                   </td>
                   <td className="px-4 py-4">
                     <Badge tone={electionStatusTone(item.status)}>{item.status}</Badge>
+                  </td>
+                  <td className="px-4 py-4 text-neutral-700">
+                    {item.mode === "WEIGHTED_FIVE" ? "5 kandidat berbobot" : "Kandidat bebas"}
                   </td>
                   <td className="px-4 py-4 text-neutral-700">{item._count?.candidates ?? 0}</td>
                   <td className="px-4 py-4 text-neutral-700">{item._count?.tokens ?? 0}</td>
@@ -256,6 +267,26 @@ export function ElectionsClient({ user }: { user: AdminSessionUser }) {
       {creating ? (
         <Modal title="Buat Election Baru" onClose={() => setCreating(false)}>
           <form onSubmit={createElection} className="space-y-4">
+            <div>
+              <label htmlFor="mode" className="text-sm font-semibold text-neutral-800">
+                Mode election
+              </label>
+              <select
+                id="mode"
+                value={mode}
+                onChange={(event) => setMode(event.target.value as ElectionMode)}
+                className="mt-2 h-11 w-full rounded-lg border border-neutral-200 px-3 outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
+              >
+                <option value="STANDARD">Kandidat bebas (perhitungan suara biasa)</option>
+                <option value="WEIGHTED_FIVE">
+                  Tepat 5 kandidat (OSIS 40%, MPK 30%, GURU 30%)
+                </option>
+              </select>
+              <p className="mt-2 text-xs leading-5 text-neutral-500">
+                Mode tidak dapat diganti setelah election dibuat karena menentukan format pemilih
+                dan cara hasil dihitung.
+              </p>
+            </div>
             <div>
               <label htmlFor="title" className="text-sm font-semibold text-neutral-800">
                 Judul

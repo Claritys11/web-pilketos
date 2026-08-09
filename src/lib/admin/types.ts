@@ -1,5 +1,7 @@
 export type AdminRole = "SUPER_ADMIN" | "ADMIN" | "VIEWER";
 export type ElectionStatus = "SETUP" | "READY" | "OPEN" | "PAUSED" | "CLOSED" | "ARCHIVED";
+export type ElectionMode = "STANDARD" | "WEIGHTED_FIVE";
+export type VoterType = "STUDENT" | "TEACHER" | "OSIS" | "MPK" | "GURU";
 export type AuditResult = "SUCCESS" | "FAILURE";
 
 export interface ApiErrorPayload {
@@ -45,6 +47,10 @@ export interface ElectionListItem {
   title: string;
   description: string | null;
   status: ElectionStatus;
+  mode: ElectionMode;
+  googleSheetsSpreadsheetId: string | null;
+  googleSheetsSyncedAt: string | null;
+  googleSheetsSyncError: string | null;
   openedAt: string | null;
   closedAt: string | null;
   createdAt: string;
@@ -82,6 +88,7 @@ export interface DashboardStats {
     id: string;
     title: string;
     status: ElectionStatus;
+    mode: ElectionMode;
     openedAt: string | null;
   };
   totalVotes: number;
@@ -96,6 +103,14 @@ export interface DashboardStats {
     name: string;
     voteCount: number;
     percentage: number;
+    weightedScore: number | null;
+    roleBreakdown: Array<{
+      role: "OSIS" | "MPK" | "GURU";
+      voteCount: number;
+      totalVotes: number;
+      percentage: number;
+      weight: number;
+    }>;
   }>;
 }
 
