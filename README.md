@@ -136,30 +136,24 @@ voting dan pemilih tinggal menekan lanjut.
 
 Opsional Google Sheets sync untuk kontrol sudah/belum voting:
 
-1. Buat Google Cloud Service Account dan aktifkan Google Sheets API. Aktifkan Google Drive API
-   juga jika ingin spreadsheet otomatis dibagikan lewat `GOOGLE_SHEETS_SHARE_EMAIL`.
-2. Buat spreadsheet, lalu share spreadsheet ke email service account sebagai Editor.
+1. Buat Google Cloud Service Account dan aktifkan Google Sheets API.
+2. Buat satu spreadsheet manual dari akun panitia, lalu share spreadsheet itu ke email service
+   account sebagai Editor.
 3. Isi env berikut di `.env`/Coolify:
 
 ```env
 GOOGLE_SHEETS_ENABLED=true
-GOOGLE_SHEETS_SPREADSHEET_ID=
+GOOGLE_SHEETS_SPREADSHEET_ID=id_spreadsheet_manual
 GOOGLE_SHEETS_SHEET_NAME=Pilketos
 GOOGLE_SHEETS_CLIENT_EMAIL=service-account@project.iam.gserviceaccount.com
 GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-GOOGLE_SHEETS_PARENT_FOLDER_ID=
-GOOGLE_SHEETS_SHARE_EMAIL=admin@sekolah.sch.id
 ```
 
 Sheets hanya menyimpan metadata pemilih dan status token/email. Pilihan kandidat tetap anonim dan
 tidak dikirim ke spreadsheet.
 
-Jika `GOOGLE_SHEETS_SPREADSHEET_ID` dikosongkan, aplikasi membuat spreadsheet baru untuk setiap
-election saat pertama kali token disinkronkan, lalu menyimpan ID spreadsheet itu di PostgreSQL.
-Isi `GOOGLE_SHEETS_SHARE_EMAIL` agar spreadsheet baru otomatis dibagikan ke akun panitia.
-Untuk service account biasa, Google Drive bisa menolak pembuatan file karena quota storage service
-account. Jika itu terjadi, isi `GOOGLE_SHEETS_PARENT_FOLDER_ID` dengan folder di Shared Drive yang
-sudah memberi akses ke service account.
+Sistem akan membuat tab/sheet baru per election di dalam spreadsheet manual tersebut, misalnya
+`Pilketos - Pilketos 2026/2027 - abc123`.
 
 ## Development Lokal
 

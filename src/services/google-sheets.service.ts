@@ -3,15 +3,10 @@ import crypto from "node:crypto";
 import type { VoterType } from "@prisma/client";
 
 import { config } from "@/config/env";
-import { prisma } from "@/lib/prisma";
 
-const GOOGLE_API_SCOPE = [
-  "https://www.googleapis.com/auth/spreadsheets",
-  "https://www.googleapis.com/auth/drive.file",
-].join(" ");
+const GOOGLE_API_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 const SHEETS_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SHEETS_API_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
-const DRIVE_API_BASE = "https://www.googleapis.com/drive/v3/files";
 const SHEET_HEADERS = [
   "token_id",
   "election_id",
@@ -61,9 +56,10 @@ class GoogleSheetsService {
         return;
       }
 
-      const spreadsheetId = await this.resolveSpreadsheetId(firstRow);
-      await this.ensureHeader(spreadsheetId);
-      await this.appendRows(spreadsheetId, rows.map(formatTokenRow));
+      const spreadsheetId = this.spreadsheetId();
+      const sheetTitle = sheetTitleForElection(firstRow);
+      await this.ensureHeader(spreadsheetId, sheetTitle);
+      await this.appendRows(spreadsheetId, sheetTitle, rows.map(formatTokenRow));
     } catch (error) {
       logSheetsWarning("Gagal sync token ke Google Sheets", error);
     }
@@ -75,143 +71,40 @@ class GoogleSheetsService {
     }
 
     try {
-      const spreadsheetId = await this.resolveSpreadsheetId(row);
-      await this.ensureHeader(spreadsheetId);
-      const rowNumber = await this.findRowNumber(spreadsheetId, row.tokenId);
+      const spreadsheetId = this.spreadsheetId();
+      const sheetTitle = sheetTitleForElection(row);
+      await this.ensureHeader(spreadsheetId, sheetTitle);
+      const rowNumber = await this.findRowNumber(spreadsheetId, sheetTitle, row.tokenId);
       if (rowNumber) {
-        await this.updateRow(spreadsheetId, rowNumber, formatTokenRow(row));
+        await this.updateRow(spreadsheetId, sheetTitle, rowNumber, formatTokenRow(row));
       } else {
-        await this.appendRows(spreadsheetId, [formatTokenRow(row)]);
+        await this.appendRows(spreadsheetId, sheetTitle, [formatTokenRow(row)]);
       }
     } catch (error) {
       logSheetsWarning("Gagal update token di Google Sheets", error);
     }
   }
 
-  private async resolveSpreadsheetId(row: Pick<SheetTokenRow, "electionId" | "electionTitle">) {
-    if (config.sheets.spreadsheetId) {
-      return config.sheets.spreadsheetId;
+  private spreadsheetId() {
+    if (!config.sheets.spreadsheetId) {
+      throw new Error("GOOGLE_SHEETS_SPREADSHEET_ID wajib diisi untuk Google Sheets sync.");
     }
 
-    const election = await prisma.election.findUnique({
-      where: { id: row.electionId },
-      select: {
-        id: true,
-        title: true,
-        googleSheetsSpreadsheetId: true,
-      },
-    });
-
-    if (!election) {
-      throw new Error(`Election ${row.electionId} tidak ditemukan untuk Google Sheets sync.`);
-    }
-
-    if (election.googleSheetsSpreadsheetId) {
-      return election.googleSheetsSpreadsheetId;
-    }
-
-    const spreadsheetId = await this.createSpreadsheet(election.title || row.electionTitle);
-    await prisma.election.update({
-      where: { id: election.id },
-      data: { googleSheetsSpreadsheetId: spreadsheetId },
-    });
-
-    return spreadsheetId;
+    return config.sheets.spreadsheetId;
   }
 
-  private async createSpreadsheet(electionTitle: string) {
-    const title = `Pilketos - ${electionTitle}`.slice(0, 100);
-    const spreadsheetId = config.sheets.parentFolderId
-      ? await this.createSpreadsheetInDrive(title, config.sheets.parentFolderId)
-      : await this.createSpreadsheetViaSheetsApi(title);
-
-    if (config.sheets.shareEmail) {
-      try {
-        await this.shareSpreadsheet(spreadsheetId, config.sheets.shareEmail);
-      } catch (error) {
-        logSheetsWarning("Spreadsheet dibuat, tetapi gagal auto-share", error);
-      }
-    }
-
-    return spreadsheetId;
-  }
-
-  private async createSpreadsheetViaSheetsApi(title: string) {
-    const response = await this.fetchGoogle(SHEETS_API_BASE, {
-      method: "POST",
-      body: JSON.stringify({
-        properties: { title },
-        sheets: [{ properties: { title: config.sheets.sheetName ?? "Pilketos" } }],
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Sheets API ${response.status}: ${await response.text()}`);
-    }
-
-    const data = (await response.json()) as { spreadsheetId?: string };
-    if (!data.spreadsheetId) {
-      throw new Error("Google Sheets tidak mengembalikan spreadsheetId.");
-    }
-
-    return data.spreadsheetId;
-  }
-
-  private async createSpreadsheetInDrive(title: string, parentFolderId: string) {
-    const response = await this.fetchGoogle(
-      "https://www.googleapis.com/drive/v3/files?fields=id,name,mimeType&supportsAllDrives=true",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          name: title,
-          mimeType: "application/vnd.google-apps.spreadsheet",
-          parents: [parentFolderId],
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`Drive API ${response.status}: ${await response.text()}`);
-    }
-
-    const data = (await response.json()) as { id?: string };
-    if (!data.id) {
-      throw new Error("Google Drive tidak mengembalikan file id.");
-    }
-
-    return data.id;
-  }
-
-  private async shareSpreadsheet(spreadsheetId: string, emailAddress: string) {
-    const response = await this.fetchGoogle(
-      `${DRIVE_API_BASE}/${encodeURIComponent(spreadsheetId)}/permissions?sendNotificationEmail=false`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          type: "user",
-          role: "writer",
-          emailAddress,
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`Drive API ${response.status}: ${await response.text()}`);
-    }
-  }
-
-  private async ensureHeader(spreadsheetId: string) {
-    await this.ensureSheetExists(spreadsheetId);
-    const values = await this.requestValues(spreadsheetId, "A1:N1");
+  private async ensureHeader(spreadsheetId: string, sheetTitle: string) {
+    await this.ensureSheetExists(spreadsheetId, sheetTitle);
+    const values = await this.requestValues(spreadsheetId, sheetTitle, "A1:N1");
     const currentHeader = values[0]?.join(",") ?? "";
     if (currentHeader === SHEET_HEADERS.join(",")) {
       return;
     }
 
-    await this.updateRange(spreadsheetId, "A1:N1", [SHEET_HEADERS]);
+    await this.updateRange(spreadsheetId, sheetTitle, "A1:N1", [SHEET_HEADERS]);
   }
 
-  private async ensureSheetExists(spreadsheetId: string) {
+  private async ensureSheetExists(spreadsheetId: string, sheetTitle: string) {
     const response = await this.fetchGoogle(
       `${this.baseUrl(spreadsheetId)}?fields=sheets.properties.title`,
     );
@@ -222,8 +115,7 @@ class GoogleSheetsService {
     const data = (await response.json()) as {
       sheets?: Array<{ properties?: { title?: string } }>;
     };
-    const title = config.sheets.sheetName ?? "Pilketos";
-    const exists = data.sheets?.some((sheet) => sheet.properties?.title === title);
+    const exists = data.sheets?.some((sheet) => sheet.properties?.title === sheetTitle);
     if (exists) {
       return;
     }
@@ -235,7 +127,7 @@ class GoogleSheetsService {
           {
             addSheet: {
               properties: {
-                title,
+                title: sheetTitle,
               },
             },
           },
@@ -248,15 +140,15 @@ class GoogleSheetsService {
     }
   }
 
-  private async findRowNumber(spreadsheetId: string, tokenId: string) {
-    const values = await this.requestValues(spreadsheetId, "A:A");
+  private async findRowNumber(spreadsheetId: string, sheetTitle: string, tokenId: string) {
+    const values = await this.requestValues(spreadsheetId, sheetTitle, "A:A");
     const index = values.findIndex((row) => row[0] === tokenId);
     return index >= 0 ? index + 1 : null;
   }
 
-  private async requestValues(spreadsheetId: string, range: string) {
+  private async requestValues(spreadsheetId: string, sheetTitle: string, range: string) {
     const response = await this.fetchGoogle(
-      `${this.baseUrl(spreadsheetId)}/values/${encodeURIComponent(sheetRange(range))}`,
+      `${this.baseUrl(spreadsheetId)}/values/${encodeURIComponent(sheetRange(sheetTitle, range))}`,
     );
 
     if (response.status === 404) {
@@ -271,9 +163,9 @@ class GoogleSheetsService {
     return data.values ?? [];
   }
 
-  private async appendRows(spreadsheetId: string, rows: string[][]) {
+  private async appendRows(spreadsheetId: string, sheetTitle: string, rows: string[][]) {
     const response = await this.fetchGoogle(
-      `${this.baseUrl(spreadsheetId)}/values/${encodeURIComponent(sheetRange("A:N"))}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+      `${this.baseUrl(spreadsheetId)}/values/${encodeURIComponent(sheetRange(sheetTitle, "A:N"))}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
       {
         method: "POST",
         body: JSON.stringify({ values: rows }),
@@ -285,17 +177,23 @@ class GoogleSheetsService {
     }
   }
 
-  private async updateRow(spreadsheetId: string, rowNumber: number, row: string[]) {
-    await this.updateRange(spreadsheetId, `A${rowNumber}:N${rowNumber}`, [row]);
+  private async updateRow(
+    spreadsheetId: string,
+    sheetTitle: string,
+    rowNumber: number,
+    row: string[],
+  ) {
+    await this.updateRange(spreadsheetId, sheetTitle, `A${rowNumber}:N${rowNumber}`, [row]);
   }
 
   private async updateRange(
     spreadsheetId: string,
+    sheetTitle: string,
     range: string,
     rows: readonly (readonly string[])[],
   ) {
     const response = await this.fetchGoogle(
-      `${this.baseUrl(spreadsheetId)}/values/${encodeURIComponent(sheetRange(range))}?valueInputOption=USER_ENTERED`,
+      `${this.baseUrl(spreadsheetId)}/values/${encodeURIComponent(sheetRange(sheetTitle, range))}?valueInputOption=USER_ENTERED`,
       {
         method: "PUT",
         body: JSON.stringify({ values: rows }),
@@ -400,8 +298,23 @@ function toIso(value: Date | string | null) {
   return value instanceof Date ? value.toISOString() : value;
 }
 
-function sheetRange(range: string) {
-  return `'${String(config.sheets.sheetName ?? "Pilketos").replaceAll("'", "''")}'!${range}`;
+function sheetTitleForElection(row: Pick<SheetTokenRow, "electionId" | "electionTitle">) {
+  const prefix = config.sheets.sheetName ?? "Pilketos";
+  const suffix = row.electionId.slice(-6);
+  const rawTitle = `${prefix} - ${row.electionTitle} - ${suffix}`;
+  return sanitizeSheetTitle(rawTitle);
+}
+
+function sanitizeSheetTitle(value: string) {
+  return value
+    .replace(/[\][*?/\\:]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100);
+}
+
+function sheetRange(sheetTitle: string, range: string) {
+  return `'${sheetTitle.replaceAll("'", "''")}'!${range}`;
 }
 
 function signJwt(payload: Record<string, string | number>) {

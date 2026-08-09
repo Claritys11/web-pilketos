@@ -124,12 +124,10 @@ Opsional Google Sheets sync:
 
 ```env
 GOOGLE_SHEETS_ENABLED=true
-GOOGLE_SHEETS_SPREADSHEET_ID=
+GOOGLE_SHEETS_SPREADSHEET_ID=id_spreadsheet_manual
 GOOGLE_SHEETS_SHEET_NAME=Pilketos
 GOOGLE_SHEETS_CLIENT_EMAIL=service-account@project.iam.gserviceaccount.com
 GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-GOOGLE_SHEETS_PARENT_FOLDER_ID=
-GOOGLE_SHEETS_SHARE_EMAIL=admin@sekolah.sch.id
 ```
 
 Catatan penting:
@@ -140,15 +138,10 @@ Catatan penting:
 - Jika memakai Cloudflare Tunnel ke host lokal, arahkan tunnel ke `http://localhost:6500`.
 - Untuk mode per pemilih, gunakan email provider. Plaintext token tidak ditampilkan/download di
   dashboard admin.
-- Untuk Google Sheets, aktifkan Google Sheets API, buat service account, lalu share spreadsheet ke
-  `GOOGLE_SHEETS_CLIENT_EMAIL` sebagai Editor jika memakai spreadsheet tetap. Aktifkan Google
-  Drive API juga jika ingin auto-share ke `GOOGLE_SHEETS_SHARE_EMAIL`. Spreadsheet hanya menerima
-  metadata pemilih dan status sudah/belum voting, bukan pilihan kandidat.
-- Jika `GOOGLE_SHEETS_SPREADSHEET_ID` kosong, aplikasi membuat spreadsheet baru per election,
-  menyimpan ID-nya di PostgreSQL, dan membagikannya ke `GOOGLE_SHEETS_SHARE_EMAIL` jika env itu
-  diisi.
-- Jika auto-create memakai service account dan Google menolak dengan `storageQuotaExceeded`, buat
-  folder di Shared Drive, beri akses ke service account, lalu isi `GOOGLE_SHEETS_PARENT_FOLDER_ID`.
+- Untuk Google Sheets, aktifkan Google Sheets API, buat satu spreadsheet manual dari akun panitia,
+  lalu share spreadsheet ke `GOOGLE_SHEETS_CLIENT_EMAIL` sebagai Editor. Aplikasi akan membuat satu
+  tab/sheet per election di spreadsheet itu. Spreadsheet hanya menerima metadata pemilih dan status
+  sudah/belum voting, bukan pilihan kandidat.
 
 ---
 

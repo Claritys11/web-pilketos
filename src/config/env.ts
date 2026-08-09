@@ -75,14 +75,6 @@ const envSchema = z.object({
   GOOGLE_SHEETS_SHEET_NAME: z.string().optional(),
   GOOGLE_SHEETS_CLIENT_EMAIL: z.string().optional(),
   GOOGLE_SHEETS_PRIVATE_KEY: z.string().optional(),
-  GOOGLE_SHEETS_PARENT_FOLDER_ID: z.string().optional(),
-  GOOGLE_SHEETS_SHARE_EMAIL: z
-    .string()
-    .trim()
-    .email()
-    .optional()
-    .or(z.literal(""))
-    .transform((value) => value || undefined),
 });
 
 // ---------------------------------------------------------------------------
@@ -142,8 +134,6 @@ const _env = _parsed.success
       GOOGLE_SHEETS_SHEET_NAME: undefined,
       GOOGLE_SHEETS_CLIENT_EMAIL: undefined,
       GOOGLE_SHEETS_PRIVATE_KEY: undefined,
-      GOOGLE_SHEETS_PARENT_FOLDER_ID: undefined,
-      GOOGLE_SHEETS_SHARE_EMAIL: undefined,
     } as unknown as z.infer<typeof envSchema>);
 
 if (isSkippingEnvValidation && configIsRuntime()) {
@@ -273,6 +263,7 @@ export const config = {
   sheets: {
     enabled: Boolean(
       _env.GOOGLE_SHEETS_ENABLED &&
+      _env.GOOGLE_SHEETS_SPREADSHEET_ID &&
       _env.GOOGLE_SHEETS_CLIENT_EMAIL &&
       _env.GOOGLE_SHEETS_PRIVATE_KEY,
     ),
@@ -280,8 +271,6 @@ export const config = {
     sheetName: _env.GOOGLE_SHEETS_SHEET_NAME ?? "Pilketos",
     clientEmail: _env.GOOGLE_SHEETS_CLIENT_EMAIL,
     privateKey: _env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    parentFolderId: _env.GOOGLE_SHEETS_PARENT_FOLDER_ID,
-    shareEmail: _env.GOOGLE_SHEETS_SHARE_EMAIL,
   },
 } as const;
 
