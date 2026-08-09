@@ -114,6 +114,22 @@ GMAIL_SECONDARY_CLIENT_ID=
 GMAIL_SECONDARY_CLIENT_SECRET=
 GMAIL_SECONDARY_REFRESH_TOKEN=
 GMAIL_SECONDARY_FROM=
+TOKEN_EMAIL_SENDS_PER_MINUTE=50
+```
+
+`TOKEN_EMAIL_SENDS_PER_MINUTE` membatasi pengiriman token agar provider email tidak mudah kena
+limit. Default 50 email/menit, batas valid maksimum 100 email/menit.
+
+Opsional Google Sheets sync:
+
+```env
+GOOGLE_SHEETS_ENABLED=true
+GOOGLE_SHEETS_SPREADSHEET_ID=
+GOOGLE_SHEETS_SHEET_NAME=Pilketos
+GOOGLE_SHEETS_CLIENT_EMAIL=service-account@project.iam.gserviceaccount.com
+GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_SHEETS_PARENT_FOLDER_ID=
+GOOGLE_SHEETS_SHARE_EMAIL=admin@sekolah.sch.id
 ```
 
 Catatan penting:
@@ -124,6 +140,15 @@ Catatan penting:
 - Jika memakai Cloudflare Tunnel ke host lokal, arahkan tunnel ke `http://localhost:6500`.
 - Untuk mode per pemilih, gunakan email provider. Plaintext token tidak ditampilkan/download di
   dashboard admin.
+- Untuk Google Sheets, aktifkan Google Sheets API, buat service account, lalu share spreadsheet ke
+  `GOOGLE_SHEETS_CLIENT_EMAIL` sebagai Editor jika memakai spreadsheet tetap. Aktifkan Google
+  Drive API juga jika ingin auto-share ke `GOOGLE_SHEETS_SHARE_EMAIL`. Spreadsheet hanya menerima
+  metadata pemilih dan status sudah/belum voting, bukan pilihan kandidat.
+- Jika `GOOGLE_SHEETS_SPREADSHEET_ID` kosong, aplikasi membuat spreadsheet baru per election,
+  menyimpan ID-nya di PostgreSQL, dan membagikannya ke `GOOGLE_SHEETS_SHARE_EMAIL` jika env itu
+  diisi.
+- Jika auto-create memakai service account dan Google menolak dengan `storageQuotaExceeded`, buat
+  folder di Shared Drive, beri akses ke service account, lalu isi `GOOGLE_SHEETS_PARENT_FOLDER_ID`.
 
 ---
 
@@ -209,11 +234,15 @@ Restore database sebaiknya dilakukan saat aplikasi tidak sedang dipakai voting.
 3. Buka tab `Token`.
 4. Klik `Generate Token`.
 5. Pilih mode `Per Siswa`.
-6. Upload Excel/CSV atau paste daftar pemilih dengan format `ID, Nama, Kelas/Jabatan, Email, Tipe`.
-7. Jika email aktif, sistem mengirim token ke email masing-masing pemilih.
+6. Download template CSV, lalu upload Excel/CSV atau paste daftar pemilih dengan format
+   `ID, Nama, Kelas/Jabatan, Email, Tipe`.
+7. Jika email aktif, sistem mengirim token ke email masing-masing pemilih secara bertahap sesuai
+   `TOKEN_EMAIL_SENDS_PER_MINUTE`. Email berisi tombol ke `/vote?token=...` agar token otomatis
+   terisi.
 8. Jika ada email gagal, tekan `Retry Email Gagal`.
 9. Pastikan semua token penting berstatus terkirim sebelum election dibuka.
-10. Pantau tabel `Status Token Siswa` untuk melihat token sudah dipakai atau belum.
+10. Pantau tabel `Status Token Siswa` atau spreadsheet untuk melihat token sudah dipakai atau
+    belum.
 
 Sistem menyimpan metadata pemilih untuk distribusi dan status. Plaintext token tidak ditampilkan ke
 admin; server hanya menyimpan ciphertext untuk kebutuhan retry email dan menghapusnya saat token

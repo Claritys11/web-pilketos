@@ -72,19 +72,20 @@ model Admin {
 }
 
 model Election {
-  id          String         @id @default(cuid())
-  title       String         @db.VarChar(255)
-  description String?        @db.Text
-  status      ElectionStatus @default(SETUP)
-  openedAt    DateTime?      @map("opened_at") @db.Timestamptz(6)
-  closedAt    DateTime?      @map("closed_at") @db.Timestamptz(6)
-  createdById String         @map("created_by")
-  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdBy   Admin          @relation("ElectionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  candidates  Candidate[]
-  tokens      VotingToken[]
-  votes       Vote[]
+  id                        String         @id @default(cuid())
+  title                     String         @db.VarChar(255)
+  description               String?        @db.Text
+  status                    ElectionStatus @default(SETUP)
+  openedAt                  DateTime?      @map("opened_at") @db.Timestamptz(6)
+  closedAt                  DateTime?      @map("closed_at") @db.Timestamptz(6)
+  googleSheetsSpreadsheetId String?        @map("google_sheets_spreadsheet_id") @db.VarChar(128)
+  createdById               String         @map("created_by")
+  createdAt                 DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy                 Admin          @relation("ElectionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  candidates                Candidate[]
+  tokens                    VotingToken[]
+  votes                     Vote[]
 
   @@index([status], map: "idx_election_status")
   @@index([createdById], map: "idx_election_created_by")

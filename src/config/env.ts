@@ -64,6 +64,25 @@ const envSchema = z.object({
   GMAIL_SECONDARY_CLIENT_SECRET: z.string().optional(),
   GMAIL_SECONDARY_REFRESH_TOKEN: z.string().optional(),
   GMAIL_SECONDARY_FROM: z.string().optional(),
+  TOKEN_EMAIL_SENDS_PER_MINUTE: z.coerce.number().int().min(1).max(100).default(50),
+
+  // Google Sheets sync
+  GOOGLE_SHEETS_ENABLED: z
+    .enum(["true", "false", "1", "0"])
+    .optional()
+    .transform((value) => value === "true" || value === "1"),
+  GOOGLE_SHEETS_SPREADSHEET_ID: z.string().optional(),
+  GOOGLE_SHEETS_SHEET_NAME: z.string().optional(),
+  GOOGLE_SHEETS_CLIENT_EMAIL: z.string().optional(),
+  GOOGLE_SHEETS_PRIVATE_KEY: z.string().optional(),
+  GOOGLE_SHEETS_PARENT_FOLDER_ID: z.string().optional(),
+  GOOGLE_SHEETS_SHARE_EMAIL: z
+    .string()
+    .trim()
+    .email()
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => value || undefined),
 });
 
 // ---------------------------------------------------------------------------
@@ -117,6 +136,14 @@ const _env = _parsed.success
       GMAIL_SECONDARY_CLIENT_SECRET: undefined,
       GMAIL_SECONDARY_REFRESH_TOKEN: undefined,
       GMAIL_SECONDARY_FROM: undefined,
+      TOKEN_EMAIL_SENDS_PER_MINUTE: 50,
+      GOOGLE_SHEETS_ENABLED: false,
+      GOOGLE_SHEETS_SPREADSHEET_ID: undefined,
+      GOOGLE_SHEETS_SHEET_NAME: undefined,
+      GOOGLE_SHEETS_CLIENT_EMAIL: undefined,
+      GOOGLE_SHEETS_PRIVATE_KEY: undefined,
+      GOOGLE_SHEETS_PARENT_FOLDER_ID: undefined,
+      GOOGLE_SHEETS_SHARE_EMAIL: undefined,
     } as unknown as z.infer<typeof envSchema>);
 
 if (isSkippingEnvValidation && configIsRuntime()) {
@@ -239,6 +266,22 @@ export const config = {
               _env.GMAIL_FROM,
             )
           : false,
+    sendsPerMinute: _env.TOKEN_EMAIL_SENDS_PER_MINUTE,
+    sendDelayMs: Math.ceil(60000 / _env.TOKEN_EMAIL_SENDS_PER_MINUTE),
+  },
+
+  sheets: {
+    enabled: Boolean(
+      _env.GOOGLE_SHEETS_ENABLED &&
+      _env.GOOGLE_SHEETS_CLIENT_EMAIL &&
+      _env.GOOGLE_SHEETS_PRIVATE_KEY,
+    ),
+    spreadsheetId: _env.GOOGLE_SHEETS_SPREADSHEET_ID,
+    sheetName: _env.GOOGLE_SHEETS_SHEET_NAME ?? "Pilketos",
+    clientEmail: _env.GOOGLE_SHEETS_CLIENT_EMAIL,
+    privateKey: _env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    parentFolderId: _env.GOOGLE_SHEETS_PARENT_FOLDER_ID,
+    shareEmail: _env.GOOGLE_SHEETS_SHARE_EMAIL,
   },
 } as const;
 

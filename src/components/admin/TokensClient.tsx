@@ -204,17 +204,6 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
     }
   }
 
-  function downloadTemplateCsv() {
-    downloadCsv(
-      [
-        "student_identifier,student_name,student_class,student_email,voter_type",
-        "12345,Nama Siswa 1,XII RPL 1,siswa1@example.com,SISWA",
-        "G001,Nama Guru 1,Guru,guru1@example.com,GURU",
-      ].join("\n"),
-      "template-token-pemilih.csv",
-    );
-  }
-
   if (loading) {
     return <SkeletonCard />;
   }
@@ -300,13 +289,12 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
               dilakukan lewat email dan token gagal bisa di-retry dari server.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={downloadTemplateCsv}
-            className="h-10 rounded-lg border border-neutral-200 px-4 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+          <a
+            href="/api/admin/tokens/import-template"
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-neutral-200 px-4 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
           >
             Download Template CSV
-          </button>
+          </a>
         </div>
       </section>
 
@@ -453,7 +441,8 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                   <span className="mt-2 block text-xs font-medium text-neutral-500">
                     Header yang dikenali: student_identifier/nis/id, student_name/nama,
                     student_class/kelas, student_email/email, voter_type/role/tipe. Isi tipe dengan
-                    siswa/guru.
+                    siswa/guru. Email dikirim bertahap mengikuti batas server agar tidak mudah
+                    terkena limit provider.
                   </span>
                 </label>
 
@@ -525,7 +514,8 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
         >
           <Alert tone="warning" title="Token plaintext disembunyikan">
             Token plaintext tidak ditampilkan dan tidak didownload dari dashboard. Cek tabel status
-            untuk melihat email terkirim/gagal dan gunakan Retry Email Gagal bila perlu.
+            untuk melihat email terkirim/gagal dan gunakan Retry Email Gagal bila perlu. Jika Google
+            Sheets aktif, status pemilih juga akan disinkronkan ke spreadsheet.
           </Alert>
           {generated.emailSummary ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -671,16 +661,6 @@ function formatStudentLine(student: ParsedStudent) {
     student.studentEmail ?? "",
     student.voterType === "TEACHER" ? "GURU" : "SISWA",
   ].join(",");
-}
-
-function downloadCsv(csv: string, filename: string) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 function statusLabel(status: TokenStatusFilter) {

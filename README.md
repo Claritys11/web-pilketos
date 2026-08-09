@@ -126,7 +126,40 @@ GMAIL_SECONDARY_CLIENT_ID=
 GMAIL_SECONDARY_CLIENT_SECRET=
 GMAIL_SECONDARY_REFRESH_TOKEN=
 GMAIL_SECONDARY_FROM=
+
+# Default 50 email/menit. Bisa dinaikkan sampai 100 jika provider aman.
+TOKEN_EMAIL_SENDS_PER_MINUTE=50
 ```
+
+Email token berisi tombol voting ke `/vote?token=...`, sehingga token otomatis terisi di halaman
+voting dan pemilih tinggal menekan lanjut.
+
+Opsional Google Sheets sync untuk kontrol sudah/belum voting:
+
+1. Buat Google Cloud Service Account dan aktifkan Google Sheets API. Aktifkan Google Drive API
+   juga jika ingin spreadsheet otomatis dibagikan lewat `GOOGLE_SHEETS_SHARE_EMAIL`.
+2. Buat spreadsheet, lalu share spreadsheet ke email service account sebagai Editor.
+3. Isi env berikut di `.env`/Coolify:
+
+```env
+GOOGLE_SHEETS_ENABLED=true
+GOOGLE_SHEETS_SPREADSHEET_ID=
+GOOGLE_SHEETS_SHEET_NAME=Pilketos
+GOOGLE_SHEETS_CLIENT_EMAIL=service-account@project.iam.gserviceaccount.com
+GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_SHEETS_PARENT_FOLDER_ID=
+GOOGLE_SHEETS_SHARE_EMAIL=admin@sekolah.sch.id
+```
+
+Sheets hanya menyimpan metadata pemilih dan status token/email. Pilihan kandidat tetap anonim dan
+tidak dikirim ke spreadsheet.
+
+Jika `GOOGLE_SHEETS_SPREADSHEET_ID` dikosongkan, aplikasi membuat spreadsheet baru untuk setiap
+election saat pertama kali token disinkronkan, lalu menyimpan ID spreadsheet itu di PostgreSQL.
+Isi `GOOGLE_SHEETS_SHARE_EMAIL` agar spreadsheet baru otomatis dibagikan ke akun panitia.
+Untuk service account biasa, Google Drive bisa menolak pembuatan file karena quota storage service
+account. Jika itu terjadi, isi `GOOGLE_SHEETS_PARENT_FOLDER_ID` dengan folder di Shared Drive yang
+sudah memberi akses ke service account.
 
 ## Development Lokal
 
@@ -241,7 +274,7 @@ SMTP_FROM=
 GMAIL_CLIENT_ID=
 GMAIL_CLIENT_SECRET=
 GMAIL_REFRESH_TOKEN=
-GMAIL_REDIRECT_URI=http://localhost:6500/api/auth/gmail/callback
+GMAIL_REDIRECT_URI=http://localhost:6500/api/gmail-oauth/callback
 GMAIL_FROM=
 ```
 
@@ -487,14 +520,16 @@ Alur setup pemilihan:
 5. Buka tab `Kandidat`, tambah minimal 2 kandidat, isi nama, kelas, visi, misi, dan foto.
 6. Buka tab `Token`.
 7. Klik `Generate Token`.
-8. Untuk distribusi rapi, gunakan mode `Per Siswa`, upload Excel/CSV atau paste daftar
-   `ID, Nama, Kelas/Jabatan, Email, Tipe`, lalu generate.
-9. Setelah generate sukses, sistem mengirim token lewat email. Plaintext token tidak ditampilkan
-   dan tidak diunduh dari dashboard.
+8. Untuk distribusi rapi, gunakan mode `Per Siswa`, download template CSV, lalu upload Excel/CSV
+   atau paste daftar `ID, Nama, Kelas/Jabatan, Email, Tipe`.
+9. Setelah generate sukses, sistem mengirim token lewat email secara bertahap sesuai
+   `TOKEN_EMAIL_SENDS_PER_MINUTE`. Plaintext token tidak ditampilkan dan tidak diunduh dari
+   dashboard.
 10. Jika ada email gagal, gunakan tombol `Retry Email Gagal`; server akan mengirim ulang dari token
     terenkripsi tanpa mengekspos plaintext ke admin.
 11. Pastikan email pemilih valid sebelum election dibuka.
-12. Pantau tabel `Status Token Siswa` untuk melihat siapa yang belum voting dan status email token.
+12. Pantau tabel `Status Token Siswa` atau Google Sheets untuk melihat siapa yang belum voting dan
+    status email token.
 13. Kembali ke detail election, klik `Tandai Siap`.
 14. Saat voting dimulai, klik `Buka Voting`.
 15. Siswa membuka `/vote`, memasukkan token, memilih kandidat, lalu mengirim suara.
@@ -509,6 +544,8 @@ Catatan token:
   menyimpan kandidat yang dipilih oleh pemilih tersebut.
 - Email siswa disimpan untuk distribusi dan pengecekan status. `email_sent_at` dan `email_error`
   membantu operator melihat token mana yang terkirim atau gagal dikirim.
+- Jika Google Sheets sync aktif, kolom status token akan berubah dari `BELUM_VOTING` ke
+  `SUDAH_VOTING` setelah pemilih mengirim suara.
 - Jika email gagal, retry dari dashboard selama token belum dipakai dan ciphertext masih tersedia.
 - Token hanya valid saat election berstatus `OPEN`.
 - Satu token hanya bisa dipakai sekali.

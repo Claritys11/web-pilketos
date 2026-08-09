@@ -261,17 +261,18 @@ FAILURE
 
 **Purpose:** Merepresentasikan satu sesi pemilihan Ketua OSIS dengan state machine 6 state. Hanya satu election boleh berada dalam state `OPEN` atau `PAUSED` dalam satu waktu. _(PRD §6, Design Decisions)_
 
-| Kolom         | Tipe             | Nullable | Default | Deskripsi                                   |
-| ------------- | ---------------- | -------- | ------- | ------------------------------------------- |
-| `id`          | `CUID`           | No       | auto    | Primary key                                 |
-| `title`       | `VARCHAR(255)`   | No       | —       | Judul election (e.g., "Pilketos 2025/2026") |
-| `description` | `TEXT`           | Yes      | `null`  | Deskripsi singkat opsional                  |
-| `status`      | `ElectionStatus` | No       | `SETUP` | State machine saat ini _(PRD §6)_           |
-| `opened_at`   | `TIMESTAMPTZ`    | Yes      | `null`  | Waktu state berubah ke OPEN                 |
-| `closed_at`   | `TIMESTAMPTZ`    | Yes      | `null`  | Waktu state berubah ke CLOSED               |
-| `created_by`  | `CUID`           | No       | —       | FK ke `Admin.id` yang membuat election      |
-| `created_at`  | `TIMESTAMPTZ`    | No       | `now()` | Waktu pembuatan (UTC)                       |
-| `updated_at`  | `TIMESTAMPTZ`    | No       | `now()` | Waktu update terakhir (UTC), auto-update    |
+| Kolom                          | Tipe             | Nullable | Default | Deskripsi                                   |
+| ------------------------------ | ---------------- | -------- | ------- | ------------------------------------------- |
+| `id`                           | `CUID`           | No       | auto    | Primary key                                 |
+| `title`                        | `VARCHAR(255)`   | No       | —       | Judul election (e.g., "Pilketos 2025/2026") |
+| `description`                  | `TEXT`           | Yes      | `null`  | Deskripsi singkat opsional                  |
+| `status`                       | `ElectionStatus` | No       | `SETUP` | State machine saat ini _(PRD §6)_           |
+| `opened_at`                    | `TIMESTAMPTZ`    | Yes      | `null`  | Waktu state berubah ke OPEN                 |
+| `closed_at`                    | `TIMESTAMPTZ`    | Yes      | `null`  | Waktu state berubah ke CLOSED               |
+| `google_sheets_spreadsheet_id` | `VARCHAR(128)`   | Yes      | `null`  | Spreadsheet status pemilih per election     |
+| `created_by`                   | `CUID`           | No       | —       | FK ke `Admin.id` yang membuat election      |
+| `created_at`                   | `TIMESTAMPTZ`    | No       | `now()` | Waktu pembuatan (UTC)                       |
+| `updated_at`                   | `TIMESTAMPTZ`    | No       | `now()` | Waktu update terakhir (UTC), auto-update    |
 
 **Constraints:**
 
@@ -284,6 +285,7 @@ FAILURE
 - `idx_election_status` — filter berdasarkan state
 - `idx_one_active_election` (partial unique, lihat constraints)
 - `idx_election_created_by` — relasi ke admin
+- `idx_election_google_sheets_spreadsheet_id` — lookup spreadsheet sync per election
 
 **State Transition Rules (enforced at application layer + audit log):**
 

@@ -500,6 +500,8 @@ GET /api/admin/elections?filterBy[status]=OPEN
 8. `UPDATE VotingToken SET used_at = now() WHERE id = $tokenId`.
 9. `COMMIT`.
 10. Jika ada langkah yang gagal → `ROLLBACK` → tidak ada vote yang tersimpan, token tidak berubah.
+11. Jika Google Sheets sync aktif, status token di spreadsheet diperbarui menjadi `SUDAH_VOTING`
+    setelah transaksi database sukses.
 
 **Side Effects:**
 
@@ -511,6 +513,7 @@ GET /api/admin/elections?filterBy[status]=OPEN
 
 - `AuditLog` record dengan `action: VOTE_CAST` di-insert setelah transaksi COMMIT.
 - **Tidak ada referensi ke `candidateId`, `tokenId`, atau identitas siswa** dalam audit log. _(PRD §7.3)_
+- Google Sheets sync hanya menerima metadata pemilih dan status token, bukan kandidat yang dipilih.
 
 **Anonymity Guarantee:**
 
@@ -1508,12 +1511,16 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 6. Tidak ada batas total token per election — admin bertanggung jawab atas jumlah yang wajar.
 7. Untuk mode per siswa, `studentIdentifier` harus unik dalam satu election.
 8. Metadata siswa disimpan hanya untuk distribusi dan status token, bukan untuk menghubungkan siswa ke kandidat.
-9. Jika email provider dikonfigurasi dan `studentEmail` tersedia, sistem mencoba mengirim token ke email pemilih setelah token berhasil tersimpan.
+9. Jika email provider dikonfigurasi dan `studentEmail` tersedia, sistem mencoba mengirim token ke email pemilih setelah token berhasil tersimpan. Email berisi link `/vote?token=...` agar input token otomatis terisi.
 10. Kegagalan email tidak membatalkan token yang sudah dibuat. Status email dicatat di `email_sent_at` atau `email_error`.
+11. Pengiriman email dibatasi oleh `TOKEN_EMAIL_SENDS_PER_MINUTE` agar tidak mudah terkena limit provider.
 
 **Side Effects:**
 
 - Batch `VotingToken` records di-insert ke database.
+- Jika Google Sheets sync aktif, metadata pemilih dan status token/email di-append ke spreadsheet.
+- Jika `GOOGLE_SHEETS_SPREADSHEET_ID` kosong, spreadsheet baru dibuat untuk election tersebut pada
+  sync pertama dan ID-nya disimpan di `Election.google_sheets_spreadsheet_id`.
 
 **Audit Logging:** `TOKEN_BATCH_GENERATED` dengan `metadata: { count: 200, electionId }`.
 
@@ -1523,6 +1530,7 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 - Frontend tidak boleh menampilkan/download plaintext token untuk mode per pemilih.
 - Email gagal dapat dikirim ulang melalui endpoint retry selama token belum dipakai.
+- Google Sheets sync tidak menyimpan pilihan kandidat; hanya status `BELUM_VOTING`/`SUDAH_VOTING`.
 
 **PRD Reference:** §3 (Manajemen Token)
 **DB Tables:** `VotingToken`, `AuditLog`
@@ -1566,6 +1574,27 @@ token_number,student_identifier,student_name,student_class,student_email,voter_t
 ```
 
 > **Catatan:** CSV hanya berisi metadata token, bukan token plaintext.
+
+### T-02b — Download Voter Import Template
+
+**`GET /api/admin/tokens/import-template`**
+
+**Purpose:** Mengunduh template CSV untuk import data pemilih siswa/guru sebelum generate token.
+
+**Authentication:** Admin session.
+
+**Authorization:** `VIEWER`, `ADMIN`, `SUPER_ADMIN`.
+
+**Success Response — `200 OK`:**
+
+```text
+Content-Type: text/csv; charset=utf-8
+Content-Disposition: attachment; filename="template-import-pemilih-pilketos.csv"
+
+student_identifier,student_name,student_class,student_email,voter_type
+12345,Nama Siswa 1,XII RPL 1,siswa1@example.com,SISWA
+G001,Nama Guru 1,Guru,guru1@example.com,GURU
+```
 
 ### T-03 — Retry Failed Token Emails
 

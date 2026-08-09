@@ -80,9 +80,10 @@ Token dibuat dari tab `Token` pada detail election.
 1. Pastikan election masih `SETUP`.
 2. Buka tab `Token`.
 3. Klik `Generate Token`.
-4. Pilih mode `Per Siswa`, lalu upload Excel/CSV atau paste daftar pemilih.
+4. Pilih mode `Per Siswa`, download template CSV, lalu upload Excel/CSV atau paste daftar pemilih.
 5. Klik `Generate`.
-6. Sistem mengirim token ke email pemilih. Plaintext token tidak ditampilkan dan tidak diunduh.
+6. Sistem mengirim token ke email pemilih secara bertahap sesuai batas server. Email berisi tombol
+   voting yang membuka `/vote?token=...`, jadi token otomatis terisi.
 7. Jika ada email gagal, gunakan `Retry Email Gagal`.
 
 Mode `Per Siswa` direkomendasikan untuk pemilihan nyata dan bisa berisi siswa maupun guru.
@@ -100,6 +101,8 @@ Header Excel/CSV yang dikenali: `student_identifier`/`nis`/`id`, `student_name`/
 `student_class`/`kelas`/`jabatan`, `student_email`/`email`, dan `voter_type`/`role`/`tipe`.
 Pemisah manual boleh koma, titik koma, atau tab. ID tidak boleh duplikat dalam satu election.
 Email bersifat opsional per baris, tetapi token hanya dikirim otomatis untuk pemilih yang punya email.
+Jika Google Sheets sync aktif, metadata pemilih, status email, dan status sudah/belum voting juga
+masuk ke spreadsheet. Pilihan kandidat tidak pernah dikirim ke spreadsheet.
 
 ## Mengecek Status Token Siswa
 

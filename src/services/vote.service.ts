@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auditService } from "@/services/audit.service";
 import { ServiceError } from "@/services/errors";
+import { googleSheetsService } from "@/services/google-sheets.service";
 import { hashVotingToken } from "@/services/token.service";
 
 interface LockedVotingTokenRow {
@@ -20,6 +21,21 @@ export interface CastVoteInput {
 export class VoteService {
   async castVote(input: CastVoteInput) {
     const tokenHash = hashVotingToken(input.token);
+    let sheetRow:
+      | {
+          tokenId: string;
+          electionId: string;
+          electionTitle: string;
+          voterType: "STUDENT" | "TEACHER" | null;
+          studentIdentifier: string | null;
+          studentName: string | null;
+          studentClass: string | null;
+          studentEmail: string | null;
+          emailSentAt: Date | null;
+          emailError: string | null;
+          usedAt: Date | null;
+        }
+      | undefined;
 
     await prisma.$transaction(async (tx) => {
       const lockedTokens = await tx.$queryRaw<LockedVotingTokenRow[]>`
@@ -44,7 +60,7 @@ export class VoteService {
 
       const election = await tx.election.findUnique({
         where: { id: input.electionId },
-        select: { id: true, status: true },
+        select: { id: true, title: true, status: true },
       });
 
       if (!election) {
@@ -79,11 +95,41 @@ export class VoteService {
         },
       });
 
-      await tx.votingToken.update({
+      const updatedToken = await tx.votingToken.update({
         where: { id: lockedToken.id },
         data: { usedAt: new Date(), tokenCiphertext: null },
+        select: {
+          id: true,
+          electionId: true,
+          voterType: true,
+          studentIdentifier: true,
+          studentName: true,
+          studentClass: true,
+          studentEmail: true,
+          emailSentAt: true,
+          emailError: true,
+          usedAt: true,
+        },
       });
+
+      sheetRow = {
+        tokenId: updatedToken.id,
+        electionId: updatedToken.electionId,
+        electionTitle: election.title,
+        voterType: updatedToken.voterType,
+        studentIdentifier: updatedToken.studentIdentifier,
+        studentName: updatedToken.studentName,
+        studentClass: updatedToken.studentClass,
+        studentEmail: updatedToken.studentEmail,
+        emailSentAt: updatedToken.emailSentAt,
+        emailError: updatedToken.emailError,
+        usedAt: updatedToken.usedAt,
+      };
     });
+
+    if (sheetRow) {
+      await googleSheetsService.syncTokenRow(sheetRow);
+    }
 
     await auditService.writeLog({
       actorId: null,
