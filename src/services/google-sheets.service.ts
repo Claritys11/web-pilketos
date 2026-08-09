@@ -3,8 +3,13 @@ import crypto from "node:crypto";
 import type { VoterType } from "@prisma/client";
 
 import { config } from "@/config/env";
+import { prisma } from "@/lib/prisma";
 
-const GOOGLE_API_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
+const GOOGLE_API_SCOPE = [
+  "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/drive.file",
+].join(" ");
 const SHEETS_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SHEETS_API_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 const SHEET_HEADERS = [
@@ -56,7 +61,7 @@ class GoogleSheetsService {
         return;
       }
 
-      const spreadsheetId = this.spreadsheetId();
+      const spreadsheetId = await this.resolveSpreadsheetId(firstRow);
       const sheetTitle = sheetTitleForElection(firstRow);
       await this.ensureHeader(spreadsheetId, sheetTitle);
       await this.appendRows(spreadsheetId, sheetTitle, rows.map(formatTokenRow));
@@ -71,7 +76,7 @@ class GoogleSheetsService {
     }
 
     try {
-      const spreadsheetId = this.spreadsheetId();
+      const spreadsheetId = await this.resolveSpreadsheetId(row);
       const sheetTitle = sheetTitleForElection(row);
       await this.ensureHeader(spreadsheetId, sheetTitle);
       const rowNumber = await this.findRowNumber(spreadsheetId, sheetTitle, row.tokenId);
@@ -85,12 +90,61 @@ class GoogleSheetsService {
     }
   }
 
-  private spreadsheetId() {
-    if (!config.sheets.spreadsheetId) {
-      throw new Error("GOOGLE_SHEETS_SPREADSHEET_ID wajib diisi untuk Google Sheets sync.");
+  private async resolveSpreadsheetId(row: Pick<SheetTokenRow, "electionId" | "electionTitle">) {
+    if (config.sheets.spreadsheetId) {
+      return config.sheets.spreadsheetId;
     }
 
-    return config.sheets.spreadsheetId;
+    const election = await prisma.election.findUnique({
+      where: { id: row.electionId },
+      select: {
+        id: true,
+        title: true,
+        googleSheetsSpreadsheetId: true,
+      },
+    });
+
+    if (!election) {
+      throw new Error(`Election ${row.electionId} tidak ditemukan untuk Google Sheets sync.`);
+    }
+
+    if (election.googleSheetsSpreadsheetId) {
+      return election.googleSheetsSpreadsheetId;
+    }
+
+    const spreadsheetId = await this.createSpreadsheet({
+      electionId: election.id,
+      electionTitle: election.title || row.electionTitle,
+    });
+    await prisma.election.update({
+      where: { id: election.id },
+      data: { googleSheetsSpreadsheetId: spreadsheetId },
+    });
+
+    return spreadsheetId;
+  }
+
+  private async createSpreadsheet(row: Pick<SheetTokenRow, "electionId" | "electionTitle">) {
+    const title = `Pilketos - ${row.electionTitle}`.slice(0, 100);
+    const sheetTitle = sheetTitleForElection(row);
+    const response = await this.fetchGoogle(SHEETS_API_BASE, {
+      method: "POST",
+      body: JSON.stringify({
+        properties: { title },
+        sheets: [{ properties: { title: sheetTitle } }],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Sheets API ${response.status}: ${await response.text()}`);
+    }
+
+    const data = (await response.json()) as { spreadsheetId?: string };
+    if (!data.spreadsheetId) {
+      throw new Error("Google Sheets tidak mengembalikan spreadsheetId.");
+    }
+
+    return data.spreadsheetId;
   }
 
   private async ensureHeader(spreadsheetId: string, sheetTitle: string) {
@@ -227,8 +281,20 @@ class GoogleSheetsService {
       return cached.value;
     }
 
+    if (
+      config.sheets.oauthClientId &&
+      config.sheets.oauthClientSecret &&
+      config.sheets.oauthRefreshToken
+    ) {
+      return this.getOAuthAccessToken({
+        clientId: config.sheets.oauthClientId,
+        clientSecret: config.sheets.oauthClientSecret,
+        refreshToken: config.sheets.oauthRefreshToken,
+      });
+    }
+
     if (!config.sheets.clientEmail || !config.sheets.privateKey) {
-      throw new Error("Google Sheets service account belum dikonfigurasi.");
+      throw new Error("Google Sheets OAuth/service account belum dikonfigurasi.");
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -260,6 +326,51 @@ class GoogleSheetsService {
 
     if (!response.ok || !data.access_token) {
       throw new Error(data.error_description ?? data.error ?? "Gagal mengambil access token.");
+    }
+
+    this.accessToken = {
+      value: data.access_token,
+      expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
+    };
+
+    return data.access_token;
+  }
+
+  private async getOAuthAccessToken({
+    clientId,
+    clientSecret,
+    refreshToken,
+  }: {
+    clientId: string;
+    clientSecret: string;
+    refreshToken: string;
+  }) {
+    const response = await fetch(SHEETS_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    const data = (await response.json()) as {
+      access_token?: string;
+      expires_in?: number;
+      error?: string;
+      error_description?: string;
+    };
+
+    if (!response.ok || !data.access_token) {
+      throw new Error(
+        data.error_description ??
+          data.error ??
+          "Gagal mengambil Google OAuth access token untuk Sheets.",
+      );
     }
 
     this.accessToken = {

@@ -105,7 +105,7 @@ SMTP_PASSWORD=password_smtp
 SMTP_FROM="Pilketos <noreply@example.com>"
 ```
 
-Gmail API:
+Gmail API + Google Sheets/Drive OAuth:
 
 ```bash
 npm run gmail:auth -- ./client_secret_xxx.apps.googleusercontent.com.json
@@ -136,24 +136,27 @@ voting dan pemilih tinggal menekan lanjut.
 
 Opsional Google Sheets sync untuk kontrol sudah/belum voting:
 
-1. Buat Google Cloud Service Account dan aktifkan Google Sheets API.
-2. Buat satu spreadsheet manual dari akun panitia, lalu share spreadsheet itu ke email service
-   account sebagai Editor.
+1. Aktifkan Gmail API, Google Sheets API, dan Google Drive API di Google Cloud project yang sama.
+2. Jalankan `npm run gmail:auth -- ./client_secret_xxx.apps.googleusercontent.com.json` ulang,
+   karena refresh token harus punya scope Gmail + Sheets + Drive.
 3. Isi env berikut di `.env`/Coolify:
 
 ```env
 GOOGLE_SHEETS_ENABLED=true
-GOOGLE_SHEETS_SPREADSHEET_ID=id_spreadsheet_manual
+GOOGLE_SHEETS_SPREADSHEET_ID=
 GOOGLE_SHEETS_SHEET_NAME=Pilketos
-GOOGLE_SHEETS_CLIENT_EMAIL=service-account@project.iam.gserviceaccount.com
-GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
 Sheets hanya menyimpan metadata pemilih dan status token/email. Pilihan kandidat tetap anonim dan
 tidak dikirim ke spreadsheet.
 
-Sistem akan membuat tab/sheet baru per election di dalam spreadsheet manual tersebut, misalnya
-`Pilketos - Pilketos 2026/2027 - abc123`.
+Jika `GOOGLE_SHEETS_SPREADSHEET_ID` kosong, sistem otomatis membuat spreadsheet baru per election
+di Drive akun OAuth tersebut. Jika `GOOGLE_SHEETS_SPREADSHEET_ID` diisi, sistem memakai satu
+spreadsheet manual dan membuat tab/sheet baru per election.
+
+Jika ingin memisahkan OAuth email dan Sheets, isi `GOOGLE_OAUTH_CLIENT_ID`,
+`GOOGLE_OAUTH_CLIENT_SECRET`, dan `GOOGLE_OAUTH_REFRESH_TOKEN`. Jika kosong, Sheets otomatis memakai
+`GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, dan `GMAIL_REFRESH_TOKEN`.
 
 ## Development Lokal
 

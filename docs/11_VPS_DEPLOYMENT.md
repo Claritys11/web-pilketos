@@ -95,7 +95,7 @@ SMTP_PASSWORD=password_smtp
 SMTP_FROM="Pilketos <noreply@example.com>"
 ```
 
-Alternatif Gmail API:
+Alternatif Gmail API + Google Sheets/Drive OAuth:
 
 ```bash
 npm run gmail:auth -- ./client_secret_xxx.apps.googleusercontent.com.json
@@ -124,10 +124,8 @@ Opsional Google Sheets sync:
 
 ```env
 GOOGLE_SHEETS_ENABLED=true
-GOOGLE_SHEETS_SPREADSHEET_ID=id_spreadsheet_manual
+GOOGLE_SHEETS_SPREADSHEET_ID=
 GOOGLE_SHEETS_SHEET_NAME=Pilketos
-GOOGLE_SHEETS_CLIENT_EMAIL=service-account@project.iam.gserviceaccount.com
-GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
 Catatan penting:
@@ -138,10 +136,13 @@ Catatan penting:
 - Jika memakai Cloudflare Tunnel ke host lokal, arahkan tunnel ke `http://localhost:6500`.
 - Untuk mode per pemilih, gunakan email provider. Plaintext token tidak ditampilkan/download di
   dashboard admin.
-- Untuk Google Sheets, aktifkan Google Sheets API, buat satu spreadsheet manual dari akun panitia,
-  lalu share spreadsheet ke `GOOGLE_SHEETS_CLIENT_EMAIL` sebagai Editor. Aplikasi akan membuat satu
-  tab/sheet per election di spreadsheet itu. Spreadsheet hanya menerima metadata pemilih dan status
-  sudah/belum voting, bukan pilihan kandidat.
+- Untuk Google Sheets, aktifkan Gmail API, Google Sheets API, dan Google Drive API. Jalankan ulang
+  `npm run gmail:auth -- ./client_secret_xxx.apps.googleusercontent.com.json`, karena refresh token
+  harus memiliki scope Gmail + Sheets + Drive.
+- Jika `GOOGLE_SHEETS_SPREADSHEET_ID` kosong, aplikasi membuat spreadsheet baru per election di
+  Drive akun OAuth tersebut. Jika diisi, aplikasi memakai satu spreadsheet manual dan membuat tab
+  per election. Spreadsheet hanya menerima metadata pemilih dan status sudah/belum voting, bukan
+  pilihan kandidat.
 
 ---
 

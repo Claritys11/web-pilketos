@@ -1519,8 +1519,10 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 - Batch `VotingToken` records di-insert ke database.
 - Jika Google Sheets sync aktif, metadata pemilih dan status token/email di-append ke spreadsheet.
-- Jika Google Sheets sync aktif, aplikasi membuat tab/sheet baru per election di spreadsheet manual
-  yang ditentukan oleh `GOOGLE_SHEETS_SPREADSHEET_ID`.
+- Jika Google Sheets sync aktif dan `GOOGLE_SHEETS_SPREADSHEET_ID` kosong, aplikasi membuat
+  spreadsheet baru per election dan menyimpan ID-nya di `Election.google_sheets_spreadsheet_id`.
+- Jika `GOOGLE_SHEETS_SPREADSHEET_ID` diisi, aplikasi memakai spreadsheet manual itu dan membuat
+  tab/sheet baru per election.
 
 **Audit Logging:** `TOKEN_BATCH_GENERATED` dengan `metadata: { count: 200, electionId }`.
 

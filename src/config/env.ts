@@ -75,6 +75,9 @@ const envSchema = z.object({
   GOOGLE_SHEETS_SHEET_NAME: z.string().optional(),
   GOOGLE_SHEETS_CLIENT_EMAIL: z.string().optional(),
   GOOGLE_SHEETS_PRIVATE_KEY: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_OAUTH_REFRESH_TOKEN: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -134,6 +137,9 @@ const _env = _parsed.success
       GOOGLE_SHEETS_SHEET_NAME: undefined,
       GOOGLE_SHEETS_CLIENT_EMAIL: undefined,
       GOOGLE_SHEETS_PRIVATE_KEY: undefined,
+      GOOGLE_OAUTH_CLIENT_ID: undefined,
+      GOOGLE_OAUTH_CLIENT_SECRET: undefined,
+      GOOGLE_OAUTH_REFRESH_TOKEN: undefined,
     } as unknown as z.infer<typeof envSchema>);
 
 if (isSkippingEnvValidation && configIsRuntime()) {
@@ -263,14 +269,18 @@ export const config = {
   sheets: {
     enabled: Boolean(
       _env.GOOGLE_SHEETS_ENABLED &&
-      _env.GOOGLE_SHEETS_SPREADSHEET_ID &&
-      _env.GOOGLE_SHEETS_CLIENT_EMAIL &&
-      _env.GOOGLE_SHEETS_PRIVATE_KEY,
+      ((_env.GOOGLE_SHEETS_CLIENT_EMAIL && _env.GOOGLE_SHEETS_PRIVATE_KEY) ||
+        ((_env.GOOGLE_OAUTH_CLIENT_ID || _env.GMAIL_CLIENT_ID) &&
+          (_env.GOOGLE_OAUTH_CLIENT_SECRET || _env.GMAIL_CLIENT_SECRET) &&
+          (_env.GOOGLE_OAUTH_REFRESH_TOKEN || _env.GMAIL_REFRESH_TOKEN))),
     ),
     spreadsheetId: _env.GOOGLE_SHEETS_SPREADSHEET_ID,
     sheetName: _env.GOOGLE_SHEETS_SHEET_NAME ?? "Pilketos",
     clientEmail: _env.GOOGLE_SHEETS_CLIENT_EMAIL,
     privateKey: _env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    oauthClientId: _env.GOOGLE_OAUTH_CLIENT_ID || _env.GMAIL_CLIENT_ID,
+    oauthClientSecret: _env.GOOGLE_OAUTH_CLIENT_SECRET || _env.GMAIL_CLIENT_SECRET,
+    oauthRefreshToken: _env.GOOGLE_OAUTH_REFRESH_TOKEN || _env.GMAIL_REFRESH_TOKEN,
   },
 } as const;
 
