@@ -115,6 +115,7 @@ GMAIL_CLIENT_SECRET=isi_dari_output_script
 GMAIL_REFRESH_TOKEN=isi_dari_output_script
 GMAIL_REDIRECT_URI=http://localhost:6500/api/gmail-oauth/callback
 GMAIL_FROM="Pilketos <alamat-gmail-yang-dipakai-login@gmail.com>"
+SUPPORT_WHATSAPP_NUMBER=62895337256234
 GMAIL_SECONDARY_CLIENT_ID=
 GMAIL_SECONDARY_CLIENT_SECRET=
 GMAIL_SECONDARY_REFRESH_TOKEN=
@@ -126,6 +127,11 @@ TOKEN_EMAIL_BATCH_SIZE=20
 `TOKEN_EMAIL_SENDS_PER_MINUTE` membatasi pengiriman token agar provider email tidak mudah kena
 limit. `TOKEN_EMAIL_BATCH_SIZE` membatasi pekerjaan per request agar aman di belakang reverse proxy;
 request berikutnya melanjutkan token yang masih antre. Default 50 email/menit dan 20 email/request.
+Nomor `SUPPORT_WHATSAPP_NUMBER` muncul sebagai tombol bantuan jika link atau website voting
+bermasalah; nomor lokal Indonesia berawalan `0` otomatis dinormalisasi ke kode negara `62`.
+Untuk Gmail API, maksimum aplikasi adalah 60 email/menit. Ikuti
+[`12_EMAIL_DELIVERABILITY.md`](12_EMAIL_DELIVERABILITY.md) sebelum mengirim batch production dari
+custom domain.
 
 Opsional Google Sheets sync:
 

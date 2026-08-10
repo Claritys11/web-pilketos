@@ -67,6 +67,7 @@ export class EmailService {
 
   private async sendWithSmtp(input: TokenEmailInput): Promise<TokenEmailResult> {
     try {
+      const email = buildVotingTokenEmail(input);
       const transporter = nodemailer.createTransport({
         host: config.mail.smtpHost,
         port: config.mail.smtpPort,
@@ -83,32 +84,9 @@ export class EmailService {
       await transporter.sendMail({
         from: config.mail.from,
         to: input.to,
-        subject: `Token Voting ${input.electionTitle}`,
-        text: [
-          `Halo ${input.studentName},`,
-          "",
-          `Berikut token voting Pilketos untuk ${input.electionTitle}.`,
-          "",
-          ...(input.studentIdentifier ? [`NIS/ID: ${input.studentIdentifier}`] : []),
-          `Token: ${input.token}`,
-          `Link voting otomatis: ${input.voteUrl}`,
-          "",
-          "Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.",
-        ].join("\n"),
-        html: [
-          `<p>Halo ${escapeHtml(input.studentName)},</p>`,
-          `<p>Berikut token voting Pilketos untuk <strong>${escapeHtml(
-            input.electionTitle,
-          )}</strong>.</p>`,
-          ...(input.studentIdentifier
-            ? [`<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`]
-            : []),
-          `<p><strong>Token:</strong> <code style="font-size:18px">${escapeHtml(
-            input.token,
-          )}</code></p>`,
-          renderVoteButton(input.voteUrl),
-          `<p>Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.</p>`,
-        ].join(""),
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
       });
 
       return {
@@ -169,35 +147,13 @@ export class EmailService {
         clientSecret: provider.clientSecret,
         refreshToken: provider.refreshToken,
       });
+      const email = buildVotingTokenEmail(input);
       const raw = buildRawMessage({
         from: provider.from,
         to: input.to,
-        subject: `Token Voting ${input.electionTitle}`,
-        text: [
-          `Halo ${input.studentName},`,
-          "",
-          `Berikut token voting Pilketos untuk ${input.electionTitle}.`,
-          "",
-          ...(input.studentIdentifier ? [`NIS/ID: ${input.studentIdentifier}`] : []),
-          `Token: ${input.token}`,
-          `Link voting otomatis: ${input.voteUrl}`,
-          "",
-          "Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.",
-        ].join("\n"),
-        html: [
-          `<p>Halo ${escapeHtml(input.studentName)},</p>`,
-          `<p>Berikut token voting Pilketos untuk <strong>${escapeHtml(
-            input.electionTitle,
-          )}</strong>.</p>`,
-          ...(input.studentIdentifier
-            ? [`<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`]
-            : []),
-          `<p><strong>Token:</strong> <code style="font-size:18px">${escapeHtml(
-            input.token,
-          )}</code></p>`,
-          renderVoteButton(input.voteUrl),
-          `<p>Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.</p>`,
-        ].join(""),
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
       });
 
       const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
@@ -343,6 +299,74 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+export function buildVotingTokenEmail(input: TokenEmailInput) {
+  const supportUrl = buildWhatsAppSupportUrl(
+    config.mail.supportWhatsappNumber,
+    input.electionTitle,
+  );
+  const subject = `Token Voting ${input.electionTitle}`;
+  const text = [
+    `Halo ${input.studentName},`,
+    "",
+    `Berikut token voting Pilketos untuk ${input.electionTitle}.`,
+    "",
+    ...(input.studentIdentifier ? [`NIS/ID: ${input.studentIdentifier}`] : []),
+    `Token: ${input.token}`,
+    `Link voting otomatis: ${input.voteUrl}`,
+    "",
+    "Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.",
+    ...(supportUrl
+      ? [
+          "",
+          "Jika link atau website voting bermasalah, hubungi admin melalui WhatsApp:",
+          supportUrl,
+          "Jangan kirim atau bagikan token voting melalui WhatsApp.",
+        ]
+      : []),
+  ].join("\n");
+  const html = [
+    `<p>Halo ${escapeHtml(input.studentName)},</p>`,
+    `<p>Berikut token voting Pilketos untuk <strong>${escapeHtml(
+      input.electionTitle,
+    )}</strong>.</p>`,
+    ...(input.studentIdentifier
+      ? [`<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`]
+      : []),
+    `<p><strong>Token:</strong> <code style="font-size:18px">${escapeHtml(input.token)}</code></p>`,
+    renderVoteButton(input.voteUrl),
+    `<p>Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.</p>`,
+    ...(supportUrl ? [renderWhatsAppSupport(supportUrl)] : []),
+  ].join("");
+
+  return { subject, text, html };
+}
+
+function buildWhatsAppSupportUrl(phoneNumber: string | undefined, electionTitle: string) {
+  if (!phoneNumber) {
+    return null;
+  }
+
+  const digits = phoneNumber.replace(/\D/g, "");
+  const internationalNumber = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+  if (internationalNumber.length < 8 || internationalNumber.length > 15) {
+    return null;
+  }
+
+  const message = `Halo Admin Pilketos, saya mengalami kendala saat membuka link atau website voting untuk ${electionTitle}.`;
+  return `https://wa.me/${internationalNumber}?text=${encodeURIComponent(message)}`;
+}
+
+function renderWhatsAppSupport(supportUrl: string) {
+  const escapedUrl = escapeHtml(supportUrl);
+  return [
+    `<div style="margin-top:24px;padding:16px;border:1px solid #d4d4d4;border-radius:8px;background:#fafafa">`,
+    `<p style="margin:0 0 12px"><strong>Link atau website voting bermasalah?</strong><br>Hubungi admin melalui WhatsApp.</p>`,
+    `<a href="${escapedUrl}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:700;border-radius:8px;padding:12px 18px">Hubungi Admin via WhatsApp</a>`,
+    `<p style="margin:12px 0 0;font-size:12px;color:#525252">Jangan kirim atau bagikan token voting melalui WhatsApp.</p>`,
+    `</div>`,
+  ].join("");
 }
 
 function renderVoteButton(voteUrl: string) {

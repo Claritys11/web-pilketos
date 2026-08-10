@@ -65,7 +65,13 @@ const envSchema = z
     GMAIL_SECONDARY_CLIENT_SECRET: z.string().optional(),
     GMAIL_SECONDARY_REFRESH_TOKEN: z.string().optional(),
     GMAIL_SECONDARY_FROM: z.string().optional(),
-    TOKEN_EMAIL_SENDS_PER_MINUTE: z.coerce.number().int().min(1).max(100).default(50),
+    SUPPORT_WHATSAPP_NUMBER: z
+      .string()
+      .trim()
+      .regex(/^[+0-9 ()-]{8,25}$/, "SUPPORT_WHATSAPP_NUMBER must be a valid phone number")
+      .optional()
+      .or(z.literal("")),
+    TOKEN_EMAIL_SENDS_PER_MINUTE: z.coerce.number().int().min(1).max(60).default(50),
     TOKEN_EMAIL_BATCH_SIZE: z.coerce.number().int().min(1).max(50).default(20),
 
     // Google Sheets sync
@@ -204,6 +210,7 @@ const _env = _parsed.success
       GMAIL_SECONDARY_CLIENT_SECRET: undefined,
       GMAIL_SECONDARY_REFRESH_TOKEN: undefined,
       GMAIL_SECONDARY_FROM: undefined,
+      SUPPORT_WHATSAPP_NUMBER: undefined,
       TOKEN_EMAIL_SENDS_PER_MINUTE: 50,
       TOKEN_EMAIL_BATCH_SIZE: 20,
       GOOGLE_SHEETS_ENABLED: false,
@@ -299,6 +306,7 @@ export const config = {
     gmailRefreshToken: _env.GMAIL_REFRESH_TOKEN,
     gmailRedirectUri: _env.GMAIL_REDIRECT_URI,
     gmailFrom: _env.GMAIL_FROM,
+    supportWhatsappNumber: _env.SUPPORT_WHATSAPP_NUMBER || undefined,
     gmailProviders: [
       _env.GMAIL_CLIENT_ID &&
       _env.GMAIL_CLIENT_SECRET &&
