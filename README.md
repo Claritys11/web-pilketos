@@ -260,6 +260,7 @@ APP_GID=1000
 SEED_ADMIN_USERNAME=superadmin
 SEED_ADMIN_EMAIL=superadmin@pilketos.local
 SEED_ADMIN_PASSWORD=password_bootstrap_unik_minimal_12_karakter
+SEED_ADMIN_RESET_EXISTING=false
 DOCKER_SUBNET=172.31.50.0/24
 DOCKER_GATEWAY=172.31.50.1
 
@@ -444,7 +445,9 @@ username: superadmin
 ```
 
 Password login pertama adalah nilai `SEED_ADMIN_PASSWORD` yang kamu isi di Coolify. Seeder tidak
-mereset password jika akun tersebut sudah ada.
+mereset password jika akun tersebut sudah ada. Untuk pemulihan, set
+`SEED_ADMIN_RESET_EXISTING=true` selama satu deployment, lalu kembalikan ke `false` setelah login
+berhasil.
 
 ## Simulasi Publik Dengan Cloudflare Tunnel
 

@@ -28,6 +28,7 @@ POSTGRES_PASSWORD=isi_password_database_yang_kuat
 AUTH_SECRET=hasil_openssl_rand_base64_32
 TOKEN_HMAC_SECRET=hasil_openssl_rand_hex_32
 SEED_ADMIN_PASSWORD=password_bootstrap_unik_minimal_12_karakter
+SEED_ADMIN_RESET_EXISTING=false
 NEXTAUTH_URL=https://domain-kamu.example
 NEXT_PUBLIC_APP_URL=https://domain-kamu.example
 ```
@@ -120,7 +121,9 @@ username: superadmin
 ```
 
 Password login pertama adalah nilai `SEED_ADMIN_PASSWORD` di Coolify. Seeder tidak mereset akun
-yang sudah ada.
+yang sudah ada kecuali `SEED_ADMIN_RESET_EXISTING=true`. Untuk pemulihan akun, aktifkan flag itu
+selama satu deployment, pastikan login berhasil, lalu kembalikan ke `false` agar deploy berikutnya
+tidak terus mengganti password.
 
 ## Voting Setup
 

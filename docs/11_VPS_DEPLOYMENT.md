@@ -71,6 +71,7 @@ POSTGRES_DB=pilketos
 SEED_ADMIN_USERNAME=superadmin
 SEED_ADMIN_EMAIL=superadmin@pilketos.local
 SEED_ADMIN_PASSWORD=password_bootstrap_unik_minimal_12_karakter
+SEED_ADMIN_RESET_EXISTING=false
 APP_UID=1000
 APP_GID=1000
 DOCKER_SUBNET=172.31.50.0/24
@@ -186,7 +187,8 @@ username: superadmin
 ```
 
 Password login pertama berasal dari `SEED_ADMIN_PASSWORD`. Seeder tidak mereset password jika akun
-bootstrap tersebut sudah ada.
+bootstrap tersebut sudah ada. Untuk pemulihan, jalankan satu deployment dengan
+`SEED_ADMIN_RESET_EXISTING=true`, pastikan login berhasil, lalu kembalikan flag ke `false`.
 
 ---
 

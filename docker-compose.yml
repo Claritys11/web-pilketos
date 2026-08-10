@@ -39,6 +39,7 @@ x-app-env: &app-env
   SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-superadmin}
   SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-superadmin@pilketos.local}
   SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-PilketosAdmin123}
+  SEED_ADMIN_RESET_EXISTING: ${SEED_ADMIN_RESET_EXISTING:-false}
 
 services:
   postgres:
