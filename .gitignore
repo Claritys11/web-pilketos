@@ -51,4 +51,6 @@ client_secret_*.json
 credentials*.json
 google-oauth-token*.json
 gmail-token*.json
+*service-account*.json
+buatgmailapipllketos-*.json
 _reference/

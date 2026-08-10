@@ -68,6 +68,10 @@ POSTGRES_PORT=5434
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=isi_password_database_yang_kuat
 POSTGRES_DB=pilketos
+SEED_ADMIN_USERNAME=superadmin
+SEED_ADMIN_EMAIL=superadmin@pilketos.local
+SEED_ADMIN_PASSWORD=password_bootstrap_unik_minimal_12_karakter
+SEED_ADMIN_RESET_EXISTING=false
 APP_UID=1000
 APP_GID=1000
 DOCKER_SUBNET=172.31.50.0/24
@@ -87,6 +91,7 @@ SUPABASE_SERVICE_ROLE_KEY=local-placeholder
 STORAGE_DRIVER=local
 APP_VERSION=0.1.0
 
+EMAIL_DRIVER=smtp
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -95,7 +100,7 @@ SMTP_PASSWORD=password_smtp
 SMTP_FROM="Pilketos <noreply@example.com>"
 ```
 
-Alternatif Gmail API:
+Alternatif Gmail API + Google Sheets/Drive OAuth:
 
 ```bash
 npm run gmail:auth -- ./client_secret_xxx.apps.googleusercontent.com.json
@@ -114,6 +119,20 @@ GMAIL_SECONDARY_CLIENT_ID=
 GMAIL_SECONDARY_CLIENT_SECRET=
 GMAIL_SECONDARY_REFRESH_TOKEN=
 GMAIL_SECONDARY_FROM=
+TOKEN_EMAIL_SENDS_PER_MINUTE=50
+TOKEN_EMAIL_BATCH_SIZE=20
+```
+
+`TOKEN_EMAIL_SENDS_PER_MINUTE` membatasi pengiriman token agar provider email tidak mudah kena
+limit. `TOKEN_EMAIL_BATCH_SIZE` membatasi pekerjaan per request agar aman di belakang reverse proxy;
+request berikutnya melanjutkan token yang masih antre. Default 50 email/menit dan 20 email/request.
+
+Opsional Google Sheets sync:
+
+```env
+GOOGLE_SHEETS_ENABLED=true
+GOOGLE_SHEETS_SPREADSHEET_ID=
+GOOGLE_SHEETS_SHEET_NAME=Pilketos
 ```
 
 Catatan penting:
@@ -124,6 +143,13 @@ Catatan penting:
 - Jika memakai Cloudflare Tunnel ke host lokal, arahkan tunnel ke `http://localhost:6500`.
 - Untuk mode per pemilih, gunakan email provider. Plaintext token tidak ditampilkan/download di
   dashboard admin.
+- Untuk Google Sheets, aktifkan Gmail API, Google Sheets API, dan Google Drive API. Jalankan ulang
+  `npm run gmail:auth -- ./client_secret_xxx.apps.googleusercontent.com.json`, karena refresh token
+  harus memiliki scope Gmail + Sheets + Drive.
+- Jika `GOOGLE_SHEETS_SPREADSHEET_ID` kosong, aplikasi membuat spreadsheet baru per election di
+  Drive akun OAuth tersebut. Jika diisi, aplikasi memakai satu spreadsheet manual dan membuat tab
+  per election. Spreadsheet hanya menerima metadata pemilih dan status sudah/belum voting, bukan
+  pilihan kandidat.
 
 ---
 
@@ -158,10 +184,11 @@ Default bootstrap admin:
 
 ```text
 username: superadmin
-password: PilketosAdmin123
 ```
 
-Segera ganti password atau buat Super Admin baru setelah login pertama.
+Password login pertama berasal dari `SEED_ADMIN_PASSWORD`. Seeder tidak mereset password jika akun
+bootstrap tersebut sudah ada. Untuk pemulihan, jalankan satu deployment dengan
+`SEED_ADMIN_RESET_EXISTING=true`, pastikan login berhasil, lalu kembalikan flag ke `false`.
 
 ---
 
@@ -209,11 +236,15 @@ Restore database sebaiknya dilakukan saat aplikasi tidak sedang dipakai voting.
 3. Buka tab `Token`.
 4. Klik `Generate Token`.
 5. Pilih mode `Per Siswa`.
-6. Upload Excel/CSV atau paste daftar pemilih dengan format `ID, Nama, Kelas/Jabatan, Email, Tipe`.
-7. Jika email aktif, sistem mengirim token ke email masing-masing pemilih.
+6. Download template CSV, lalu upload Excel/CSV atau paste daftar pemilih dengan format
+   `ID, Nama, Kelas/Jabatan, Email, Tipe`.
+7. Jika email aktif, sistem mengirim token ke email masing-masing pemilih secara bertahap sesuai
+   `TOKEN_EMAIL_SENDS_PER_MINUTE`. Email berisi tombol ke `/vote?token=...` agar token otomatis
+   terisi.
 8. Jika ada email gagal, tekan `Retry Email Gagal`.
 9. Pastikan semua token penting berstatus terkirim sebelum election dibuka.
-10. Pantau tabel `Status Token Siswa` untuk melihat token sudah dipakai atau belum.
+10. Pantau tabel `Status Token Pemilih` atau spreadsheet untuk melihat token sudah dipakai atau
+    belum.
 
 Sistem menyimpan metadata pemilih untuk distribusi dan status. Plaintext token tidak ditampilkan ke
 admin; server hanya menyimpan ciphertext untuk kebutuhan retry email dan menghapusnya saat token

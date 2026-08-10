@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
 import { FullscreenOverlay } from "@/components/voting/FullscreenOverlay";
@@ -29,6 +29,13 @@ export default function VoteTokenPage() {
   const [token, setToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const tokenParam = new URLSearchParams(window.location.search).get("token");
+    if (tokenParam) {
+      queueMicrotask(() => setToken(normalizeToken(tokenParam)));
+    }
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

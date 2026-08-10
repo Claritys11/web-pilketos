@@ -19,52 +19,139 @@ import { z } from "zod";
 // Schema definition
 // ---------------------------------------------------------------------------
 
-const envSchema = z.object({
-  // Database
-  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
-  DIRECT_URL: z.string().min(1, "DIRECT_URL is required"),
+const envSchema = z
+  .object({
+    // Database
+    DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+    DIRECT_URL: z.string().min(1, "DIRECT_URL is required"),
 
-  // Auth (NextAuth / Auth.js v5)
-  AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
-  NEXTAUTH_URL: z.string().url("NEXTAUTH_URL must be a valid URL"),
+    // Auth (NextAuth / Auth.js v5)
+    AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
+    NEXTAUTH_URL: z.string().url("NEXTAUTH_URL must be a valid URL"),
 
-  // Voting token security
-  TOKEN_HMAC_SECRET: z
-    .string()
-    .min(32, "TOKEN_HMAC_SECRET must be at least 32 characters (256-bit)"),
+    // Voting token security
+    TOKEN_HMAC_SECRET: z
+      .string()
+      .min(32, "TOKEN_HMAC_SECRET must be at least 32 characters (256-bit)"),
 
-  // Supabase
-  SUPABASE_URL: z.string().url("SUPABASE_URL must be a valid URL"),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, "NEXT_PUBLIC_SUPABASE_ANON_KEY is required"),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
-  STORAGE_DRIVER: z.enum(["local", "supabase"]).optional(),
+    // Supabase
+    SUPABASE_URL: z.string().url("SUPABASE_URL must be a valid URL"),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, "NEXT_PUBLIC_SUPABASE_ANON_KEY is required"),
+    SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+    STORAGE_DRIVER: z.enum(["local", "supabase"]).optional(),
 
-  // App
-  NEXT_PUBLIC_APP_URL: z.string().url("NEXT_PUBLIC_APP_URL must be a valid URL"),
-  APP_VERSION: z.string().default("0.1.0"),
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+    // App
+    NEXT_PUBLIC_APP_URL: z.string().url("NEXT_PUBLIC_APP_URL must be a valid URL"),
+    APP_VERSION: z.string().default("0.1.0"),
+    NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
-  // Mail
-  EMAIL_DRIVER: z.enum(["smtp", "gmail_api", "none"]).default("smtp"),
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
-  SMTP_SECURE: z
-    .enum(["true", "false", "1", "0"])
-    .optional()
-    .transform((value) => value === "true" || value === "1"),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASSWORD: z.string().optional(),
-  SMTP_FROM: z.string().optional(),
-  GMAIL_CLIENT_ID: z.string().optional(),
-  GMAIL_CLIENT_SECRET: z.string().optional(),
-  GMAIL_REFRESH_TOKEN: z.string().optional(),
-  GMAIL_REDIRECT_URI: z.string().url().optional(),
-  GMAIL_FROM: z.string().optional(),
-  GMAIL_SECONDARY_CLIENT_ID: z.string().optional(),
-  GMAIL_SECONDARY_CLIENT_SECRET: z.string().optional(),
-  GMAIL_SECONDARY_REFRESH_TOKEN: z.string().optional(),
-  GMAIL_SECONDARY_FROM: z.string().optional(),
-});
+    // Mail
+    EMAIL_DRIVER: z.enum(["smtp", "gmail_api", "none"]).default("none"),
+    SMTP_HOST: z.string().optional(),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+    SMTP_SECURE: z
+      .enum(["true", "false", "1", "0"])
+      .optional()
+      .transform((value) => value === "true" || value === "1"),
+    SMTP_USER: z.string().optional(),
+    SMTP_PASSWORD: z.string().optional(),
+    SMTP_FROM: z.string().optional(),
+    GMAIL_CLIENT_ID: z.string().optional(),
+    GMAIL_CLIENT_SECRET: z.string().optional(),
+    GMAIL_REFRESH_TOKEN: z.string().optional(),
+    GMAIL_REDIRECT_URI: z.string().url().optional(),
+    GMAIL_FROM: z.string().optional(),
+    GMAIL_SECONDARY_CLIENT_ID: z.string().optional(),
+    GMAIL_SECONDARY_CLIENT_SECRET: z.string().optional(),
+    GMAIL_SECONDARY_REFRESH_TOKEN: z.string().optional(),
+    GMAIL_SECONDARY_FROM: z.string().optional(),
+    TOKEN_EMAIL_SENDS_PER_MINUTE: z.coerce.number().int().min(1).max(100).default(50),
+    TOKEN_EMAIL_BATCH_SIZE: z.coerce.number().int().min(1).max(50).default(20),
+
+    // Google Sheets sync
+    GOOGLE_SHEETS_ENABLED: z
+      .enum(["true", "false", "1", "0"])
+      .optional()
+      .transform((value) => value === "true" || value === "1"),
+    GOOGLE_SHEETS_SPREADSHEET_ID: z.string().optional(),
+    GOOGLE_SHEETS_SHEET_NAME: z.string().optional(),
+    GOOGLE_SHEETS_CLIENT_EMAIL: z.string().optional(),
+    GOOGLE_SHEETS_PRIVATE_KEY: z.string().optional(),
+    GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+    GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
+    GOOGLE_OAUTH_REFRESH_TOKEN: z.string().optional(),
+  })
+  .superRefine((env, context) => {
+    if (env.EMAIL_DRIVER === "smtp") {
+      for (const field of ["SMTP_HOST", "SMTP_FROM"] as const) {
+        if (!env[field]?.trim()) {
+          context.addIssue({
+            code: "custom",
+            path: [field],
+            message: `${field} is required when EMAIL_DRIVER=smtp`,
+          });
+        }
+      }
+    }
+
+    if (env.EMAIL_DRIVER === "gmail_api") {
+      for (const field of [
+        "GMAIL_CLIENT_ID",
+        "GMAIL_CLIENT_SECRET",
+        "GMAIL_REFRESH_TOKEN",
+        "GMAIL_FROM",
+      ] as const) {
+        if (!env[field]?.trim()) {
+          context.addIssue({
+            code: "custom",
+            path: [field],
+            message: `${field} is required when EMAIL_DRIVER=gmail_api`,
+          });
+        }
+      }
+    }
+
+    if (env.GOOGLE_SHEETS_ENABLED) {
+      const hasServiceAccount = Boolean(
+        env.GOOGLE_SHEETS_CLIENT_EMAIL?.trim() && env.GOOGLE_SHEETS_PRIVATE_KEY?.trim(),
+      );
+      const hasOAuth = Boolean(
+        (env.GOOGLE_OAUTH_CLIENT_ID || env.GMAIL_CLIENT_ID)?.trim() &&
+        (env.GOOGLE_OAUTH_CLIENT_SECRET || env.GMAIL_CLIENT_SECRET)?.trim() &&
+        (env.GOOGLE_OAUTH_REFRESH_TOKEN || env.GMAIL_REFRESH_TOKEN)?.trim(),
+      );
+      if (!hasServiceAccount && !hasOAuth) {
+        context.addIssue({
+          code: "custom",
+          path: ["GOOGLE_SHEETS_ENABLED"],
+          message:
+            "Google Sheets requires a complete OAuth credential or service-account credential",
+        });
+      }
+    }
+
+    if (env.NODE_ENV === "production") {
+      for (const field of ["NEXTAUTH_URL", "NEXT_PUBLIC_APP_URL"] as const) {
+        const url = new URL(env[field]);
+        const isLocal = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+        if (!isLocal && url.protocol !== "https:") {
+          context.addIssue({
+            code: "custom",
+            path: [field],
+            message: `${field} must use HTTPS in production`,
+          });
+        }
+      }
+
+      if (new URL(env.NEXTAUTH_URL).origin !== new URL(env.NEXT_PUBLIC_APP_URL).origin) {
+        context.addIssue({
+          code: "custom",
+          path: ["NEXT_PUBLIC_APP_URL"],
+          message: "NEXT_PUBLIC_APP_URL must use the same origin as NEXTAUTH_URL",
+        });
+      }
+    }
+  });
 
 // ---------------------------------------------------------------------------
 // Validation — throw immediately if misconfigured
@@ -117,6 +204,16 @@ const _env = _parsed.success
       GMAIL_SECONDARY_CLIENT_SECRET: undefined,
       GMAIL_SECONDARY_REFRESH_TOKEN: undefined,
       GMAIL_SECONDARY_FROM: undefined,
+      TOKEN_EMAIL_SENDS_PER_MINUTE: 50,
+      TOKEN_EMAIL_BATCH_SIZE: 20,
+      GOOGLE_SHEETS_ENABLED: false,
+      GOOGLE_SHEETS_SPREADSHEET_ID: undefined,
+      GOOGLE_SHEETS_SHEET_NAME: undefined,
+      GOOGLE_SHEETS_CLIENT_EMAIL: undefined,
+      GOOGLE_SHEETS_PRIVATE_KEY: undefined,
+      GOOGLE_OAUTH_CLIENT_ID: undefined,
+      GOOGLE_OAUTH_CLIENT_SECRET: undefined,
+      GOOGLE_OAUTH_REFRESH_TOKEN: undefined,
     } as unknown as z.infer<typeof envSchema>);
 
 if (isSkippingEnvValidation && configIsRuntime()) {
@@ -137,8 +234,8 @@ function configIsRuntime() {
 export const config = {
   /**
    * Database connection strings for Prisma.
-   * DATABASE_URL uses connection pooling (Supabase pooler).
-   * DIRECT_URL bypasses pooling — required for migrations.
+   * Both URLs can point to the bundled PostgreSQL service. Hosted setups may
+   * use a pooled DATABASE_URL and a direct migration URL when needed.
    */
   database: {
     url: _env.DATABASE_URL,
@@ -239,6 +336,26 @@ export const config = {
               _env.GMAIL_FROM,
             )
           : false,
+    sendsPerMinute: _env.TOKEN_EMAIL_SENDS_PER_MINUTE,
+    sendDelayMs: Math.ceil(60000 / _env.TOKEN_EMAIL_SENDS_PER_MINUTE),
+    deliveryBatchSize: _env.TOKEN_EMAIL_BATCH_SIZE,
+  },
+
+  sheets: {
+    enabled: Boolean(
+      _env.GOOGLE_SHEETS_ENABLED &&
+      ((_env.GOOGLE_SHEETS_CLIENT_EMAIL && _env.GOOGLE_SHEETS_PRIVATE_KEY) ||
+        ((_env.GOOGLE_OAUTH_CLIENT_ID || _env.GMAIL_CLIENT_ID) &&
+          (_env.GOOGLE_OAUTH_CLIENT_SECRET || _env.GMAIL_CLIENT_SECRET) &&
+          (_env.GOOGLE_OAUTH_REFRESH_TOKEN || _env.GMAIL_REFRESH_TOKEN))),
+    ),
+    spreadsheetId: _env.GOOGLE_SHEETS_SPREADSHEET_ID,
+    sheetName: _env.GOOGLE_SHEETS_SHEET_NAME ?? "Pilketos",
+    clientEmail: _env.GOOGLE_SHEETS_CLIENT_EMAIL,
+    privateKey: _env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    oauthClientId: _env.GOOGLE_OAUTH_CLIENT_ID || _env.GMAIL_CLIENT_ID,
+    oauthClientSecret: _env.GOOGLE_OAUTH_CLIENT_SECRET || _env.GMAIL_CLIENT_SECRET,
+    oauthRefreshToken: _env.GOOGLE_OAUTH_REFRESH_TOKEN || _env.GMAIL_REFRESH_TOKEN,
   },
 } as const;
 

@@ -7,6 +7,11 @@ import { stdin as input, stdout as output } from "node:process";
 const credentialPath = process.argv[2];
 const redirectUri =
   process.env.GMAIL_REDIRECT_URI ?? "http://localhost:6500/api/gmail-oauth/callback";
+const oauthScopes = [
+  "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/drive.file",
+];
 
 async function main() {
   if (!credentialPath) {
@@ -39,14 +44,16 @@ async function main() {
   const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   authUrl.searchParams.set("access_type", "offline");
   authUrl.searchParams.set("prompt", "consent");
-  authUrl.searchParams.set("scope", "https://www.googleapis.com/auth/gmail.send");
+  authUrl.searchParams.set("scope", oauthScopes.join(" "));
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("client_id", clientConfig.client_id);
   authUrl.searchParams.set("redirect_uri", redirectUri);
 
   console.log("\n1. Pastikan redirect URI ini sudah ditambahkan di Google Cloud OAuth Client:");
   console.log(`   ${redirectUri}`);
-  console.log("\n2. Buka URL ini, login dengan Gmail pengirim, lalu approve:");
+  console.log(
+    "\n2. Buka URL ini, login dengan akun Google pengirim, lalu approve Gmail + Sheets + Drive:",
+  );
   console.log(`\n${authUrl.toString()}\n`);
   console.log("3. Setelah redirect gagal/masuk ke URL callback lokal, copy nilai query ?code=...");
 
@@ -97,6 +104,14 @@ async function main() {
   console.log(`GMAIL_REFRESH_TOKEN=${tokens.refresh_token}`);
   console.log(`GMAIL_REDIRECT_URI=${redirectUri}`);
   console.log("GMAIL_FROM=Nama Pengirim <alamat-gmail-yang-dipakai-login@gmail.com>");
+  console.log("");
+  console.log("# Google Sheets akan otomatis memakai OAuth Gmail di atas.");
+  console.log(
+    "# Isi GOOGLE_SHEETS_SPREADSHEET_ID jika ingin 1 spreadsheet manual dengan tab per election.",
+  );
+  console.log(
+    "# Kosongkan GOOGLE_SHEETS_SPREADSHEET_ID jika ingin sistem membuat spreadsheet baru per election.",
+  );
 }
 
 void main().catch((error) => {

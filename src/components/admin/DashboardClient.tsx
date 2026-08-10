@@ -444,8 +444,10 @@ function CandidateBars({
   const isBlackMode = theme === "black";
   const candidates = ranked
     ? [...stats.candidateStats].sort((first, second) => {
-        if (second.voteCount !== first.voteCount) {
-          return second.voteCount - first.voteCount;
+        const firstScore = first.weightedScore ?? first.percentage;
+        const secondScore = second.weightedScore ?? second.percentage;
+        if (secondScore !== firstScore) {
+          return secondScore - firstScore;
         }
         return first.orderNumber - second.orderNumber;
       })
@@ -481,15 +483,31 @@ function CandidateBars({
                 No. {candidate.orderNumber} {candidate.name}
               </span>
               <span className={isBlackMode ? "text-neutral-200" : "text-neutral-700"}>
-                {numberLabel(candidate.voteCount)} suara ({percentLabel(candidate.percentage)})
+                {stats.election.mode === "WEIGHTED_FIVE"
+                  ? `${numberLabel(candidate.voteCount)} suara · skor ${percentLabel(candidate.weightedScore ?? 0)}`
+                  : `${numberLabel(candidate.voteCount)} suara (${percentLabel(candidate.percentage)})`}
               </span>
             </div>
+            {stats.election.mode === "WEIGHTED_FIVE" ? (
+              <div
+                className={`mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs ${isBlackMode ? "text-neutral-300" : "text-neutral-600"}`}
+              >
+                {candidate.roleBreakdown.map((group) => (
+                  <span key={group.role}>
+                    {group.role} {group.voteCount}/{group.totalVotes} (
+                    {percentLabel(group.percentage)} × {group.weight}%)
+                  </span>
+                ))}
+              </div>
+            ) : null}
             <div
               className={`mt-3 h-4 overflow-hidden rounded-full ${isBlackMode ? "bg-white/10" : "bg-neutral-100"}`}
             >
               <div
                 className={`h-full rounded-full ${ranked && index === 0 ? "bg-emerald-400" : "bg-[var(--color-vote-primary)]"}`}
-                style={{ width: `${Math.min(candidate.percentage, 100)}%` }}
+                style={{
+                  width: `${Math.min(candidate.weightedScore ?? candidate.percentage, 100)}%`,
+                }}
               />
             </div>
           </div>

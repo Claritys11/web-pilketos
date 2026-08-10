@@ -5,7 +5,7 @@ import { config } from "@/config/env";
 export interface TokenEmailInput {
   to: string;
   studentName: string;
-  studentIdentifier: string;
+  studentIdentifier?: string | null;
   electionTitle: string;
   token: string;
   voteUrl: string;
@@ -44,7 +44,9 @@ export class EmailService {
         error:
           config.mail.driver === "gmail_api"
             ? "Gmail API belum dikonfigurasi."
-            : "SMTP belum dikonfigurasi.",
+            : config.mail.driver === "smtp"
+              ? "SMTP belum dikonfigurasi."
+              : "Pengiriman email dinonaktifkan.",
       };
     }
 
@@ -87,9 +89,9 @@ export class EmailService {
           "",
           `Berikut token voting Pilketos untuk ${input.electionTitle}.`,
           "",
-          `NIS/ID: ${input.studentIdentifier}`,
+          ...(input.studentIdentifier ? [`NIS/ID: ${input.studentIdentifier}`] : []),
           `Token: ${input.token}`,
-          `Link voting: ${input.voteUrl}`,
+          `Link voting otomatis: ${input.voteUrl}`,
           "",
           "Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.",
         ].join("\n"),
@@ -98,11 +100,13 @@ export class EmailService {
           `<p>Berikut token voting Pilketos untuk <strong>${escapeHtml(
             input.electionTitle,
           )}</strong>.</p>`,
-          `<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`,
+          ...(input.studentIdentifier
+            ? [`<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`]
+            : []),
           `<p><strong>Token:</strong> <code style="font-size:18px">${escapeHtml(
             input.token,
           )}</code></p>`,
-          `<p><a href="${escapeHtml(input.voteUrl)}">Buka halaman voting</a></p>`,
+          renderVoteButton(input.voteUrl),
           `<p>Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.</p>`,
         ].join(""),
       });
@@ -174,9 +178,9 @@ export class EmailService {
           "",
           `Berikut token voting Pilketos untuk ${input.electionTitle}.`,
           "",
-          `NIS/ID: ${input.studentIdentifier}`,
+          ...(input.studentIdentifier ? [`NIS/ID: ${input.studentIdentifier}`] : []),
           `Token: ${input.token}`,
-          `Link voting: ${input.voteUrl}`,
+          `Link voting otomatis: ${input.voteUrl}`,
           "",
           "Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.",
         ].join("\n"),
@@ -185,11 +189,13 @@ export class EmailService {
           `<p>Berikut token voting Pilketos untuk <strong>${escapeHtml(
             input.electionTitle,
           )}</strong>.</p>`,
-          `<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`,
+          ...(input.studentIdentifier
+            ? [`<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`]
+            : []),
           `<p><strong>Token:</strong> <code style="font-size:18px">${escapeHtml(
             input.token,
           )}</code></p>`,
-          `<p><a href="${escapeHtml(input.voteUrl)}">Buka halaman voting</a></p>`,
+          renderVoteButton(input.voteUrl),
           `<p>Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.</p>`,
         ].join(""),
       });
@@ -337,6 +343,18 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function renderVoteButton(voteUrl: string) {
+  const escapedUrl = escapeHtml(voteUrl);
+  return [
+    `<p style="margin:24px 0">`,
+    `<a href="${escapedUrl}" style="display:inline-block;background:#dc2626;color:#ffffff;text-decoration:none;font-weight:700;border-radius:10px;padding:14px 22px">`,
+    "Buka Voting dan Isi Token Otomatis",
+    "</a>",
+    "</p>",
+    `<p style="font-size:13px;color:#525252">Jika tombol tidak bisa dibuka, salin link ini:<br><a href="${escapedUrl}">${escapedUrl}</a></p>`,
+  ].join("");
 }
 
 function formatEmailError(error: unknown, fallback: string) {

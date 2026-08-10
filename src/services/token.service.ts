@@ -8,12 +8,12 @@ import { prisma } from "@/lib/prisma";
 import { auditService } from "@/services/audit.service";
 import { emailService } from "@/services/email.service";
 import { assertRole, ServiceError } from "@/services/errors";
+import { googleSheetsService } from "@/services/google-sheets.service";
 
 const TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const TOKEN_LENGTH = 12;
 const MAX_TOKEN_GENERATION_ATTEMPTS = 10;
 const MAX_TOKEN_INSERT_ATTEMPTS = 3;
-const TOKEN_EMAIL_CONCURRENCY = 5;
 
 export interface GenerateTokenBatchInput {
   electionId: string;
@@ -26,7 +26,7 @@ export interface GenerateTokenBatchInput {
 }
 
 export interface TokenStudentAssignmentInput {
-  studentIdentifier: string;
+  studentIdentifier?: string | null | undefined;
   studentName: string;
   studentClass?: string | null | undefined;
   studentEmail?: string | null | undefined;
@@ -56,6 +56,8 @@ export function generatePlaintextToken(length = TOKEN_LENGTH): string {
 }
 
 export class TokenService {
+  private readonly activeEmailDeliveries = new Set<string>();
+
   async listTokenMetadata(electionId: string) {
     const election = await prisma.election.findUnique({
       where: { id: electionId },
@@ -110,16 +112,16 @@ export class TokenService {
           tokens,
           hashes,
         );
-        const emailResults =
-          students && students.some((student) => student.studentEmail)
-            ? await this.sendTokenEmails({
-                electionId: input.electionId,
-                electionTitle: election.title,
-                tokens,
-                hashes,
-                students,
-              })
-            : undefined;
+        const emailResults = students
+          ? students.map((student) => ({
+              status: student.studentEmail ? ("PENDING" as const) : ("SKIPPED" as const),
+              error: student.studentEmail ? null : "Email pemilih kosong.",
+            }))
+          : undefined;
+        if (students) {
+          await this.syncTokensToSheet(input.electionId, election.title, hashes);
+        }
+        const sheetsSync = await this.getSheetsSyncStatus(input.electionId, Boolean(students));
 
         return {
           electionId: input.electionId,
@@ -134,11 +136,13 @@ export class TokenService {
             : undefined,
           emailSummary: emailResults
             ? {
-                sent: emailResults.filter((result) => result.status === "SENT").length,
-                failed: emailResults.filter((result) => result.status === "FAILED").length,
+                sent: 0,
+                failed: 0,
                 skipped: emailResults.filter((result) => result.status === "SKIPPED").length,
+                pending: emailResults.filter((result) => result.status === "PENDING").length,
               }
             : undefined,
+          sheetsSync,
         };
       } catch (error) {
         if (attempt < MAX_TOKEN_INSERT_ATTEMPTS && isRetryableTokenConstraintError(error)) {
@@ -206,7 +210,7 @@ export class TokenService {
     return prisma.$transaction(async (tx) => {
       const election = await tx.election.findUnique({
         where: { id: input.electionId },
-        select: { id: true, title: true, status: true },
+        select: { id: true, title: true, status: true, mode: true },
       });
 
       if (!election) {
@@ -221,24 +225,34 @@ export class TokenService {
         );
       }
 
+      validateAssignmentsForElection(election.mode, input.students, input.count);
+
       if (input.students) {
+        const identifiers = input.students
+          .map((student) => student.studentIdentifier)
+          .filter((value): value is string => Boolean(value));
+        const emails = input.students
+          .map((student) => student.studentEmail)
+          .filter((value): value is string => Boolean(value));
         const existingAssignedTokens = await tx.votingToken.findMany({
           where: {
             electionId: input.electionId,
-            studentIdentifier: {
-              in: input.students.map((student) => student.studentIdentifier),
-            },
+            OR: [
+              ...(identifiers.length ? [{ studentIdentifier: { in: identifiers } }] : []),
+              ...(emails.length ? [{ studentEmail: { in: emails } }] : []),
+            ],
           },
           select: {
             studentIdentifier: true,
+            studentEmail: true,
           },
         });
 
         if (existingAssignedTokens.length > 0) {
           throw new ServiceError(
             "TOKEN_STUDENT_ALREADY_ASSIGNED",
-            `Token untuk siswa ${existingAssignedTokens
-              .map((token) => token.studentIdentifier)
+            `Token untuk pemilih ${existingAssignedTokens
+              .map((token) => token.studentIdentifier ?? token.studentEmail)
               .filter(Boolean)
               .join(", ")} sudah pernah dibuat.`,
             409,
@@ -289,81 +303,10 @@ export class TokenService {
     });
   }
 
-  private async sendTokenEmails(input: {
-    electionId: string;
-    electionTitle: string;
-    tokens: string[];
-    hashes: string[];
-    students: TokenStudentAssignmentInput[];
-  }) {
-    const voteUrl = `${config.app.publicUrl.replace(/\/$/, "")}/vote`;
-
-    const results: Array<{
-      status: "SENT" | "FAILED" | "SKIPPED";
-      error: string | null;
-    }> = new Array(input.students.length);
-    let cursor = 0;
-
-    async function worker() {
-      while (cursor < input.students.length) {
-        const index = cursor;
-        cursor += 1;
-        const student = input.students[index];
-        const tokenHash = input.hashes[index];
-        const token = input.tokens[index];
-
-        if (!student) {
-          results[index] = {
-            status: "SKIPPED",
-            error: "Data siswa tidak ditemukan.",
-          };
-          continue;
-        }
-
-        if (!tokenHash || !token || !student.studentEmail) {
-          results[index] = {
-            status: "SKIPPED",
-            error: student.studentEmail ? "Token tidak ditemukan." : "Email siswa kosong.",
-          };
-          continue;
-        }
-
-        const result = await emailService.sendVotingToken({
-          to: student.studentEmail,
-          studentName: student.studentName,
-          studentIdentifier: student.studentIdentifier,
-          electionTitle: input.electionTitle,
-          token,
-          voteUrl,
-        });
-        const emailError = result.ok ? null : (result.error ?? "Gagal mengirim email.");
-
-        await prisma.votingToken.update({
-          where: { tokenHash },
-          data: {
-            emailSentAt: result.ok ? new Date() : null,
-            emailError,
-          },
-        });
-
-        results[index] = {
-          status: result.ok ? "SENT" : result.skipped ? "SKIPPED" : "FAILED",
-          error: emailError,
-        };
-      }
-    }
-
-    await Promise.all(
-      Array.from({ length: Math.min(TOKEN_EMAIL_CONCURRENCY, input.students.length) }, () =>
-        worker(),
-      ),
-    );
-
-    return results;
-  }
-
   async retryFailedTokenEmails(input: {
     electionId: string;
+    mode: "PENDING" | "FAILED" | "RESEND";
+    tokenId?: string | undefined;
     actorId: string;
     actorRole: "ADMIN" | "SUPER_ADMIN";
     ipAddress?: string | null;
@@ -371,24 +314,75 @@ export class TokenService {
   }) {
     assertRole(input.actorRole, ["ADMIN", "SUPER_ADMIN"]);
 
+    if (this.activeEmailDeliveries.has(input.electionId)) {
+      throw new ServiceError(
+        "TOKEN_EMAIL_DELIVERY_BUSY",
+        "Pengiriman email untuk election ini sedang berjalan. Tunggu batch aktif selesai.",
+        409,
+      );
+    }
+    this.activeEmailDeliveries.add(input.electionId);
+
+    try {
+      return await this.deliverTokenEmailBatch(input);
+    } finally {
+      this.activeEmailDeliveries.delete(input.electionId);
+    }
+  }
+
+  private async deliverTokenEmailBatch(input: {
+    electionId: string;
+    mode: "PENDING" | "FAILED" | "RESEND";
+    tokenId?: string | undefined;
+    actorId: string;
+    actorRole: "ADMIN" | "SUPER_ADMIN";
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  }) {
     const election = await prisma.election.findUnique({
       where: { id: input.electionId },
-      select: { id: true, title: true },
+      select: { id: true, title: true, status: true },
     });
 
     if (!election) {
       throw new ServiceError("ELECTION_NOT_FOUND", "Election tidak ditemukan.", 404);
     }
 
-    const retryableTokens = await prisma.votingToken.findMany({
-      where: {
-        electionId: input.electionId,
-        usedAt: null,
+    if (["CLOSED", "ARCHIVED"].includes(election.status)) {
+      throw new ServiceError(
+        "ELECTION_WRONG_STATE",
+        "Email token tidak dapat dikirim setelah election ditutup atau diarsipkan.",
+        422,
+      );
+    }
+
+    const baseDeliveryWhere: Prisma.VotingTokenWhereInput = {
+      electionId: input.electionId,
+      usedAt: null,
+      studentEmail: { not: null },
+      tokenCiphertext: { not: null },
+    };
+    let deliveryWhere: Prisma.VotingTokenWhereInput;
+    if (input.mode === "RESEND") {
+      if (!input.tokenId) {
+        throw new ServiceError(
+          "TOKEN_EMAIL_RESEND_UNAVAILABLE",
+          "ID token wajib diisi untuk pengiriman ulang.",
+          422,
+        );
+      }
+      deliveryWhere = { ...baseDeliveryWhere, id: input.tokenId };
+    } else {
+      deliveryWhere = {
+        ...baseDeliveryWhere,
         emailSentAt: null,
-        studentEmail: { not: null },
-        tokenCiphertext: { not: null },
-      },
+        emailError: input.mode === "PENDING" ? null : { not: null },
+      };
+    }
+    const retryableTokens = await prisma.votingToken.findMany({
+      where: deliveryWhere,
       orderBy: { createdAt: "asc" },
+      take: input.mode === "RESEND" ? 1 : config.mail.deliveryBatchSize,
       select: {
         id: true,
         tokenCiphertext: true,
@@ -398,68 +392,76 @@ export class TokenService {
       },
     });
 
-    const voteUrl = `${config.app.publicUrl.replace(/\/$/, "")}/vote`;
+    if (input.mode === "RESEND" && retryableTokens.length === 0) {
+      throw new ServiceError(
+        "TOKEN_EMAIL_RESEND_UNAVAILABLE",
+        "Token tidak dapat dikirim ulang karena sudah dipakai atau data emailnya tidak tersedia.",
+        422,
+      );
+    }
+
     const electionTitle = election.title;
     let sent = 0;
     let failed = 0;
     let skipped = 0;
-    let cursor = 0;
+    let emailSendIndex = 0;
 
-    async function worker() {
-      while (cursor < retryableTokens.length) {
-        const index = cursor;
-        cursor += 1;
-        const tokenRecord = retryableTokens[index];
+    for (const tokenRecord of retryableTokens) {
+      if (!tokenRecord?.studentEmail || !tokenRecord.tokenCiphertext) {
+        skipped += 1;
+        continue;
+      }
 
-        if (!tokenRecord?.studentEmail || !tokenRecord.tokenCiphertext) {
-          skipped += 1;
-          continue;
-        }
-
-        let plaintextToken: string;
-        try {
-          plaintextToken = decryptTokenPlaintext(tokenRecord.tokenCiphertext);
-        } catch {
-          failed += 1;
-          await prisma.votingToken.update({
-            where: { id: tokenRecord.id },
-            data: { emailError: "Token terenkripsi tidak dapat dibuka untuk retry." },
-          });
-          continue;
-        }
-
-        const result = await emailService.sendVotingToken({
-          to: tokenRecord.studentEmail,
-          studentName: tokenRecord.studentName ?? tokenRecord.studentIdentifier ?? "Pemilih",
-          studentIdentifier: tokenRecord.studentIdentifier ?? "-",
-          electionTitle,
-          token: plaintextToken,
-          voteUrl,
-        });
-
+      let plaintextToken: string;
+      try {
+        plaintextToken = decryptTokenPlaintext(tokenRecord.tokenCiphertext);
+      } catch {
+        failed += 1;
         await prisma.votingToken.update({
           where: { id: tokenRecord.id },
-          data: {
-            emailSentAt: result.ok ? new Date() : null,
-            emailError: result.ok ? null : (result.error ?? "Gagal mengirim email."),
-          },
+          data: { emailError: "Token terenkripsi tidak dapat dibuka untuk retry." },
         });
+        continue;
+      }
 
-        if (result.ok) {
-          sent += 1;
-        } else if (result.skipped) {
-          skipped += 1;
-        } else {
-          failed += 1;
-        }
+      await delayBeforeEmail(emailSendIndex);
+      emailSendIndex += 1;
+
+      const result = await emailService.sendVotingToken({
+        to: tokenRecord.studentEmail,
+        studentName: tokenRecord.studentName ?? tokenRecord.studentIdentifier ?? "Pemilih",
+        studentIdentifier: tokenRecord.studentIdentifier ?? null,
+        electionTitle,
+        token: plaintextToken,
+        voteUrl: buildTokenVoteUrl(plaintextToken),
+      });
+
+      await prisma.votingToken.update({
+        where: { id: tokenRecord.id },
+        data: {
+          ...(result.ok
+            ? { emailSentAt: new Date() }
+            : input.mode === "RESEND"
+              ? {}
+              : { emailSentAt: null }),
+          emailError: result.ok ? null : (result.error ?? "Gagal mengirim email."),
+        },
+      });
+
+      if (result.ok) {
+        sent += 1;
+      } else if (result.skipped) {
+        skipped += 1;
+      } else {
+        failed += 1;
       }
     }
 
-    await Promise.all(
-      Array.from({ length: Math.min(TOKEN_EMAIL_CONCURRENCY, retryableTokens.length) }, () =>
-        worker(),
-      ),
-    );
+    const remaining =
+      input.mode === "RESEND" ? 0 : await prisma.votingToken.count({ where: deliveryWhere });
+    if (remaining === 0 && googleSheetsService.enabled) {
+      await googleSheetsService.syncElection(input.electionId);
+    }
 
     await auditService.writeLog({
       actorId: input.actorId,
@@ -471,10 +473,14 @@ export class TokenService {
       userAgent: input.userAgent,
       metadata: {
         electionId: input.electionId,
+        mode: input.mode,
+        tokenId: input.tokenId,
+        batchSize: config.mail.deliveryBatchSize,
         attempted: retryableTokens.length,
         sent,
         failed,
         skipped,
+        remaining,
       },
     });
 
@@ -483,6 +489,7 @@ export class TokenService {
       sent,
       failed,
       skipped,
+      remaining,
     };
   }
 
@@ -517,6 +524,121 @@ export class TokenService {
       electionTitle: votingToken.election.title,
     };
   }
+
+  private async syncTokensToSheet(
+    electionId: string,
+    electionTitle: string,
+    tokenHashes: string[],
+  ) {
+    if (!googleSheetsService.enabled || tokenHashes.length === 0) {
+      return;
+    }
+
+    const tokens = await prisma.votingToken.findMany({
+      where: {
+        electionId,
+        tokenHash: { in: tokenHashes },
+      },
+      orderBy: { createdAt: "asc" },
+      select: tokenSheetSelect(),
+    });
+
+    await googleSheetsService.syncTokenRows(
+      tokens.map((token) => mapTokenToSheetRow(token, electionTitle)),
+    );
+  }
+
+  private async getSheetsSyncStatus(electionId: string, requested: boolean) {
+    if (!requested) {
+      return {
+        status: "DISABLED" as const,
+        spreadsheetUrl: null,
+        error: "Sync Sheets hanya berlaku untuk token yang diimport per pemilih.",
+      };
+    }
+    if (!googleSheetsService.enabled) {
+      return {
+        status: "DISABLED" as const,
+        spreadsheetUrl: null,
+        error: "Google Sheets belum diaktifkan di environment deployment.",
+      };
+    }
+
+    const election = await prisma.election.findUnique({
+      where: { id: electionId },
+      select: {
+        googleSheetsSpreadsheetId: true,
+        googleSheetsSyncError: true,
+      },
+    });
+    const spreadsheetId = election?.googleSheetsSpreadsheetId ?? null;
+    return {
+      status: election?.googleSheetsSyncError ? ("FAILED" as const) : ("SYNCED" as const),
+      spreadsheetUrl: spreadsheetId
+        ? `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}`
+        : null,
+      error: election?.googleSheetsSyncError ?? null,
+    };
+  }
+}
+
+function buildTokenVoteUrl(token: string) {
+  const url = new URL("/vote", config.app.publicUrl.replace(/\/$/, ""));
+  url.searchParams.set("token", token);
+  return url.toString();
+}
+
+async function delayBeforeEmail(index: number) {
+  if (index <= 0) {
+    return;
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, config.mail.sendDelayMs));
+}
+
+function tokenSheetSelect() {
+  return {
+    id: true,
+    electionId: true,
+    voterType: true,
+    studentIdentifier: true,
+    studentName: true,
+    studentClass: true,
+    studentEmail: true,
+    emailSentAt: true,
+    emailError: true,
+    usedAt: true,
+  } as const;
+}
+
+function mapTokenToSheetRow(
+  token: {
+    id: string;
+    electionId: string;
+    voterType: VoterType | null;
+    studentIdentifier: string | null;
+    studentName: string | null;
+    studentClass: string | null;
+    studentEmail: string | null;
+    emailSentAt: Date | null;
+    emailError: string | null;
+    usedAt: Date | null;
+  },
+  electionTitle: string,
+) {
+  return {
+    tokenId: token.id,
+    electionId: token.electionId,
+    electionTitle,
+    voterType: token.voterType,
+    studentIdentifier: token.studentIdentifier,
+    studentName: token.studentName,
+    studentClass: token.studentClass,
+    studentEmail: token.studentEmail,
+    emailSentAt: token.emailSentAt,
+    emailError: token.emailError,
+    usedAt: token.usedAt,
+  };
 }
 
 function normalizeStudentAssignments(students?: TokenStudentAssignmentInput[]) {
@@ -525,7 +647,7 @@ function normalizeStudentAssignments(students?: TokenStudentAssignmentInput[]) {
   }
 
   const normalized = students.map((student) => ({
-    studentIdentifier: student.studentIdentifier.trim().toUpperCase(),
+    studentIdentifier: student.studentIdentifier?.trim().toUpperCase() || null,
     studentName: student.studentName.trim(),
     studentClass: student.studentClass?.trim() || null,
     studentEmail: student.studentEmail?.trim().toLowerCase() || null,
@@ -533,18 +655,96 @@ function normalizeStudentAssignments(students?: TokenStudentAssignmentInput[]) {
   }));
 
   const identifiers = new Set<string>();
+  const emails = new Set<string>();
   for (const student of normalized) {
-    if (identifiers.has(student.studentIdentifier)) {
+    if (student.studentIdentifier && identifiers.has(student.studentIdentifier)) {
       throw new ServiceError(
         "TOKEN_STUDENT_DUPLICATE",
         "NIS/ID siswa tidak boleh duplikat dalam satu batch.",
         422,
       );
     }
-    identifiers.add(student.studentIdentifier);
+    if (student.studentIdentifier) {
+      identifiers.add(student.studentIdentifier);
+    }
+    if (student.studentEmail && emails.has(student.studentEmail)) {
+      throw new ServiceError(
+        "TOKEN_STUDENT_DUPLICATE",
+        "Email pemilih tidak boleh duplikat dalam satu batch.",
+        422,
+      );
+    }
+    if (student.studentEmail) {
+      emails.add(student.studentEmail);
+    }
   }
 
   return normalized;
+}
+
+function validateAssignmentsForElection(
+  mode: "STANDARD" | "WEIGHTED_FIVE",
+  students: TokenStudentAssignmentInput[] | undefined,
+  count: number,
+) {
+  if (mode === "WEIGHTED_FIVE" && !students) {
+    throw new ServiceError(
+      "WEIGHTED_ELECTION_REQUIRES_VOTERS",
+      "Mode 5 kandidat berbobot harus memakai import pemilih agar role suara dapat dihitung.",
+      422,
+    );
+  }
+
+  for (const [index, student] of (students ?? []).entries()) {
+    const row = index + 1;
+    if (mode === "STANDARD") {
+      if (!student.studentIdentifier) {
+        throw new ServiceError(
+          "TOKEN_STUDENT_IDENTIFIER_REQUIRED",
+          `Baris ${row}: NIS/ID wajib diisi untuk election biasa.`,
+          422,
+        );
+      }
+      if (!student.voterType || !["STUDENT", "TEACHER"].includes(student.voterType)) {
+        throw new ServiceError(
+          "TOKEN_VOTER_TYPE_INVALID",
+          `Baris ${row}: role election biasa harus SISWA atau GURU.`,
+          422,
+        );
+      }
+      continue;
+    }
+
+    if (!student.voterType || !["OSIS", "MPK", "GURU"].includes(student.voterType)) {
+      throw new ServiceError(
+        "TOKEN_VOTER_TYPE_INVALID",
+        `Baris ${row}: role harus OSIS, MPK, atau GURU.`,
+        422,
+      );
+    }
+    if (!student.studentEmail) {
+      throw new ServiceError(
+        "TOKEN_STUDENT_EMAIL_REQUIRED",
+        `Baris ${row}: email wajib diisi karena mode berbobot tidak menggunakan NIS/ID.`,
+        422,
+      );
+    }
+    if (student.voterType !== "GURU" && !student.studentClass) {
+      throw new ServiceError(
+        "TOKEN_STUDENT_CLASS_REQUIRED",
+        `Baris ${row}: kelas wajib diisi untuk role ${student.voterType}.`,
+        422,
+      );
+    }
+    if (student.voterType === "GURU") {
+      student.studentClass = null;
+    }
+    student.studentIdentifier = null;
+  }
+
+  if (count < 1) {
+    throw new ServiceError("TOKEN_GENERATION_FAILED", "Daftar pemilih kosong.", 422);
+  }
 }
 
 function isRetryableTokenConstraintError(error: unknown) {

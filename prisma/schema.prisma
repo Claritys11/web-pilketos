@@ -21,6 +21,11 @@ enum ElectionStatus {
   ARCHIVED
 }
 
+enum ElectionMode {
+  STANDARD
+  WEIGHTED_FIVE
+}
+
 enum AuditAction {
   ADMIN_CREATED
   ADMIN_UPDATED
@@ -49,6 +54,9 @@ enum AuditResult {
 enum VoterType {
   STUDENT
   TEACHER
+  OSIS
+  MPK
+  GURU
 }
 
 model Admin {
@@ -72,19 +80,23 @@ model Admin {
 }
 
 model Election {
-  id          String         @id @default(cuid())
-  title       String         @db.VarChar(255)
-  description String?        @db.Text
-  status      ElectionStatus @default(SETUP)
-  openedAt    DateTime?      @map("opened_at") @db.Timestamptz(6)
-  closedAt    DateTime?      @map("closed_at") @db.Timestamptz(6)
-  createdById String         @map("created_by")
-  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdBy   Admin          @relation("ElectionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  candidates  Candidate[]
-  tokens      VotingToken[]
-  votes       Vote[]
+  id                        String         @id @default(cuid())
+  title                     String         @db.VarChar(255)
+  description               String?        @db.Text
+  status                    ElectionStatus @default(SETUP)
+  mode                      ElectionMode   @default(STANDARD)
+  openedAt                  DateTime?      @map("opened_at") @db.Timestamptz(6)
+  closedAt                  DateTime?      @map("closed_at") @db.Timestamptz(6)
+  googleSheetsSpreadsheetId String?        @map("google_sheets_spreadsheet_id") @db.VarChar(128)
+  googleSheetsSyncedAt      DateTime?      @map("google_sheets_synced_at") @db.Timestamptz(6)
+  googleSheetsSyncError     String?        @map("google_sheets_sync_error") @db.Text
+  createdById               String         @map("created_by")
+  createdAt                 DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy                 Admin          @relation("ElectionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  candidates                Candidate[]
+  tokens                    VotingToken[]
+  votes                     Vote[]
 
   @@index([status], map: "idx_election_status")
   @@index([createdById], map: "idx_election_created_by")
@@ -136,16 +148,18 @@ model VotingToken {
 }
 
 model Vote {
-  id          String    @id @default(cuid())
-  electionId  String    @map("election_id")
-  candidateId String    @map("candidate_id")
-  votedAt     DateTime  @default(now()) @map("voted_at") @db.Timestamptz(6)
-  election    Election  @relation(fields: [electionId], references: [id], onDelete: Cascade)
-  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  id          String     @id @default(cuid())
+  electionId  String     @map("election_id")
+  candidateId String     @map("candidate_id")
+  voterType   VoterType? @map("voter_type")
+  votedAt     DateTime   @default(now()) @map("voted_at") @db.Timestamptz(6)
+  election    Election   @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidate   Candidate  @relation(fields: [candidateId], references: [id], onDelete: Restrict)
 
   @@index([electionId], map: "idx_vote_election_id")
   @@index([candidateId], map: "idx_vote_candidate_id")
   @@index([electionId, candidateId], map: "idx_vote_election_candidate")
+  @@index([electionId, voterType], map: "idx_vote_election_voter_type")
   @@index([votedAt], map: "idx_vote_voted_at")
 }
 

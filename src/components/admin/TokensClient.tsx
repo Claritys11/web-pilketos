@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 
@@ -12,17 +13,18 @@ import { SkeletonCard } from "@/components/common/Skeleton";
 import { MAX_TOKEN_BATCH_SIZE } from "@/config/tokens";
 import { adminFetch } from "@/lib/admin/api";
 import type { AdminSessionUser, DashboardStats, ElectionDetail } from "@/lib/admin/types";
+import type { VoterType } from "@/lib/admin/types";
 
 type GeneratorMode = "count" | "students";
 type TokenStatusFilter = "all" | "used" | "unused";
 
 interface TokenAssignment {
-  studentIdentifier: string;
+  studentIdentifier?: string | null;
   studentName: string;
   studentClass?: string | null;
   studentEmail?: string | null;
-  voterType?: "STUDENT" | "TEACHER";
-  emailStatus?: "SENT" | "FAILED" | "SKIPPED";
+  voterType?: VoterType;
+  emailStatus?: "PENDING" | "SENT" | "FAILED" | "SKIPPED";
   emailError?: string | null;
 }
 
@@ -35,6 +37,12 @@ interface GenerateResult {
     sent: number;
     failed: number;
     skipped: number;
+    pending: number;
+  };
+  sheetsSync?: {
+    status: "SYNCED" | "DISABLED" | "FAILED";
+    spreadsheetUrl: string | null;
+    error: string | null;
   };
 }
 
@@ -44,19 +52,27 @@ interface TokenMetadata {
   studentName: string | null;
   studentClass: string | null;
   studentEmail: string | null;
-  voterType: "STUDENT" | "TEACHER" | null;
+  voterType: VoterType | null;
   emailSentAt: string | null;
   emailError: string | null;
   usedAt: string | null;
   createdAt: string;
 }
 
+interface EmailDeliveryResult {
+  attempted: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+  remaining: number;
+}
+
 interface ParsedStudent {
-  studentIdentifier: string;
+  studentIdentifier?: string;
   studentName: string;
   studentClass?: string;
   studentEmail?: string;
-  voterType: "STUDENT" | "TEACHER";
+  voterType: VoterType;
 }
 
 export function TokensClient({ electionId, user }: { electionId: string; user: AdminSessionUser }) {
@@ -71,13 +87,30 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
   const [generatorOpen, setGeneratorOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [retryingEmail, setRetryingEmail] = useState(false);
+  const [deliveringEmail, setDeliveringEmail] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const [resendTarget, setResendTarget] = useState<TokenMetadata | null>(null);
   const [generated, setGenerated] = useState<GenerateResult | null>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const canGenerate = user.role !== "VIEWER" && election?.status === "SETUP";
+  const canManageEmail =
+    user.role !== "VIEWER" &&
+    Boolean(election && election.status !== "CLOSED" && election.status !== "ARCHIVED");
+  const pendingEmails = tokens.filter(
+    (token) => token.studentEmail && !token.emailSentAt && !token.emailError,
+  ).length;
+  const failedEmails = tokens.filter(
+    (token) => token.studentEmail && !token.emailSentAt && token.emailError,
+  ).length;
 
-  const parsedStudents = useMemo(() => parseStudents(studentInput), [studentInput]);
+  const weightedMode = election?.mode === "WEIGHTED_FIVE";
+  const activeGeneratorMode: GeneratorMode = weightedMode ? "students" : generatorMode;
+  const parsedStudents = useMemo(
+    () => parseStudents(studentInput, weightedMode),
+    [studentInput, weightedMode],
+  );
   const filteredTokens = useMemo(() => {
     const query = tokenSearch.trim().toLowerCase();
 
@@ -137,7 +170,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
     try {
       setError(null);
       const body =
-        generatorMode === "students"
+        activeGeneratorMode === "students"
           ? { electionId, students: parsedStudents }
           : { electionId, count };
 
@@ -146,7 +179,11 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
         body: JSON.stringify(body),
       });
       setGenerated(result);
+      setGeneratorOpen(false);
       await load();
+      if ((result.emailSummary?.pending ?? 0) > 0) {
+        void deliverPendingEmails();
+      }
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Gagal generate token.");
     } finally {
@@ -154,27 +191,99 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
     }
   }
 
+  async function deliverPendingEmails() {
+    if (deliveringEmail) {
+      return;
+    }
+    setDeliveringEmail(true);
+    setError(null);
+    let totalSent = 0;
+    let totalFailed = 0;
+    let totalSkipped = 0;
+    try {
+      while (true) {
+        const result = await requestEmailDelivery("PENDING");
+        totalSent += result.sent;
+        totalFailed += result.failed;
+        totalSkipped += result.skipped;
+        setGenerated((current) =>
+          current?.emailSummary
+            ? {
+                ...current,
+                emailSummary: {
+                  sent: current.emailSummary.sent + result.sent,
+                  failed: current.emailSummary.failed + result.failed,
+                  skipped: current.emailSummary.skipped + result.skipped,
+                  pending: result.remaining,
+                },
+              }
+            : current,
+        );
+        setImportMessage(
+          `Pengiriman berjalan: ${totalSent} terkirim, ${totalFailed} gagal, ${totalSkipped} dilewati, ${result.remaining} masih antre.`,
+        );
+        if (result.remaining === 0 || result.attempted === 0) {
+          break;
+        }
+      }
+      await load();
+    } catch (fetchError) {
+      setError(
+        fetchError instanceof Error
+          ? `Pengiriman berhenti sementara: ${fetchError.message} Token tetap tersimpan dan bisa dilanjutkan.`
+          : "Pengiriman berhenti sementara. Token tetap tersimpan dan bisa dilanjutkan.",
+      );
+      await load();
+    } finally {
+      setDeliveringEmail(false);
+    }
+  }
+
+  function requestEmailDelivery(mode: "PENDING" | "FAILED" | "RESEND", tokenId?: string) {
+    return adminFetch<EmailDeliveryResult>("/api/admin/tokens/retry-email", {
+      method: "POST",
+      body: JSON.stringify({ electionId, mode, ...(tokenId ? { tokenId } : {}) }),
+    });
+  }
+
   async function retryFailedEmails() {
     setRetryingEmail(true);
     try {
       setError(null);
-      const result = await adminFetch<{
-        attempted: number;
-        sent: number;
-        failed: number;
-        skipped: number;
-      }>("/api/admin/tokens/retry-email", {
-        method: "POST",
-        body: JSON.stringify({ electionId }),
-      });
+      const result = await requestEmailDelivery("FAILED");
       setImportMessage(
-        `Retry selesai: ${result.sent} terkirim, ${result.failed} gagal, ${result.skipped} dilewati dari ${result.attempted} token.`,
+        `Retry batch selesai: ${result.sent} terkirim, ${result.failed} masih gagal, ${result.skipped} dilewati. Sisa gagal: ${result.remaining}.`,
       );
       await load();
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Gagal retry email token.");
     } finally {
       setRetryingEmail(false);
+    }
+  }
+
+  async function resendSentEmail() {
+    if (!resendTarget) {
+      return;
+    }
+
+    setResendingEmail(true);
+    try {
+      setError(null);
+      const result = await requestEmailDelivery("RESEND", resendTarget.id);
+      if (result.sent === 1) {
+        setImportMessage(`Token berhasil dikirim ulang ke ${resendTarget.studentEmail}.`);
+      } else {
+        setError(
+          `Email token ke ${resendTarget.studentEmail} belum berhasil dikirim ulang. Periksa status error pada tabel.`,
+        );
+      }
+      setResendTarget(null);
+      await load();
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "Gagal mengirim ulang token.");
+    } finally {
+      setResendingEmail(false);
     }
   }
 
@@ -188,8 +297,8 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
       setImportMessage(null);
       const parsedRows =
         file.name.toLowerCase().endsWith(".csv") || file.name.toLowerCase().endsWith(".tsv")
-          ? parseStudents(await file.text())
-          : await parseExcelFile(file);
+          ? parseStudents(await file.text(), weightedMode)
+          : await parseExcelFile(file, weightedMode);
 
       if (parsedRows.length === 0) {
         throw new Error("File tidak berisi data pemilih yang valid.");
@@ -202,17 +311,6 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
     } finally {
       event.target.value = "";
     }
-  }
-
-  function downloadTemplateCsv() {
-    downloadCsv(
-      [
-        "student_identifier,student_name,student_class,student_email,voter_type",
-        "12345,Nama Siswa 1,XII RPL 1,siswa1@example.com,SISWA",
-        "G001,Nama Guru 1,Guru,guru1@example.com,GURU",
-      ].join("\n"),
-      "template-token-pemilih.csv",
-    );
   }
 
   if (loading) {
@@ -241,11 +339,21 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
         ) : null}
         <button
           type="button"
+          onClick={() => void deliverPendingEmails()}
+          disabled={!canManageEmail || deliveringEmail || pendingEmails === 0}
+          className="h-11 rounded-lg border border-sky-200 bg-white px-4 text-sm font-semibold text-sky-700 hover:bg-sky-50 disabled:opacity-50"
+        >
+          {deliveringEmail
+            ? `Mengirim... (${pendingEmails} antre)`
+            : `Kirim Email Antre (${pendingEmails})`}
+        </button>
+        <button
+          type="button"
           onClick={() => void retryFailedEmails()}
-          disabled={!canGenerate || retryingEmail}
+          disabled={!canManageEmail || retryingEmail || deliveringEmail || failedEmails === 0}
           className="h-11 rounded-lg border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
         >
-          {retryingEmail ? "Retry..." : "Retry Email Gagal"}
+          {retryingEmail ? "Retry..." : `Retry Email Gagal (${failedEmails})`}
         </button>
         <button
           type="button"
@@ -285,8 +393,8 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
         <Stat label="Dipakai" value={String(usedTokens)} />
         <Stat label="Belum dipakai" value={String(Math.max(totalTokens - usedTokens, 0))} />
         <Stat
-          label="Token bersiswa"
-          value={String(tokens.filter((token) => token.studentIdentifier).length)}
+          label="Pemilih terdata"
+          value={String(tokens.filter((token) => token.studentName || token.studentEmail).length)}
         />
       </section>
 
@@ -295,25 +403,26 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
           <div>
             <h3 className="text-lg font-semibold text-neutral-950">Distribusi Token Per Pemilih</h3>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">
-              Upload Excel/CSV berisi pemilih siswa dan guru, lalu sistem membuat satu token per
-              identitas. Plaintext token tidak ditampilkan atau didownload dari admin; pengiriman
-              dilakukan lewat email dan token gagal bisa di-retry dari server.
+              {weightedMode
+                ? "Upload pemilih OSIS, MPK, dan GURU tanpa NIS/ID. Kelas hanya dicatat untuk OSIS/MPK."
+                : "Upload Excel/CSV berisi pemilih siswa dan guru, lalu sistem membuat satu token per identitas."}{" "}
+              Plaintext token tidak ditampilkan atau didownload dari admin; pengiriman dilakukan
+              lewat email.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={downloadTemplateCsv}
-            className="h-10 rounded-lg border border-neutral-200 px-4 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+          <a
+            href={`/api/admin/tokens/import-template?mode=${weightedMode ? "WEIGHTED_FIVE" : "STANDARD"}`}
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-neutral-200 px-4 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
           >
             Download Template CSV
-          </button>
+          </a>
         </div>
       </section>
 
       <section className="rounded-lg border border-red-100 bg-white shadow-sm shadow-red-950/5">
         <div className="flex flex-col gap-3 border-b border-red-100 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-neutral-950">Status Token Siswa</h3>
+            <h3 className="text-lg font-semibold text-neutral-950">Status Token Pemilih</h3>
             <p className="mt-1 text-sm text-neutral-500">
               Menampilkan {filteredTokens.length} dari {tokens.length} token.
             </p>
@@ -323,7 +432,9 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
               type="search"
               value={tokenSearch}
               onChange={(event) => setTokenSearch(event.target.value)}
-              placeholder="Cari NIS, nama, kelas, email"
+              placeholder={
+                weightedMode ? "Cari nama, kelas, email" : "Cari NIS, nama, kelas, email"
+              }
               className="h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary-600)] sm:w-64"
             />
             <div className="flex h-10 overflow-hidden rounded-lg border border-neutral-200 bg-white">
@@ -356,7 +467,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
             <thead className="bg-red-50/70 text-left text-xs font-semibold uppercase text-neutral-500">
               <tr>
                 <th className="px-5 py-3">No</th>
-                <th className="px-5 py-3">NIS/ID</th>
+                {!weightedMode ? <th className="px-5 py-3">NIS/ID</th> : null}
                 <th className="px-5 py-3">Nama</th>
                 <th className="px-5 py-3">Kelas</th>
                 <th className="px-5 py-3">Tipe</th>
@@ -364,6 +475,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                 <th className="px-5 py-3">Status</th>
                 <th className="px-5 py-3">Email token</th>
                 <th className="px-5 py-3">Dipakai pada</th>
+                <th className="px-5 py-3 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -371,14 +483,24 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                 filteredTokens.map((token, index) => (
                   <tr key={token.id} className="hover:bg-red-50/40">
                     <td className="px-5 py-3 text-neutral-500">{index + 1}</td>
-                    <td className="px-5 py-3 font-semibold text-neutral-950">
-                      {token.studentIdentifier ?? "-"}
-                    </td>
+                    {!weightedMode ? (
+                      <td className="px-5 py-3 font-semibold text-neutral-950">
+                        {token.studentIdentifier ?? "-"}
+                      </td>
+                    ) : null}
                     <td className="px-5 py-3 text-neutral-700">{token.studentName ?? "-"}</td>
                     <td className="px-5 py-3 text-neutral-700">{token.studentClass ?? "-"}</td>
                     <td className="px-5 py-3">
-                      <Badge tone={token.voterType === "TEACHER" ? "warning" : "neutral"}>
-                        {token.voterType === "TEACHER" ? "Guru" : "Siswa"}
+                      <Badge
+                        tone={
+                          token.voterType === "TEACHER" || token.voterType === "GURU"
+                            ? "warning"
+                            : token.voterType === "OSIS" || token.voterType === "MPK"
+                              ? "primary"
+                              : "neutral"
+                        }
+                      >
+                        {voterTypeLabel(token.voterType)}
                       </Badge>
                     </td>
                     <td className="px-5 py-3 text-neutral-700">{token.studentEmail ?? "-"}</td>
@@ -398,11 +520,30 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                       ) : null}
                     </td>
                     <td className="px-5 py-3 text-neutral-500">{formatDateTime(token.usedAt)}</td>
+                    <td className="px-5 py-3 text-right">
+                      {token.emailSentAt && token.studentEmail && !token.usedAt ? (
+                        <button
+                          type="button"
+                          onClick={() => setResendTarget(token)}
+                          disabled={!canManageEmail || resendingEmail}
+                          title="Kirim ulang token yang sama"
+                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-sky-200 px-3 text-xs font-semibold text-sky-700 hover:bg-sky-50 disabled:opacity-50"
+                        >
+                          <RefreshCw aria-hidden="true" className="size-4" />
+                          Resend
+                        </button>
+                      ) : (
+                        <span className="text-neutral-400">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="px-5 py-8 text-center text-neutral-500">
+                  <td
+                    colSpan={weightedMode ? 9 : 10}
+                    className="px-5 py-8 text-center text-neutral-500"
+                  >
                     Belum ada token yang cocok dengan filter.
                   </td>
                 </tr>
@@ -420,7 +561,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                 type="button"
                 onClick={() => setGeneratorMode("students")}
                 className={`h-10 rounded-md text-sm font-semibold ${
-                  generatorMode === "students"
+                  activeGeneratorMode === "students"
                     ? "bg-white text-[var(--color-primary-700)] shadow-sm"
                     : "text-neutral-600"
                 }`}
@@ -430,17 +571,18 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
               <button
                 type="button"
                 onClick={() => setGeneratorMode("count")}
+                disabled={weightedMode}
                 className={`h-10 rounded-md text-sm font-semibold ${
-                  generatorMode === "count"
+                  activeGeneratorMode === "count"
                     ? "bg-white text-[var(--color-primary-700)] shadow-sm"
-                    : "text-neutral-600"
+                    : "text-neutral-600 disabled:opacity-40"
                 }`}
               >
                 Jumlah Biasa
               </button>
             </div>
 
-            {generatorMode === "students" ? (
+            {activeGeneratorMode === "students" ? (
               <>
                 <label className="block">
                   <span className="text-sm font-semibold text-neutral-800">Import pemilih</span>
@@ -451,10 +593,17 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                     className="mt-2 block w-full rounded-lg border border-dashed border-red-200 bg-red-50/40 px-3 py-3 text-sm"
                   />
                   <span className="mt-2 block text-xs font-medium text-neutral-500">
-                    Header yang dikenali: student_identifier/nis/id, student_name/nama,
-                    student_class/kelas, student_email/email, voter_type/role/tipe. Isi tipe dengan
-                    siswa/guru.
+                    {weightedMode
+                      ? "Header: nama, kelas, email, role. Role wajib OSIS/MPK/GURU; kelas tidak perlu untuk GURU; NIS/ID tidak digunakan."
+                      : "Header: student_identifier/nis/id, student_name/nama, student_class/kelas, student_email/email, voter_type/role. Role SISWA/GURU."}{" "}
+                    Email dikirim bertahap mengikuti batas server.
                   </span>
+                  <a
+                    href={`/api/admin/tokens/import-template?mode=${weightedMode ? "WEIGHTED_FIVE" : "STANDARD"}`}
+                    className="mt-2 inline-block text-xs font-semibold text-[var(--color-primary-700)] hover:underline"
+                  >
+                    Download template sesuai mode
+                  </a>
                 </label>
 
                 <label className="block">
@@ -466,14 +615,18 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                     onChange={(event) => setStudentInput(event.target.value)}
                     rows={10}
                     placeholder={
-                      "12345,Nama Siswa,XII RPL 1,siswa@example.com,SISWA\nG001,Nama Guru,Guru,guru@example.com,GURU"
+                      weightedMode
+                        ? "Nama OSIS,XII RPL 1,osis@example.com,OSIS\nNama Guru,,guru@example.com,GURU"
+                        : "12345,Nama Siswa,XII RPL 1,siswa@example.com,SISWA"
                     }
                     className="mt-2 w-full rounded-lg border border-neutral-200 px-3 py-3 font-mono text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
                   />
                   <span className="mt-2 block text-xs font-medium text-neutral-500">
-                    Format per baris: ID, Nama, Kelas/Jabatan, Email, Tipe. Pemisah boleh koma,
-                    titik koma, atau tab. Terdeteksi {parsedStudents.length} pemilih. Maksimal{" "}
-                    {MAX_TOKEN_BATCH_SIZE} pemilih.
+                    {weightedMode
+                      ? "Format: Nama, Kelas, Email, Role. Untuk GURU, kelas boleh kosong."
+                      : "Format: ID, Nama, Kelas/Jabatan, Email, Tipe."}{" "}
+                    Pemisah boleh koma, titik koma, atau tab. Terdeteksi {parsedStudents.length}{" "}
+                    pemilih. Maksimal {MAX_TOKEN_BATCH_SIZE} pemilih.
                   </span>
                 </label>
               </>
@@ -507,7 +660,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                 disabled={
                   !canGenerate ||
                   generating ||
-                  (generatorMode === "students" && parsedStudents.length === 0)
+                  (activeGeneratorMode === "students" && parsedStudents.length === 0)
                 }
                 className="h-10 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-50"
               >
@@ -518,6 +671,39 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
         </Modal>
       ) : null}
 
+      {resendTarget ? (
+        <Modal title="Kirim Ulang Token" onClose={() => setResendTarget(null)}>
+          <p className="text-sm leading-6 text-neutral-600">
+            Kirim ulang token yang sama untuk{" "}
+            <strong>{resendTarget.studentName ?? "pemilih"}</strong> ke{" "}
+            <strong>{resendTarget.studentEmail}</strong>? Pengiriman sebelumnya tetap tercatat dan
+            token baru tidak akan dibuat.
+          </p>
+          <div className="mt-5 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setResendTarget(null)}
+              disabled={resendingEmail}
+              className="h-10 rounded-lg border border-neutral-200 px-4 text-sm font-semibold text-neutral-700 disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={() => void resendSentEmail()}
+              disabled={resendingEmail}
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-50"
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={`size-4 ${resendingEmail ? "animate-spin" : ""}`}
+              />
+              {resendingEmail ? "Mengirim..." : "Kirim Ulang"}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
       {generated ? (
         <Modal
           title={`${generated.generatedCount} Token Berhasil Dibuat`}
@@ -525,22 +711,51 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
         >
           <Alert tone="warning" title="Token plaintext disembunyikan">
             Token plaintext tidak ditampilkan dan tidak didownload dari dashboard. Cek tabel status
-            untuk melihat email terkirim/gagal dan gunakan Retry Email Gagal bila perlu.
+            untuk melihat email terkirim/gagal dan gunakan Retry Email Gagal bila perlu. Jika Google
+            Sheets aktif, status pemilih juga akan disinkronkan ke spreadsheet.
           </Alert>
+          {generated.sheetsSync ? (
+            <div className="mt-4">
+              <Alert
+                tone={generated.sheetsSync.status === "SYNCED" ? "success" : "warning"}
+                title={
+                  generated.sheetsSync.status === "SYNCED"
+                    ? "Google Spreadsheet tersinkron"
+                    : "Google Spreadsheet belum tersinkron"
+                }
+              >
+                {generated.sheetsSync.error ?? "Data pemilih sudah masuk ke spreadsheet election."}
+                {generated.sheetsSync.spreadsheetUrl ? (
+                  <a
+                    href={generated.sheetsSync.spreadsheetUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="ml-2 font-semibold underline"
+                  >
+                    Buka Spreadsheet
+                  </a>
+                ) : null}
+              </Alert>
+            </div>
+          ) : null}
           {generated.emailSummary ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="mt-4 grid gap-3 sm:grid-cols-4">
               <Stat label="Email terkirim" value={String(generated.emailSummary.sent)} />
               <Stat label="Email gagal" value={String(generated.emailSummary.failed)} />
-              <Stat label="Email belum" value={String(generated.emailSummary.skipped)} />
+              <Stat label="Email dilewati" value={String(generated.emailSummary.skipped)} />
+              <Stat label="Email antre" value={String(generated.emailSummary.pending)} />
             </div>
           ) : null}
           <div className="mt-4 max-h-72 overflow-y-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm">
             {generated.assignedTokens?.length ? (
               generated.assignedTokens.map((assignment) => (
-                <p key={`${assignment.studentIdentifier}-${assignment.studentEmail ?? ""}`}>
-                  {assignment.studentIdentifier} | {assignment.studentName} |{" "}
-                  {assignment.studentEmail ?? "-"} | {voterTypeLabel(assignment.voterType)} |{" "}
-                  {assignment.emailStatus ?? "SKIPPED"}
+                <p
+                  key={`${assignment.studentIdentifier ?? assignment.studentName}-${assignment.studentEmail ?? ""}`}
+                >
+                  {assignment.studentIdentifier ? `${assignment.studentIdentifier} | ` : ""}
+                  {assignment.studentName} | {assignment.studentEmail ?? "-"} |{" "}
+                  {voterTypeLabel(assignment.voterType)} |{" "}
+                  {emailAssignmentLabel(assignment.emailStatus)}
                 </p>
               ))
             ) : (
@@ -571,7 +786,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function parseStudents(value: string): ParsedStudent[] {
+function parseStudents(value: string, weightedMode: boolean): ParsedStudent[] {
   return value
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -579,28 +794,39 @@ function parseStudents(value: string): ParsedStudent[] {
     .map((line) => line.split(/\t|;|,/).map((cell) => cell.trim()))
     .filter((cells) => {
       const firstCell = cells[0]?.toLowerCase();
-      return cells.length >= 2 && firstCell !== "student_identifier" && firstCell !== "nis";
+      return (
+        cells.length >= 2 &&
+        firstCell !== "student_identifier" &&
+        firstCell !== "nis" &&
+        firstCell !== "student_name" &&
+        firstCell !== "nama"
+      );
     })
     .reduce<ParsedStudent[]>((students, cells) => {
-      const [studentIdentifier, studentName, studentClass, studentEmail, voterType] = cells;
+      const [studentIdentifier, studentName, studentClass, studentEmail, voterType] = weightedMode
+        ? [undefined, cells[0], cells[1], cells[2], cells[3]]
+        : cells;
 
-      if (!studentIdentifier || !studentName) {
+      if ((!weightedMode && !studentIdentifier) || !studentName) {
         return students;
       }
 
       students.push({
-        studentIdentifier,
+        ...(studentIdentifier ? { studentIdentifier } : {}),
         studentName,
         ...(studentClass ? { studentClass } : {}),
         ...(studentEmail ? { studentEmail } : {}),
-        voterType: normalizeVoterType(voterType),
+        voterType: normalizeVoterType(voterType, weightedMode),
       });
 
       return students;
     }, []);
 }
 
-function parseSpreadsheetRow(row: Record<string, unknown>): ParsedStudent | null {
+function parseSpreadsheetRow(
+  row: Record<string, unknown>,
+  weightedMode: boolean,
+): ParsedStudent | null {
   const normalized = Object.fromEntries(
     Object.entries(row).map(([key, value]) => [normalizeHeader(key), String(value).trim()]),
   );
@@ -612,20 +838,20 @@ function parseSpreadsheetRow(row: Record<string, unknown>): ParsedStudent | null
   const studentEmail = pickValue(normalized, ["student_email", "email", "mail"]) ?? undefined;
   const voterType = pickValue(normalized, ["voter_type", "role", "tipe", "pembeda"]);
 
-  if (!studentIdentifier || !studentName) {
+  if ((!weightedMode && !studentIdentifier) || !studentName) {
     return null;
   }
 
   return {
-    studentIdentifier,
+    ...(studentIdentifier ? { studentIdentifier } : {}),
     studentName,
     ...(studentClass ? { studentClass } : {}),
     ...(studentEmail ? { studentEmail } : {}),
-    voterType: normalizeVoterType(voterType),
+    voterType: normalizeVoterType(voterType, weightedMode),
   };
 }
 
-async function parseExcelFile(file: File) {
+async function parseExcelFile(file: File, weightedMode: boolean) {
   const { readSheet } = await import("read-excel-file/browser");
   const rows = await readSheet(file);
   const [headers, ...bodyRows] = rows;
@@ -643,6 +869,7 @@ async function parseExcelFile(file: File) {
             String(row[index] ?? "").trim(),
           ]),
         ),
+        weightedMode,
       ),
     )
     .filter((row) => row !== null);
@@ -664,23 +891,18 @@ function pickValue(row: Record<string, string>, keys: string[]) {
 }
 
 function formatStudentLine(student: ParsedStudent) {
-  return [
-    student.studentIdentifier,
-    student.studentName,
-    student.studentClass ?? "",
-    student.studentEmail ?? "",
-    student.voterType === "TEACHER" ? "GURU" : "SISWA",
-  ].join(",");
-}
-
-function downloadCsv(csv: string, filename: string) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+  const voterType = voterTypeLabel(student.voterType).toUpperCase();
+  return student.studentIdentifier
+    ? [
+        student.studentIdentifier,
+        student.studentName,
+        student.studentClass ?? "",
+        student.studentEmail ?? "",
+        voterType,
+      ].join(",")
+    : [student.studentName, student.studentClass ?? "", student.studentEmail ?? "", voterType].join(
+        ",",
+      );
 }
 
 function statusLabel(status: TokenStatusFilter) {
@@ -695,13 +917,41 @@ function statusLabel(status: TokenStatusFilter) {
   return "Semua";
 }
 
-function normalizeVoterType(value?: string) {
+function normalizeVoterType(value?: string, weightedMode = false): VoterType {
   const normalized = value?.trim().toLowerCase();
+  if (weightedMode) {
+    if (normalized === "osis") {
+      return "OSIS";
+    }
+    if (normalized === "mpk") {
+      return "MPK";
+    }
+    if (normalized === "guru" || normalized === "teacher") {
+      return "GURU";
+    }
+    return "STUDENT";
+  }
   return normalized === "guru" || normalized === "teacher" ? "TEACHER" : "STUDENT";
 }
 
-function voterTypeLabel(value?: "STUDENT" | "TEACHER" | null) {
-  return value === "TEACHER" ? "Guru" : "Siswa";
+function voterTypeLabel(value?: VoterType | null) {
+  if (value === "TEACHER" || value === "GURU") {
+    return "Guru";
+  }
+  if (value === "OSIS") {
+    return "OSIS";
+  }
+  if (value === "MPK") {
+    return "MPK";
+  }
+  return "Siswa";
+}
+
+function emailAssignmentLabel(status?: TokenAssignment["emailStatus"]) {
+  if (status === "PENDING") {
+    return "DIANTREKAN";
+  }
+  return status ?? "DILEWATI";
 }
 
 function emailTone(token: TokenMetadata) {

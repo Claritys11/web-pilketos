@@ -214,7 +214,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    A["Buat Election\n(SETUP)"] --> B["Tambah Kandidat\n(min 2, max 5)"]
+    A["Buat Election\n(SETUP + pilih mode)"] --> B["Tambah Kandidat\n(min 2 / tepat 5)"]
     B --> C["Generate Token\n(batch)"]
     C --> D["Preview Election\n(SETUP → READY)"]
     D --> E["Buka Voting\n(READY → OPEN)"]
@@ -266,11 +266,12 @@ flowchart TD
     E --> F["Loading state\n(API call TX-3)"]
     F --> G{Response?}
     G -->|Error| H["Tampil error message"]
-    G -->|Success| I["Tampil modal: 'Token Berhasil Di-generate'"]
-    I --> J["Tampil list token plaintext\n(satu kali saja)"]
-    J --> K["Tombol 'Download CSV'"]
-    K --> L["CSV di-download ke browser"]
-    L --> M["Modal ditutup\n(token plaintext tidak bisa diakses lagi)"]
+    G -->|Success| I["Token tersimpan dan masuk antrean email"]
+    I --> J["Kirim batch pendek\nstatus PENDING berkurang"]
+    J --> K{Masih ada antrean?}
+    K -->|Ya| J
+    K -->|Tidak| L["Sinkronkan status akhir ke Google Sheets"]
+    L --> M["Tampilkan ringkasan SENT / FAILED / SKIPPED"]
 ```
 
 ### Flow 7 — Dashboard Monitoring Flow
@@ -1543,34 +1544,31 @@ Setiap tombol aksi state machine memunculkan **Confirmation Dialog** sebelum eks
 +-----------------------------------+
 ```
 
-**Post-Generate Modal (ONE-TIME DISPLAY):**
+**Post-Generate Delivery Status:**
 
 ```
 +-------------------------------------------+
 | ✓ 200 Token Berhasil Dibuat!           [X]|
 +-------------------------------------------+
 | [AlertTriangle, warning]                  |
-| PENTING: Simpan token ini sekarang.       |
-| Token hanya ditampilkan SATU KALI.        |
-| Setelah modal ini ditutup, token          |
-| tidak dapat diakses lagi.                 |
+| Token berhasil dibuat dan masuk antrean.  |
+| Plaintext token tidak ditampilkan atau    |
+| disediakan sebagai file unduhan admin.    |
 +-------------------------------------------+
-| Token (scroll jika banyak):               |
-| TKN-A3F8K2                               |
-| TKN-B7X9P1                               |
-| ...                                       |
+| Email terkirim: 180                       |
+| Menunggu: 20                              |
+| Gagal: 0                                  |
 +-------------------------------------------+
-| [Download CSV] (auto-triggered on open)   |
-| [Tutup Modal]                             |
+| [Kirim Email Antre (20)] [Tutup]          |
 +-------------------------------------------+
 ```
 
-- Download CSV di-trigger otomatis saat modal terbuka.
-- Tombol "Tutup Modal" membutuhkan konfirmasi: "Pastikan kamu sudah menyimpan/download token."
-- Setelah ditutup, tidak ada cara untuk mengakses plaintext lagi.
+- Pengiriman berjalan dalam batch pendek dan dapat dilanjutkan dari antrean.
+- Token plaintext hanya dikirim ke alamat email pemilih dan tidak ditampilkan ke admin.
+- Jika provider gagal, admin dapat menjalankan retry untuk email berstatus gagal.
 
-**API Used:** `POST /api/admin/tokens/generate`, `GET /api/admin/tokens/export`
-**API Reference:** T-01, T-02
+**API Used:** `POST /api/admin/tokens/generate`, `POST /api/admin/tokens/retry-email`
+**API Reference:** T-01, T-03
 
 ---
 

@@ -66,7 +66,7 @@ export class CandidateService {
   private async assertElectionEditable(electionId: string, tx: Prisma.TransactionClient = prisma) {
     const election = await tx.election.findUnique({
       where: { id: electionId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, mode: true },
     });
 
     if (!election) {
@@ -80,18 +80,20 @@ export class CandidateService {
         422,
       );
     }
+
+    return election;
   }
 
   async createCandidate(input: ActorContext & CandidateInput) {
     assertRole(input.actorRole, ["ADMIN", "SUPER_ADMIN"]);
 
     return prisma.$transaction(async (tx) => {
-      await this.assertElectionEditable(input.electionId, tx);
+      const election = await this.assertElectionEditable(input.electionId, tx);
 
       const candidateCount = await tx.candidate.count({
         where: { electionId: input.electionId },
       });
-      if (candidateCount >= 5) {
+      if (election.mode === "WEIGHTED_FIVE" && candidateCount >= 5) {
         throw new ServiceError(
           "ELECTION_MAX_CANDIDATES",
           "Election sudah memiliki 5 kandidat.",

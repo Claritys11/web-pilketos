@@ -17,6 +17,8 @@ client_secret_*.json
 credentials*.json
 google-oauth-token*.json
 gmail-token*.json
+*service-account*.json
+buatgmailapipllketos-*.json
 
 # Runtime uploads are mounted/persisted outside the image
 public/uploads/**

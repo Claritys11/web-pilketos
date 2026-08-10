@@ -39,6 +39,8 @@ export function ElectionDetailClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus] = useState<ElectionStatus | null>(null);
+  const [syncingSheet, setSyncingSheet] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const canManage = user.role !== "VIEWER";
 
   const actions = useMemo(
@@ -91,6 +93,24 @@ export function ElectionDetailClient({
     }
   }
 
+  async function syncGoogleSheet() {
+    setSyncingSheet(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await adminFetch(`/api/admin/elections/${electionId}/google-sheet`, { method: "POST" });
+      setNotice("Google Spreadsheet berhasil disinkronkan.");
+      await load();
+    } catch (syncError) {
+      const message =
+        syncError instanceof Error ? syncError.message : "Sinkronisasi Spreadsheet gagal.";
+      await load();
+      setError(message);
+    } finally {
+      setSyncingSheet(false);
+    }
+  }
+
   if (loading) {
     return <SkeletonCard />;
   }
@@ -115,6 +135,11 @@ export function ElectionDetailClient({
           {error}
         </Alert>
       ) : null}
+      {notice ? (
+        <Alert tone="success" title="Berhasil">
+          {notice}
+        </Alert>
+      ) : null}
 
       <section className="rounded-lg border border-red-100 bg-white p-5 shadow-sm shadow-red-950/5">
         <AdminPageHeader
@@ -128,6 +153,58 @@ export function ElectionDetailClient({
           Dibuat oleh {election.createdBy?.username ?? "-"} pada{" "}
           {new Date(election.createdAt).toLocaleString("id-ID")}
         </p>
+        <div className="mt-4 flex flex-wrap gap-2 text-sm">
+          <Badge tone="primary">
+            {election.mode === "WEIGHTED_FIVE" ? "5 kandidat berbobot" : "Kandidat bebas"}
+          </Badge>
+          {election.mode === "WEIGHTED_FIVE" ? (
+            <span className="text-neutral-600">OSIS 40% · MPK 30% · GURU 30%</span>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-red-100 bg-white p-5 shadow-sm shadow-red-950/5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-neutral-950">Google Spreadsheet</h3>
+            <p className="mt-1 text-sm text-neutral-500">
+              Status pemilih dan konfirmasi voting disinkronkan ke spreadsheet election ini.
+            </p>
+            {election.googleSheetsSyncError ? (
+              <p className="mt-3 max-w-3xl text-sm text-red-700">
+                Sync terakhir gagal: {election.googleSheetsSyncError}
+              </p>
+            ) : election.googleSheetsSyncedAt ? (
+              <p className="mt-3 text-sm text-emerald-700">
+                Terakhir sinkron: {new Date(election.googleSheetsSyncedAt).toLocaleString("id-ID")}
+              </p>
+            ) : (
+              <p className="mt-3 text-sm text-amber-700">Belum pernah berhasil disinkronkan.</p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {election.googleSheetsSpreadsheetId ? (
+              <a
+                href={`https://docs.google.com/spreadsheets/d/${encodeURIComponent(election.googleSheetsSpreadsheetId)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-10 items-center rounded-lg border border-neutral-200 px-4 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+              >
+                Buka Spreadsheet
+              </a>
+            ) : null}
+            {canManage ? (
+              <button
+                type="button"
+                onClick={() => void syncGoogleSheet()}
+                disabled={syncingSheet || (election._count?.tokens ?? 0) === 0}
+                className="h-10 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {syncingSheet ? "Menyinkronkan..." : "Sinkronkan Sekarang"}
+              </button>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       <section className="rounded-lg border border-red-100 bg-white p-5 shadow-sm shadow-red-950/5">

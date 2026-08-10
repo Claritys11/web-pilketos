@@ -16,27 +16,56 @@ const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+const isProduction = process.env.NODE_ENV === "production";
+const seedAdminUsername = process.env.SEED_ADMIN_USERNAME?.trim() || "superadmin";
+const seedAdminEmail = process.env.SEED_ADMIN_EMAIL?.trim() || "superadmin@pilketos.local";
+const seedAdminPassword = resolveSeedAdminPassword();
+const resetExistingSeedAdmin = ["1", "true"].includes(
+  process.env.SEED_ADMIN_RESET_EXISTING?.trim().toLowerCase() ?? "false",
+);
+
+function resolveSeedAdminPassword() {
+  const password =
+    process.env.SEED_ADMIN_PASSWORD || (isProduction ? undefined : "PilketosAdmin123");
+  if (!password || password.length < 12) {
+    throw new Error(
+      "SEED_ADMIN_PASSWORD wajib diisi minimal 12 karakter untuk bootstrap Super Admin.",
+    );
+  }
+  return password;
+}
+
 async function main() {
   let superAdmin = await prisma.admin.findUnique({
-    where: { username: "superadmin" },
+    where: { username: seedAdminUsername },
   });
 
-  if (!superAdmin) {
-    const passwordHash = await argon2.hash("PilketosAdmin123", {
+  if (!superAdmin || resetExistingSeedAdmin) {
+    const passwordHash = await argon2.hash(seedAdminPassword, {
       type: argon2.argon2id,
       memoryCost: 65536,
       timeCost: 3,
       parallelism: 1,
     });
 
-    superAdmin = await prisma.admin.create({
-      data: {
-        username: "superadmin",
-        email: "superadmin@pilketos.local",
-        passwordHash,
-        role: "SUPER_ADMIN",
-      },
-    });
+    superAdmin = superAdmin
+      ? await prisma.admin.update({
+          where: { id: superAdmin.id },
+          data: {
+            email: seedAdminEmail,
+            passwordHash,
+            role: "SUPER_ADMIN",
+            isActive: true,
+          },
+        })
+      : await prisma.admin.create({
+          data: {
+            username: seedAdminUsername,
+            email: seedAdminEmail,
+            passwordHash,
+            role: "SUPER_ADMIN",
+          },
+        });
   }
 
   let election = await prisma.election.findUnique({
