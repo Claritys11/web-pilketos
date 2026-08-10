@@ -51,6 +51,12 @@ export interface ElectionListItem {
   googleSheetsSpreadsheetId: string | null;
   googleSheetsSyncedAt: string | null;
   googleSheetsSyncError: string | null;
+  tokenEmailSubject: string | null;
+  tokenEmailMessage: string | null;
+  reminderEmailSubject: string | null;
+  reminderEmailMessage: string | null;
+  reminderQueuedAt: string | null;
+  reminderCompletedAt: string | null;
   openedAt: string | null;
   closedAt: string | null;
   createdAt: string;
@@ -81,6 +87,12 @@ export interface Candidate {
 
 export interface ElectionDetail extends ElectionListItem {
   candidates: Candidate[];
+  reminderSummary: {
+    eligible: number;
+    pending: number;
+    sent: number;
+    failed: number;
+  };
 }
 
 export interface DashboardStats {

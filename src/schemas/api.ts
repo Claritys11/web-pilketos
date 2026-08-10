@@ -55,6 +55,25 @@ export const updateElectionStatusSchema = z.object({
   status: electionTransitionStatusSchema,
 });
 
+const emailSubjectTemplateSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(200)
+  .refine((value) => !/[\r\n]/.test(value), "Subjek email tidak boleh memiliki baris baru.");
+const emailMessageTemplateSchema = z.string().trim().min(1).max(4000);
+
+export const updateElectionEmailTemplatesSchema = z.object({
+  tokenEmailSubject: emailSubjectTemplateSchema,
+  tokenEmailMessage: emailMessageTemplateSchema,
+  reminderEmailSubject: emailSubjectTemplateSchema,
+  reminderEmailMessage: emailMessageTemplateSchema,
+});
+
+export const tokenReminderSchema = electionIdBodySchema.extend({
+  mode: z.enum(["PENDING", "FAILED"]).default("PENDING"),
+});
+
 export const candidateCreateSchema = z.object({
   electionId: cuidSchema,
   orderNumber: z.number().int().min(1).max(100),
@@ -184,6 +203,7 @@ export const auditActionSchema = z.enum([
   "ADMIN_LOGIN_SUCCESS",
   "ADMIN_LOGIN_FAILED",
   "ELECTION_CREATED",
+  "ELECTION_EMAIL_TEMPLATE_UPDATED",
   "ELECTION_STATUS_CHANGED",
   "ELECTION_DELETED",
   "CANDIDATE_CREATED",
@@ -192,6 +212,7 @@ export const auditActionSchema = z.enum([
   "TOKEN_BATCH_GENERATED",
   "TOKEN_BATCH_EXPORTED",
   "TOKEN_EMAIL_RETRIED",
+  "TOKEN_REMINDER_SENT",
   "VOTE_CAST",
   "BACKUP_RESTORED",
 ]);
