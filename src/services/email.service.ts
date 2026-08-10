@@ -1,6 +1,14 @@
 import nodemailer from "nodemailer";
 
 import { config } from "@/config/env";
+import {
+  DEFAULT_REMINDER_EMAIL_MESSAGE,
+  DEFAULT_REMINDER_EMAIL_SUBJECT,
+  DEFAULT_TOKEN_EMAIL_MESSAGE,
+  DEFAULT_TOKEN_EMAIL_SUBJECT,
+} from "@/config/email-templates";
+
+export type VotingEmailKind = "TOKEN" | "REMINDER";
 
 export interface TokenEmailInput {
   to: string;
@@ -9,6 +17,9 @@ export interface TokenEmailInput {
   electionTitle: string;
   token: string;
   voteUrl: string;
+  kind?: VotingEmailKind;
+  subjectTemplate?: string | null;
+  messageTemplate?: string | null;
 }
 
 export interface TokenEmailResult {
@@ -36,6 +47,11 @@ class GmailApiError extends Error {
 }
 
 export class EmailService {
+  private readonly gmailAccessTokenCache = new Map<
+    string,
+    { accessToken: string; expiresAt: number }
+  >();
+
   async sendVotingToken(input: TokenEmailInput): Promise<TokenEmailResult> {
     if (!config.mail.enabled) {
       return {
@@ -142,11 +158,7 @@ export class EmailService {
     input: TokenEmailInput,
   ): Promise<TokenEmailResult> {
     try {
-      const accessToken = await getGmailAccessToken({
-        clientId: provider.clientId,
-        clientSecret: provider.clientSecret,
-        refreshToken: provider.refreshToken,
-      });
+      const accessToken = await this.getCachedGmailAccessToken(provider);
       const email = buildVotingTokenEmail(input);
       const raw = buildRawMessage({
         from: provider.from,
@@ -166,6 +178,9 @@ export class EmailService {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          this.gmailAccessTokenCache.delete(provider.name);
+        }
         throw new GmailApiError(
           `Gmail API ${response.status}: ${await readGmailError(response)}`,
           response.status,
@@ -183,6 +198,24 @@ export class EmailService {
         error: formatEmailError(error, "Gagal mengirim email via Gmail API."),
       };
     }
+  }
+
+  private async getCachedGmailAccessToken(provider: GmailProvider) {
+    const cached = this.gmailAccessTokenCache.get(provider.name);
+    if (cached && cached.expiresAt > Date.now() + 60_000) {
+      return cached.accessToken;
+    }
+
+    const token = await getGmailAccessToken({
+      clientId: provider.clientId,
+      clientSecret: provider.clientSecret,
+      refreshToken: provider.refreshToken,
+    });
+    this.gmailAccessTokenCache.set(provider.name, {
+      accessToken: token.accessToken,
+      expiresAt: Date.now() + token.expiresInSeconds * 1000,
+    });
+    return token.accessToken;
   }
 }
 
@@ -210,6 +243,7 @@ async function getGmailAccessToken({
 
   const data = (await response.json()) as {
     access_token?: string;
+    expires_in?: number;
     error?: string;
     error_description?: string;
   };
@@ -221,7 +255,10 @@ async function getGmailAccessToken({
     );
   }
 
-  return data.access_token;
+  return {
+    accessToken: data.access_token,
+    expiresInSeconds: data.expires_in ?? 3600,
+  };
 }
 
 async function readGmailError(response: Response) {
@@ -302,15 +339,25 @@ function escapeHtml(value: string) {
 }
 
 export function buildVotingTokenEmail(input: TokenEmailInput) {
+  const kind = input.kind ?? "TOKEN";
+  const defaultSubject =
+    kind === "REMINDER" ? DEFAULT_REMINDER_EMAIL_SUBJECT : DEFAULT_TOKEN_EMAIL_SUBJECT;
+  const defaultMessage =
+    kind === "REMINDER" ? DEFAULT_REMINDER_EMAIL_MESSAGE : DEFAULT_TOKEN_EMAIL_MESSAGE;
+  const templateValues = {
+    name: input.studentName,
+    election: input.electionTitle,
+  };
   const supportUrl = buildWhatsAppSupportUrl(
     config.mail.supportWhatsappNumber,
     input.electionTitle,
   );
-  const subject = `Token Voting ${input.electionTitle}`;
+  const subject = renderTemplate(input.subjectTemplate || defaultSubject, templateValues)
+    .replace(/[\r\n]+/g, " ")
+    .trim();
+  const message = renderTemplate(input.messageTemplate || defaultMessage, templateValues).trim();
   const text = [
-    `Halo ${input.studentName},`,
-    "",
-    `Berikut token voting Pilketos untuk ${input.electionTitle}.`,
+    message,
     "",
     ...(input.studentIdentifier ? [`NIS/ID: ${input.studentIdentifier}`] : []),
     `Token: ${input.token}`,
@@ -327,10 +374,7 @@ export function buildVotingTokenEmail(input: TokenEmailInput) {
       : []),
   ].join("\n");
   const html = [
-    `<p>Halo ${escapeHtml(input.studentName)},</p>`,
-    `<p>Berikut token voting Pilketos untuk <strong>${escapeHtml(
-      input.electionTitle,
-    )}</strong>.</p>`,
+    renderMessageHtml(message),
     ...(input.studentIdentifier
       ? [`<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`]
       : []),
@@ -341,6 +385,19 @@ export function buildVotingTokenEmail(input: TokenEmailInput) {
   ].join("");
 
   return { subject, text, html };
+}
+
+function renderTemplate(template: string, values: { name: string; election: string }) {
+  return template.replace(/{{\s*(name|election)\s*}}/gi, (_match, key: string) => {
+    return key.toLowerCase() === "name" ? values.name : values.election;
+  });
+}
+
+function renderMessageHtml(message: string) {
+  return message
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replaceAll("\n", "<br>")}</p>`)
+    .join("");
 }
 
 function buildWhatsAppSupportUrl(phoneNumber: string | undefined, electionTitle: string) {

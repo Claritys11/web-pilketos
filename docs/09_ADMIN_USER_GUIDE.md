@@ -95,6 +95,12 @@ Token dibuat dari tab `Token` pada detail election.
 9. Jika pemilih tidak menemukan email meskipun statusnya `Terkirim`, klik `Resend` pada baris
    pemilih dan konfirmasi. Sistem mengirim token yang sama dan tidak membuat token baru. Resend tidak
    tersedia setelah token dipakai atau election ditutup.
+10. Sebelum membuka voting, kembali ke ringkasan election dan sesuaikan subjek/pesan email token
+    serta reminder jika diperlukan. Gunakan `{{name}}` dan `{{election}}` untuk personalisasi.
+11. Saat election diubah ke `OPEN`, sistem otomatis mengirim reminder kepada pemilih yang email
+    token awalnya sudah terkirim dan belum voting. Pantau status antre/terkirim/gagal di ringkasan
+    atau tabel token; gunakan `Lanjutkan Antrean` setelah restart dan `Retry Reminder Gagal` untuk
+    mencoba ulang kegagalan provider.
 
 Mode `Per Siswa` direkomendasikan untuk pemilihan nyata dan bisa berisi siswa maupun guru.
 Dashboard admin menyimpan metadata pemilih, status email, dan status token dipakai, tetapi tidak

@@ -57,6 +57,7 @@ export function generatePlaintextToken(length = TOKEN_LENGTH): string {
 
 export class TokenService {
   private readonly activeEmailDeliveries = new Set<string>();
+  private readonly activeReminderDeliveries = new Set<string>();
 
   async listTokenMetadata(electionId: string) {
     const election = await prisma.election.findUnique({
@@ -80,6 +81,8 @@ export class TokenService {
         voterType: true,
         emailSentAt: true,
         emailError: true,
+        reminderSentAt: true,
+        reminderError: true,
         usedAt: true,
         createdAt: true,
       },
@@ -341,7 +344,13 @@ export class TokenService {
   }) {
     const election = await prisma.election.findUnique({
       where: { id: input.electionId },
-      select: { id: true, title: true, status: true },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        tokenEmailSubject: true,
+        tokenEmailMessage: true,
+      },
     });
 
     if (!election) {
@@ -434,6 +443,8 @@ export class TokenService {
         electionTitle,
         token: plaintextToken,
         voteUrl: buildTokenVoteUrl(plaintextToken),
+        subjectTemplate: election.tokenEmailSubject,
+        messageTemplate: election.tokenEmailMessage,
       });
 
       await prisma.votingToken.update({
@@ -491,6 +502,233 @@ export class TokenService {
       skipped,
       remaining,
     };
+  }
+
+  async prepareElectionReminders(input: {
+    electionId: string;
+    mode: "PENDING" | "FAILED";
+    actorRole: "ADMIN" | "SUPER_ADMIN";
+  }) {
+    assertRole(input.actorRole, ["ADMIN", "SUPER_ADMIN"]);
+
+    const election = await prisma.election.findUnique({
+      where: { id: input.electionId },
+      select: { status: true, reminderQueuedAt: true },
+    });
+    if (!election) {
+      throw new ServiceError("ELECTION_NOT_FOUND", "Election tidak ditemukan.", 404);
+    }
+    if (election.status !== "OPEN") {
+      throw new ServiceError(
+        "ELECTION_NOT_OPEN",
+        "Reminder hanya dapat dikirim saat election berstatus OPEN.",
+        422,
+      );
+    }
+
+    if (input.mode === "FAILED") {
+      await prisma.votingToken.updateMany({
+        where: {
+          electionId: input.electionId,
+          usedAt: null,
+          emailSentAt: { not: null },
+          studentEmail: { not: null },
+          tokenCiphertext: { not: null },
+          reminderSentAt: null,
+          reminderError: { not: null },
+        },
+        data: { reminderError: null },
+      });
+    }
+
+    const reminderQueuedAt = election.reminderQueuedAt ?? new Date();
+    await prisma.election.update({
+      where: { id: input.electionId },
+      data: {
+        ...(!election.reminderQueuedAt ? { reminderQueuedAt } : {}),
+        reminderCompletedAt: null,
+      },
+    });
+
+    return {
+      pending: await this.countPendingReminders(input.electionId, reminderQueuedAt),
+      alreadyRunning: this.activeReminderDeliveries.has(input.electionId),
+    };
+  }
+
+  async deliverElectionReminderQueue(input: {
+    electionId: string;
+    actorId: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  }) {
+    if (this.activeReminderDeliveries.has(input.electionId)) {
+      return { started: false, reason: "already_running" as const };
+    }
+    this.activeReminderDeliveries.add(input.electionId);
+
+    let sent = 0;
+    let failed = 0;
+    try {
+      while (true) {
+        const batch = await this.deliverElectionReminderBatch(input);
+        sent += batch.sent;
+        failed += batch.failed;
+        if (batch.remaining === 0 || batch.attempted === 0 || batch.stopped) {
+          return { started: true, sent, failed, remaining: batch.remaining };
+        }
+      }
+    } finally {
+      this.activeReminderDeliveries.delete(input.electionId);
+    }
+  }
+
+  private async deliverElectionReminderBatch(input: {
+    electionId: string;
+    actorId: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  }) {
+    const election = await prisma.election.findUnique({
+      where: { id: input.electionId },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        reminderQueuedAt: true,
+        reminderEmailSubject: true,
+        reminderEmailMessage: true,
+      },
+    });
+    if (!election) {
+      throw new ServiceError("ELECTION_NOT_FOUND", "Election tidak ditemukan.", 404);
+    }
+    if (election.status !== "OPEN") {
+      return {
+        attempted: 0,
+        sent: 0,
+        failed: 0,
+        remaining: election.reminderQueuedAt
+          ? await this.countPendingReminders(input.electionId, election.reminderQueuedAt)
+          : 0,
+        stopped: true,
+      };
+    }
+    if (!election.reminderQueuedAt) {
+      return { attempted: 0, sent: 0, failed: 0, remaining: 0, stopped: true };
+    }
+
+    const reminderTokens = await prisma.votingToken.findMany({
+      where: reminderPendingWhere(input.electionId, election.reminderQueuedAt),
+      orderBy: { createdAt: "asc" },
+      take: config.mail.deliveryBatchSize,
+      select: {
+        id: true,
+        tokenCiphertext: true,
+        studentIdentifier: true,
+        studentName: true,
+        studentEmail: true,
+      },
+    });
+
+    let sent = 0;
+    let failed = 0;
+    let emailSendIndex = 0;
+    for (const tokenRecord of reminderTokens) {
+      if (!tokenRecord.studentEmail || !tokenRecord.tokenCiphertext) {
+        failed += 1;
+        await prisma.votingToken.update({
+          where: { id: tokenRecord.id },
+          data: { reminderError: "Data email atau token reminder tidak lengkap." },
+        });
+        continue;
+      }
+
+      let plaintextToken: string;
+      try {
+        plaintextToken = decryptTokenPlaintext(tokenRecord.tokenCiphertext);
+      } catch {
+        failed += 1;
+        await prisma.votingToken.update({
+          where: { id: tokenRecord.id },
+          data: { reminderError: "Token terenkripsi tidak dapat dibuka untuk reminder." },
+        });
+        continue;
+      }
+
+      await delayBeforeEmail(emailSendIndex);
+      emailSendIndex += 1;
+      const stillEligible = await prisma.votingToken.count({
+        where: {
+          ...reminderPendingWhere(input.electionId, election.reminderQueuedAt),
+          id: tokenRecord.id,
+        },
+      });
+      if (stillEligible === 0) {
+        continue;
+      }
+      const result = await emailService.sendVotingToken({
+        to: tokenRecord.studentEmail,
+        studentName: tokenRecord.studentName ?? tokenRecord.studentIdentifier ?? "Pemilih",
+        studentIdentifier: tokenRecord.studentIdentifier,
+        electionTitle: election.title,
+        token: plaintextToken,
+        voteUrl: buildTokenVoteUrl(plaintextToken),
+        kind: "REMINDER",
+        subjectTemplate: election.reminderEmailSubject,
+        messageTemplate: election.reminderEmailMessage,
+      });
+
+      await prisma.votingToken.update({
+        where: { id: tokenRecord.id },
+        data: {
+          reminderSentAt: result.ok ? new Date() : null,
+          reminderError: result.ok ? null : (result.error ?? "Gagal mengirim reminder."),
+        },
+      });
+      if (result.ok) {
+        sent += 1;
+      } else {
+        failed += 1;
+      }
+    }
+
+    const remaining = await this.countPendingReminders(input.electionId, election.reminderQueuedAt);
+    if (remaining === 0) {
+      await prisma.election.update({
+        where: { id: input.electionId },
+        data: { reminderCompletedAt: new Date() },
+      });
+    }
+
+    await auditService.writeLog({
+      actorId: input.actorId,
+      action: "TOKEN_REMINDER_SENT",
+      targetType: "election",
+      targetId: input.electionId,
+      result: "SUCCESS",
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      metadata: {
+        batchSize: config.mail.deliveryBatchSize,
+        attempted: reminderTokens.length,
+        sent,
+        failed,
+        remaining,
+      },
+    });
+
+    return {
+      attempted: reminderTokens.length,
+      sent,
+      failed,
+      remaining,
+      stopped: false,
+    };
+  }
+
+  private countPendingReminders(electionId: string, queuedAt: Date) {
+    return prisma.votingToken.count({ where: reminderPendingWhere(electionId, queuedAt) });
   }
 
   async validateToken(
@@ -586,6 +824,18 @@ function buildTokenVoteUrl(token: string) {
   const url = new URL("/vote", config.app.publicUrl.replace(/\/$/, ""));
   url.searchParams.set("token", token);
   return url.toString();
+}
+
+function reminderPendingWhere(electionId: string, queuedAt: Date): Prisma.VotingTokenWhereInput {
+  return {
+    electionId,
+    usedAt: null,
+    emailSentAt: { not: null, lte: queuedAt },
+    studentEmail: { not: null },
+    tokenCiphertext: { not: null },
+    reminderSentAt: null,
+    reminderError: null,
+  };
 }
 
 async function delayBeforeEmail(index: number) {

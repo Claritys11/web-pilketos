@@ -38,6 +38,14 @@ export interface UpdateElectionInput extends ActorContext {
   description?: string | null | undefined;
 }
 
+export interface UpdateElectionEmailTemplatesInput extends ActorContext {
+  id: string;
+  tokenEmailSubject: string;
+  tokenEmailMessage: string;
+  reminderEmailSubject: string;
+  reminderEmailMessage: string;
+}
+
 export class ElectionService {
   async getDashboardStats(electionId: string) {
     const election = await prisma.election.findUnique({
@@ -184,7 +192,50 @@ export class ElectionService {
       throw new ServiceError("ELECTION_NOT_FOUND", "Election tidak ditemukan.", 404);
     }
 
-    return election;
+    const reminderBaseWhere: Prisma.VotingTokenWhereInput = {
+      electionId: id,
+      emailSentAt: election.reminderQueuedAt
+        ? { not: null, lte: election.reminderQueuedAt }
+        : { not: null },
+      studentEmail: { not: null },
+    };
+    const [eligible, pending, sent, failed] = await prisma.$transaction([
+      prisma.votingToken.count({ where: reminderBaseWhere }),
+      prisma.votingToken.count({
+        where: {
+          ...reminderBaseWhere,
+          usedAt: null,
+          tokenCiphertext: { not: null },
+          reminderSentAt: null,
+          reminderError: null,
+        },
+      }),
+      prisma.votingToken.count({
+        where: { ...reminderBaseWhere, reminderSentAt: { not: null } },
+      }),
+      prisma.votingToken.count({
+        where: { ...reminderBaseWhere, usedAt: null, reminderError: { not: null } },
+      }),
+    ]);
+
+    return {
+      ...election,
+      reminderSummary: { eligible, pending, sent, failed },
+    };
+  }
+
+  async getOpenElectionSummary() {
+    return prisma.election.findFirst({
+      where: { status: "OPEN" },
+      orderBy: { openedAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        mode: true,
+        openedAt: true,
+      },
+    });
   }
 
   async createElection(input: CreateElectionInput) {
@@ -227,6 +278,50 @@ export class ElectionService {
         ...(input.title !== undefined ? { title: input.title } : {}),
         ...(input.description !== undefined ? { description: input.description } : {}),
       },
+    });
+  }
+
+  async updateEmailTemplates(input: UpdateElectionEmailTemplatesInput) {
+    assertRole(input.actorRole, ["ADMIN", "SUPER_ADMIN"]);
+
+    const election = await prisma.election.findUnique({
+      where: { id: input.id },
+      select: { status: true },
+    });
+    if (!election) {
+      throw new ServiceError("ELECTION_NOT_FOUND", "Election tidak ditemukan.", 404);
+    }
+    if (["CLOSED", "ARCHIVED"].includes(election.status)) {
+      throw new ServiceError(
+        "ELECTION_WRONG_STATE",
+        "Template email tidak dapat diubah setelah election ditutup atau diarsipkan.",
+        422,
+      );
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.election.update({
+        where: { id: input.id },
+        data: {
+          tokenEmailSubject: input.tokenEmailSubject,
+          tokenEmailMessage: input.tokenEmailMessage,
+          reminderEmailSubject: input.reminderEmailSubject,
+          reminderEmailMessage: input.reminderEmailMessage,
+        },
+      });
+      await auditService.writeLog(
+        {
+          actorId: input.actorId,
+          action: "ELECTION_EMAIL_TEMPLATE_UPDATED",
+          targetType: "election",
+          targetId: input.id,
+          result: "SUCCESS",
+          ipAddress: input.ipAddress,
+          userAgent: input.userAgent,
+        },
+        tx,
+      );
+      return updated;
     });
   }
 
@@ -322,6 +417,9 @@ export class ElectionService {
         data: {
           status: input.status,
           ...(input.status === "OPEN" && !election.openedAt ? { openedAt: new Date() } : {}),
+          ...(input.status === "OPEN" && !election.openedAt
+            ? { reminderQueuedAt: new Date(), reminderCompletedAt: null }
+            : {}),
           ...(input.status === "CLOSED" ? { closedAt: new Date() } : {}),
         },
       });

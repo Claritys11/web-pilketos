@@ -183,6 +183,7 @@ ADMIN_LOGIN_FAILED
 
 -- Election management
 ELECTION_CREATED
+ELECTION_EMAIL_TEMPLATE_UPDATED
 ELECTION_STATUS_CHANGED   -- mencakup semua transisi state
 ELECTION_DELETED          -- hanya SUPER_ADMIN
 
@@ -194,6 +195,8 @@ CANDIDATE_DELETED
 -- Token management
 TOKEN_BATCH_GENERATED
 TOKEN_BATCH_EXPORTED
+TOKEN_EMAIL_RETRIED
+TOKEN_REMINDER_SENT
 
 -- Vote
 VOTE_CAST                 -- dicatat untuk integritas; tanpa referensi ke token atau siswa
@@ -273,6 +276,12 @@ FAILURE
 | `google_sheets_spreadsheet_id` | `VARCHAR(128)`   | Yes      | `null`     | Spreadsheet status pemilih per election      |
 | `google_sheets_synced_at`      | `TIMESTAMPTZ`    | Yes      | `null`     | Waktu sync Sheets terakhir yang berhasil     |
 | `google_sheets_sync_error`     | `TEXT`           | Yes      | `null`     | Error sync terakhir yang terlihat di admin   |
+| `token_email_subject`          | `VARCHAR(200)`   | Yes      | `null`     | Template subjek email token per election     |
+| `token_email_message`          | `TEXT`           | Yes      | `null`     | Template pesan pembuka email token           |
+| `reminder_email_subject`       | `VARCHAR(200)`   | Yes      | `null`     | Template subjek reminder                     |
+| `reminder_email_message`       | `TEXT`           | Yes      | `null`     | Template pesan pembuka reminder              |
+| `reminder_queued_at`           | `TIMESTAMPTZ`    | Yes      | `null`     | Waktu antrean reminder dimulai               |
+| `reminder_completed_at`        | `TIMESTAMPTZ`    | Yes      | `null`     | Waktu seluruh antrean selesai diproses       |
 | `created_by`                   | `CUID`           | No       | —          | FK ke `Admin.id` yang membuat election       |
 | `created_at`                   | `TIMESTAMPTZ`    | No       | `now()`    | Waktu pembuatan (UTC)                        |
 | `updated_at`                   | `TIMESTAMPTZ`    | No       | `now()`    | Waktu update terakhir (UTC), auto-update     |
@@ -374,6 +383,8 @@ Mode biasa memiliki minimal 2 kandidat; mode berbobot memiliki tepat 5 kandidat.
 | `student_email`      | `VARCHAR(255)` | Yes      | `null`  | Email pemilih untuk pengiriman token                         |
 | `email_sent_at`      | `TIMESTAMPTZ`  | Yes      | `null`  | Timestamp token berhasil dikirim email                       |
 | `email_error`        | `TEXT`         | Yes      | `null`  | Pesan error pengiriman email terakhir                        |
+| `reminder_sent_at`   | `TIMESTAMPTZ`  | Yes      | `null`  | Timestamp reminder pembukaan berhasil dikirim                |
+| `reminder_error`     | `TEXT`         | Yes      | `null`  | Error reminder terakhir                                      |
 | `used_at`            | `TIMESTAMPTZ`  | Yes      | `null`  | Timestamp saat token dipakai; null = belum dipakai           |
 | `created_by`         | `CUID`         | No       | —       | FK ke `Admin.id` yang meng-generate token                    |
 | `created_at`         | `TIMESTAMPTZ`  | No       | `now()` | Waktu pembuatan (UTC)                                        |
@@ -393,6 +404,7 @@ Mode biasa memiliki minimal 2 kandidat; mode berbobot memiliki tepat 5 kandidat.
 - `idx_voting_token_election_used_at` — count token sudah/belum dipakai per election
 - `idx_voting_token_election_student_email` — pencarian email pemilih per election
 - `idx_voting_token_election_email_retry` — daftar email belum terkirim yang bisa di-retry
+- `idx_voting_token_election_reminder_sent_at` — status reminder per election
 - `idx_voting_token_election_voter_type` — filter siswa/guru per election
 - `idx_voting_token_created_by` — audit: siapa generate batch ini
 
@@ -402,6 +414,8 @@ Mode biasa memiliki minimal 2 kandidat; mode berbobot memiliki tepat 5 kandidat.
 - Bisa dibuat sebagai batch biasa atau mode satu token per siswa dengan metadata NIS/ID, nama, kelas, dan email.
 - Plaintext hanya ada di memory saat generate dan di CSV export; tidak pernah disimpan di DB.
 - Jika SMTP aktif, token dikirim ke email siswa dan statusnya dicatat di `email_sent_at`/`email_error`.
+- Saat election pertama kali `OPEN`, reminder diantrikan hanya untuk token belum dipakai yang email
+  awalnya berhasil terkirim. Hasil dicatat terpisah di `reminder_sent_at`/`reminder_error`.
 - Saat siswa vote: `used_at` di-set dalam transaksi atomik bersama insert `Vote`. _(PRD §7.1)_
 - `used_at` bersifat **write-once** — tidak pernah di-update setelah di-set.
 - Cascade delete saat election dihapus.

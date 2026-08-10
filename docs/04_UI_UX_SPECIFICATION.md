@@ -756,6 +756,8 @@ Layout admin menggunakan sidebar kiri:
 
 - Logo: SVG Pilketos, max-height 48px.
 - Heading H2 + subtext paragraph.
+- Status election aktif: judul, deskripsi, dan waktu dibuka; tampilkan empty state jika tidak ada
+  election `OPEN` dan perbarui otomatis.
 - Token Input (large, `inputmode="text"`, `autocomplete="off"`, monospace font).
 - Submit button (primary, xl, full width).
 - Helper text di bawah form.
@@ -799,7 +801,7 @@ Layout admin menggunakan sidebar kiri:
 - Tidak ada rate limit feedback yang terekspos ke siswa (hanya pesan generik "Terlalu banyak percobaan, coba lagi nanti").
 - Token plaintext tidak disimpan di localStorage atau sessionStorage oleh client.
 
-**API Used:** `POST /api/vote/validate-token`
+**API Used:** `GET /api/vote/active-election`, `POST /api/vote/validate-token`
 **PRD Reference:** §3 (Token), §5 (Alur Siswa)
 **API Reference:** V-01
 
@@ -1454,7 +1456,15 @@ Setiap tombol aksi state machine memunculkan **Confirmation Dialog** sebelum eks
 - **Token:** Shortcut ke `/admin/elections/[id]/tokens`.
 - **Audit:** Filter audit log untuk election ini.
 
-**API Used:** `GET /api/admin/elections/[id]`, `PATCH /api/admin/elections/[id]/status`
+**Email Operations:**
+
+- Form editable untuk subjek dan pesan email token awal serta reminder.
+- Status reminder menampilkan jumlah layak, antre, terkirim, dan gagal.
+- Saat `READY -> OPEN`, confirmation dialog menjelaskan bahwa reminder otomatis dimulai.
+- Admin dapat melanjutkan antrean pending atau retry reminder gagal selama election `OPEN`.
+
+**API Used:** `GET/PATCH /api/admin/elections/[id]`,
+`PATCH /api/admin/elections/[id]/status`, `POST /api/admin/tokens/reminder`
 **API Reference:** E-03, E-04
 
 ---
