@@ -379,7 +379,10 @@ export function buildVotingTokenEmail(input: TokenEmailInput) {
       ? [`<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`]
       : []),
     `<p><strong>Token:</strong> <code style="font-size:18px">${escapeHtml(input.token)}</code></p>`,
-    renderVoteButton(input.voteUrl),
+    renderVoteButton(
+      input.voteUrl,
+      kind === "REMINDER" ? "Buka Voting Sekarang" : "Buka Voting dan Isi Token Otomatis",
+    ),
     `<p>Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.</p>`,
     ...(supportUrl ? [renderWhatsAppSupport(supportUrl)] : []),
   ].join("");
@@ -426,12 +429,12 @@ function renderWhatsAppSupport(supportUrl: string) {
   ].join("");
 }
 
-function renderVoteButton(voteUrl: string) {
+function renderVoteButton(voteUrl: string, label: string) {
   const escapedUrl = escapeHtml(voteUrl);
   return [
     `<p style="margin:24px 0">`,
     `<a href="${escapedUrl}" style="display:inline-block;background:#dc2626;color:#ffffff;text-decoration:none;font-weight:700;border-radius:10px;padding:14px 22px">`,
-    "Buka Voting dan Isi Token Otomatis",
+    escapeHtml(label),
     "</a>",
     "</p>",
     `<p style="font-size:13px;color:#525252">Jika tombol tidak bisa dibuka, salin link ini:<br><a href="${escapedUrl}">${escapedUrl}</a></p>`,

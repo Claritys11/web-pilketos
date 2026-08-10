@@ -96,7 +96,9 @@ Token dibuat dari tab `Token` pada detail election.
    pemilih dan konfirmasi. Sistem mengirim token yang sama dan tidak membuat token baru. Resend tidak
    tersedia setelah token dipakai atau election ditutup.
 10. Sebelum membuka voting, kembali ke ringkasan election dan sesuaikan subjek/pesan email token
-    serta reminder jika diperlukan. Gunakan `{{name}}` dan `{{election}}` untuk personalisasi.
+    serta reminder jika diperlukan. Gunakan `{{name}}` dan `{{election}}` untuk personalisasi, lalu
+    periksa preview lengkap. Jadwal pembukaan dapat ditulis langsung pada pesan pembuka; token,
+    tombol, link fallback, peringatan, dan kontak support tetap ditambahkan sistem.
 11. Saat election diubah ke `OPEN`, sistem otomatis mengirim reminder kepada pemilih yang email
     token awalnya sudah terkirim dan belum voting. Pantau status antre/terkirim/gagal di ringkasan
     atau tabel token; gunakan `Lanjutkan Antrean` setelah restart dan `Retry Reminder Gagal` untuk

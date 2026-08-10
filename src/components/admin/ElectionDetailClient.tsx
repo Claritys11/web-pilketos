@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AlertTriangle, CheckCircle2, LockKeyhole, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -107,6 +108,18 @@ export function ElectionDetailClient({
     return () => window.clearInterval(interval);
   }, [election, electionId]);
 
+  useEffect(() => {
+    if (!error && !notice) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setError(null);
+      setNotice(null);
+    }, 7000);
+    return () => window.clearTimeout(timeout);
+  }, [error, notice]);
+
   async function transitionStatus() {
     if (!pendingStatus) {
       return;
@@ -208,17 +221,6 @@ export function ElectionDetailClient({
         Kembali ke Elections
       </Link>
 
-      {error ? (
-        <Alert tone="danger" title="Aksi tidak bisa diproses">
-          {error}
-        </Alert>
-      ) : null}
-      {notice ? (
-        <Alert tone="success" title="Berhasil">
-          {notice}
-        </Alert>
-      ) : null}
-
       <section className="rounded-lg border border-red-100 bg-white p-5 shadow-sm shadow-red-950/5">
         <AdminPageHeader
           eyebrow="Detail election"
@@ -246,8 +248,8 @@ export function ElectionDetailClient({
           <div>
             <h3 className="text-lg font-semibold text-neutral-950">Email Token dan Reminder</h3>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-neutral-500">
-              Sesuaikan pesan untuk election ini. Token, tombol voting, peringatan keamanan, dan
-              kontak bantuan selalu ditambahkan oleh sistem.
+              Edit subjek dan pesan pembuka untuk election ini. Bagian penting email tetap
+              ditambahkan otomatis dan terlihat pada pratinjau lengkap di bawah form.
             </p>
             <p className="mt-2 text-xs font-medium text-neutral-500">{EMAIL_TEMPLATE_HELP}</p>
           </div>
@@ -272,7 +274,7 @@ export function ElectionDetailClient({
               Email token awal
             </h4>
             <TemplateField
-              label="Subjek"
+              label="Subjek email (editable)"
               value={emailTemplates.tokenEmailSubject}
               onChange={(value) =>
                 setEmailTemplates((current) => ({ ...current, tokenEmailSubject: value }))
@@ -280,7 +282,7 @@ export function ElectionDetailClient({
               maxLength={200}
             />
             <TemplateField
-              label="Pesan"
+              label="Pesan pembuka (editable)"
               value={emailTemplates.tokenEmailMessage}
               onChange={(value) =>
                 setEmailTemplates((current) => ({ ...current, tokenEmailMessage: value }))
@@ -288,13 +290,19 @@ export function ElectionDetailClient({
               multiline
               maxLength={4000}
             />
+            <EmailPreview
+              kind="TOKEN"
+              subject={emailTemplates.tokenEmailSubject}
+              message={emailTemplates.tokenEmailMessage}
+              electionTitle={election.title}
+            />
           </div>
           <div className="space-y-4 lg:border-l lg:border-neutral-200 lg:pl-6">
             <h4 className="text-sm font-semibold uppercase text-[var(--color-primary-700)]">
               Reminder saat voting dibuka
             </h4>
             <TemplateField
-              label="Subjek"
+              label="Subjek email (editable)"
               value={emailTemplates.reminderEmailSubject}
               onChange={(value) =>
                 setEmailTemplates((current) => ({ ...current, reminderEmailSubject: value }))
@@ -302,13 +310,19 @@ export function ElectionDetailClient({
               maxLength={200}
             />
             <TemplateField
-              label="Pesan"
+              label="Pesan pembuka (editable)"
               value={emailTemplates.reminderEmailMessage}
               onChange={(value) =>
                 setEmailTemplates((current) => ({ ...current, reminderEmailMessage: value }))
               }
               multiline
               maxLength={4000}
+            />
+            <EmailPreview
+              kind="REMINDER"
+              subject={emailTemplates.reminderEmailSubject}
+              message={emailTemplates.reminderEmailMessage}
+              electionTitle={election.title}
             />
           </div>
         </fieldset>
@@ -505,6 +519,17 @@ export function ElectionDetailClient({
           </div>
         </Modal>
       ) : null}
+
+      {error || notice ? (
+        <ActionToast
+          tone={error ? "danger" : "success"}
+          message={error ?? notice ?? ""}
+          onClose={() => {
+            setError(null);
+            setNotice(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -572,5 +597,117 @@ function ReminderStat({
     <span className={danger && value > 0 ? "font-semibold text-red-700" : "text-neutral-600"}>
       {label}: <strong>{value}</strong>
     </span>
+  );
+}
+
+function EmailPreview({
+  kind,
+  subject,
+  message,
+  electionTitle,
+}: {
+  kind: "TOKEN" | "REMINDER";
+  subject: string;
+  message: string;
+  electionTitle: string;
+}) {
+  const values = { name: "Nama Pemilih", election: electionTitle };
+  const renderedSubject = renderTemplatePreview(subject, values);
+  const renderedMessage = renderTemplatePreview(message, values);
+
+  return (
+    <div className="border border-neutral-200 bg-neutral-50" aria-label="Pratinjau email lengkap">
+      <div className="flex items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3">
+        <div>
+          <p className="text-xs font-semibold uppercase text-neutral-500">
+            Pratinjau email lengkap
+          </p>
+          <p className="mt-1 break-words text-sm font-semibold text-neutral-900">
+            {renderedSubject || "Subjek email"}
+          </p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-neutral-500">
+          <LockKeyhole aria-hidden="true" className="size-3.5" />
+          Struktur aman
+        </span>
+      </div>
+      <div className="space-y-4 p-4 text-sm leading-6 text-neutral-700">
+        <p className="whitespace-pre-line">{renderedMessage || "Pesan pembuka admin"}</p>
+        <div className="border-l-2 border-neutral-300 pl-3">
+          <p className="text-xs font-semibold uppercase text-neutral-500">Ditambahkan sistem</p>
+          <p className="mt-2">
+            <strong>Token:</strong>{" "}
+            <code className="rounded bg-neutral-200 px-1.5 py-0.5 font-semibold text-neutral-950">
+              ABCD-EFGH-1234
+            </code>
+          </p>
+          <span className="mt-3 inline-flex min-h-10 items-center bg-[var(--color-vote-primary)] px-4 font-semibold text-white">
+            {kind === "REMINDER" ? "Buka Voting Sekarang" : "Buka Voting dan Isi Token Otomatis"}
+          </span>
+          <p className="mt-3 break-all text-xs text-sky-700 underline">
+            https://domain-pilketos.example/vote?token=...
+          </p>
+          <p className="mt-3 text-xs text-neutral-600">
+            Token hanya bisa dipakai satu kali. Jangan bagikan token kepada orang lain.
+          </p>
+          <div className="mt-3 border-t border-neutral-200 pt-3">
+            <p className="font-semibold text-neutral-800">Link atau website bermasalah?</p>
+            <span className="mt-2 inline-flex min-h-9 items-center bg-emerald-600 px-3 text-xs font-semibold text-white">
+              Hubungi Admin via WhatsApp
+            </span>
+            <p className="mt-2 text-xs text-neutral-500">
+              Ditampilkan jika nomor WhatsApp support dikonfigurasi.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function renderTemplatePreview(template: string, values: { name: string; election: string }) {
+  return template.replace(/{{\s*(name|election)\s*}}/gi, (_match, key: string) => {
+    return key.toLowerCase() === "name" ? values.name : values.election;
+  });
+}
+
+function ActionToast({
+  tone,
+  message,
+  onClose,
+}: {
+  tone: "success" | "danger";
+  message: string;
+  onClose: () => void;
+}) {
+  const success = tone === "success";
+  const Icon = success ? CheckCircle2 : AlertTriangle;
+  return (
+    <div
+      role={success ? "status" : "alert"}
+      aria-live={success ? "polite" : "assertive"}
+      className={`fixed bottom-4 left-4 right-4 z-[70] border p-4 shadow-xl sm:left-auto sm:right-6 sm:max-w-md ${
+        success
+          ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+          : "border-red-200 bg-red-50 text-red-950"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">{success ? "Berhasil" : "Aksi tidak dapat diproses"}</p>
+          <p className="mt-1 break-words text-sm leading-5">{message}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          title="Tutup notifikasi"
+          aria-label="Tutup notifikasi"
+          className="inline-flex size-8 shrink-0 items-center justify-center hover:bg-black/5"
+        >
+          <X aria-hidden="true" className="size-4" />
+        </button>
+      </div>
+    </div>
   );
 }

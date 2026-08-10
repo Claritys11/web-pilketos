@@ -7,4 +7,4 @@ export const DEFAULT_REMINDER_EMAIL_MESSAGE =
   "Halo {{name}},\n\nVoting {{election}} sudah dibuka. Gunakan token yang telah diberikan untuk memberikan suara.";
 
 export const EMAIL_TEMPLATE_HELP =
-  "Gunakan {{name}} untuk nama pemilih dan {{election}} untuk nama election.";
+  "Gunakan {{name}} untuk nama pemilih dan {{election}} untuk nama election. Tulis jadwal atau informasi tambahan langsung pada pesan pembuka.";

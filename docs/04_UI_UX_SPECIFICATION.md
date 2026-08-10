@@ -1459,7 +1459,11 @@ Setiap tombol aksi state machine memunculkan **Confirmation Dialog** sebelum eks
 **Email Operations:**
 
 - Form editable untuk subjek dan pesan email token awal serta reminder.
+- Preview live memperlihatkan email lengkap: pesan editable, token contoh, tombol, link fallback,
+  peringatan keamanan, dan blok WhatsApp opsional.
 - Status reminder menampilkan jumlah layak, antre, terkirim, dan gagal.
+- Hasil aksi ditampilkan sebagai toast fixed di viewport agar admin tidak perlu kembali ke atas
+  halaman untuk melihat sukses/error.
 - Saat `READY -> OPEN`, confirmation dialog menjelaskan bahwa reminder otomatis dimulai.
 - Admin dapat melanjutkan antrean pending atau retry reminder gagal selama election `OPEN`.
 
