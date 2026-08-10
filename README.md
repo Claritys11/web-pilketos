@@ -120,6 +120,7 @@ GMAIL_CLIENT_SECRET=...
 GMAIL_REFRESH_TOKEN=...
 GMAIL_REDIRECT_URI=http://localhost:6500/api/gmail-oauth/callback
 GMAIL_FROM="Pilketos <alamat-gmail-yang-dipakai-login@gmail.com>"
+SUPPORT_WHATSAPP_NUMBER=62895337256234
 
 # Opsional: credential kedua untuk fallback saat credential utama kena limit/provider error
 GMAIL_SECONDARY_CLIENT_ID=
@@ -141,7 +142,8 @@ dibuat ulang dengan scope Gmail, Sheets, dan Drive; menyalakan API saja tidak me
 refresh token lama.
 
 Email token berisi tombol voting ke `/vote?token=...`, sehingga token otomatis terisi di halaman
-voting dan pemilih tinggal menekan lanjut.
+voting dan pemilih tinggal menekan lanjut. Jika `SUPPORT_WHATSAPP_NUMBER` diisi, email juga
+menampilkan tombol WhatsApp untuk melaporkan link atau website yang bermasalah.
 
 Opsional Google Sheets sync untuk kontrol sudah/belum voting:
 
@@ -290,6 +292,7 @@ GMAIL_CLIENT_SECRET=
 GMAIL_REFRESH_TOKEN=
 GMAIL_REDIRECT_URI=http://localhost:6500/api/gmail-oauth/callback
 GMAIL_FROM=
+SUPPORT_WHATSAPP_NUMBER=
 ```
 
 Penting: `TOKEN_HMAC_SECRET` harus tetap sama selama token voting yang sudah dibuat

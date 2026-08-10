@@ -59,6 +59,7 @@ GMAIL_CLIENT_SECRET=isi_dari_output_gmail_auth
 GMAIL_REFRESH_TOKEN=refresh_token_dengan_scope_gmail_sheets_drive
 GMAIL_REDIRECT_URI=https://pilketos.clarityz.my.id/api/gmail-oauth/callback
 GMAIL_FROM="Pilketos <akun-google-pengirim@example.com>"
+SUPPORT_WHATSAPP_NUMBER=62895337256234
 TOKEN_EMAIL_SENDS_PER_MINUTE=50
 TOKEN_EMAIL_BATCH_SIZE=20
 
@@ -70,6 +71,9 @@ GOOGLE_SHEETS_SHEET_NAME=Pilketos
 Refresh token harus dibuat dari script terbaru dan memiliki scope `gmail.send`, `spreadsheets`, dan
 `drive.file`. Refresh token lama yang hanya memiliki `gmail.send` tetap dapat mengirim email, tetapi
 tidak dapat membuat spreadsheet.
+
+`SUPPORT_WHATSAPP_NUMBER` ditampilkan sebagai tombol bantuan pada email token. Gunakan format
+internasional tanpa `+`; nomor Indonesia `0895337256234` menjadi `62895337256234`.
 
 Generate secret:
 

@@ -87,6 +87,8 @@ Token dibuat dari tab `Token` pada detail election.
 5. Klik `Generate`.
 6. Sistem mengirim token ke email pemilih secara bertahap sesuai batas server. Email berisi tombol
    voting yang membuka `/vote?token=...`, jadi token otomatis terisi.
+   Jika nomor dukungan dikonfigurasi, email juga menyediakan tombol WhatsApp untuk melaporkan link
+   atau website voting yang bermasalah tanpa menyertakan token dalam pesan awal.
 7. Jika browser/jaringan terputus, gunakan `Kirim Email Antre` untuk melanjutkan token pending.
 8. Jika provider menolak email, gunakan `Retry Email Gagal`; retry membuka token terenkripsi di
    server tanpa menampilkan plaintext kepada admin.
