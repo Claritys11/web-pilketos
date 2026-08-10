@@ -71,7 +71,7 @@ const envSchema = z
       .regex(/^[+0-9 ()-]{8,25}$/, "SUPPORT_WHATSAPP_NUMBER must be a valid phone number")
       .optional()
       .or(z.literal("")),
-    TOKEN_EMAIL_SENDS_PER_MINUTE: z.coerce.number().int().min(1).max(100).default(50),
+    TOKEN_EMAIL_SENDS_PER_MINUTE: z.coerce.number().int().min(1).max(60).default(50),
     TOKEN_EMAIL_BATCH_SIZE: z.coerce.number().int().min(1).max(50).default(20),
 
     // Google Sheets sync

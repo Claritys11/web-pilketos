@@ -129,6 +129,9 @@ limit. `TOKEN_EMAIL_BATCH_SIZE` membatasi pekerjaan per request agar aman di bel
 request berikutnya melanjutkan token yang masih antre. Default 50 email/menit dan 20 email/request.
 Nomor `SUPPORT_WHATSAPP_NUMBER` muncul sebagai tombol bantuan jika link atau website voting
 bermasalah; nomor lokal Indonesia berawalan `0` otomatis dinormalisasi ke kode negara `62`.
+Untuk Gmail API, maksimum aplikasi adalah 60 email/menit. Ikuti
+[`12_EMAIL_DELIVERABILITY.md`](12_EMAIL_DELIVERABILITY.md) sebelum mengirim batch production dari
+custom domain.
 
 Opsional Google Sheets sync:
 

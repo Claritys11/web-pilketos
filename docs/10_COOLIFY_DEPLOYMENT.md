@@ -68,6 +68,13 @@ GOOGLE_SHEETS_SPREADSHEET_ID=
 GOOGLE_SHEETS_SHEET_NAME=Pilketos
 ```
 
+Untuk Gmail API, pertahankan `TOKEN_EMAIL_SENDS_PER_MINUTE=50`. Aplikasi membatasi nilai maksimum
+ke 60 agar sesuai dengan kuota per pengguna pada proyek Gmail API baru. Batas ini berbeda dari
+batas pengiriman harian akun dan menaikkannya tidak membuat kuota harian bertambah.
+
+Sebelum mengirim batch production, siapkan autentikasi domain dan cek deliverability sesuai
+[`12_EMAIL_DELIVERABILITY.md`](12_EMAIL_DELIVERABILITY.md).
+
 Refresh token harus dibuat dari script terbaru dan memiliki scope `gmail.send`, `spreadsheets`, dan
 `drive.file`. Refresh token lama yang hanya memiliki `gmail.send` tetap dapat mengirim email, tetapi
 tidak dapat membuat spreadsheet.

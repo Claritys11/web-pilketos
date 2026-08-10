@@ -128,7 +128,7 @@ GMAIL_SECONDARY_CLIENT_SECRET=
 GMAIL_SECONDARY_REFRESH_TOKEN=
 GMAIL_SECONDARY_FROM=
 
-# Default 50 email/menit. Bisa dinaikkan sampai 100 jika provider aman.
+# Default 50 email/menit; maksimum 60 untuk mengikuti kuota Gmail API per pengguna.
 TOKEN_EMAIL_SENDS_PER_MINUTE=50
 
 # Maksimal email per request pendek; 20 aman untuk proxy/tunnel umum.
@@ -144,6 +144,10 @@ refresh token lama.
 Email token berisi tombol voting ke `/vote?token=...`, sehingga token otomatis terisi di halaman
 voting dan pemilih tinggal menekan lanjut. Jika `SUPPORT_WHATSAPP_NUMBER` diisi, email juga
 menampilkan tombol WhatsApp untuk melaporkan link atau website yang bermasalah.
+
+Untuk menyiapkan custom-domain sender, SPF, DKIM, DMARC, kuota Gmail, dan pemeriksaan Spam, ikuti
+[`docs/12_EMAIL_DELIVERABILITY.md`](docs/12_EMAIL_DELIVERABILITY.md). Nilai 50 email/menit sudah
+direkomendasikan untuk Gmail API; menaikkannya tidak menambah batas pengiriman harian akun.
 
 Opsional Google Sheets sync untuk kontrol sudah/belum voting:
 
@@ -532,6 +536,8 @@ http://localhost:6500/admin/login
 Panduan panitia yang lebih lengkap ada di
 [`docs/09_ADMIN_USER_GUIDE.md`](docs/09_ADMIN_USER_GUIDE.md).
 Panduan deployment VPS ada di [`docs/11_VPS_DEPLOYMENT.md`](docs/11_VPS_DEPLOYMENT.md).
+Panduan deliverability email ada di
+[`docs/12_EMAIL_DELIVERABILITY.md`](docs/12_EMAIL_DELIVERABILITY.md).
 
 Alur setup pemilihan:
 
