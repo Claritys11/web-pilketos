@@ -305,7 +305,8 @@ export class TokenService {
 
   async retryFailedTokenEmails(input: {
     electionId: string;
-    mode: "PENDING" | "FAILED";
+    mode: "PENDING" | "FAILED" | "RESEND";
+    tokenId?: string | undefined;
     actorId: string;
     actorRole: "ADMIN" | "SUPER_ADMIN";
     ipAddress?: string | null;
@@ -331,7 +332,8 @@ export class TokenService {
 
   private async deliverTokenEmailBatch(input: {
     electionId: string;
-    mode: "PENDING" | "FAILED";
+    mode: "PENDING" | "FAILED" | "RESEND";
+    tokenId?: string | undefined;
     actorId: string;
     actorRole: "ADMIN" | "SUPER_ADMIN";
     ipAddress?: string | null;
@@ -339,25 +341,48 @@ export class TokenService {
   }) {
     const election = await prisma.election.findUnique({
       where: { id: input.electionId },
-      select: { id: true, title: true },
+      select: { id: true, title: true, status: true },
     });
 
     if (!election) {
       throw new ServiceError("ELECTION_NOT_FOUND", "Election tidak ditemukan.", 404);
     }
 
-    const deliveryWhere: Prisma.VotingTokenWhereInput = {
+    if (["CLOSED", "ARCHIVED"].includes(election.status)) {
+      throw new ServiceError(
+        "ELECTION_WRONG_STATE",
+        "Email token tidak dapat dikirim setelah election ditutup atau diarsipkan.",
+        422,
+      );
+    }
+
+    const baseDeliveryWhere: Prisma.VotingTokenWhereInput = {
       electionId: input.electionId,
       usedAt: null,
-      emailSentAt: null,
       studentEmail: { not: null },
       tokenCiphertext: { not: null },
-      emailError: input.mode === "PENDING" ? null : { not: null },
     };
+    let deliveryWhere: Prisma.VotingTokenWhereInput;
+    if (input.mode === "RESEND") {
+      if (!input.tokenId) {
+        throw new ServiceError(
+          "TOKEN_EMAIL_RESEND_UNAVAILABLE",
+          "ID token wajib diisi untuk pengiriman ulang.",
+          422,
+        );
+      }
+      deliveryWhere = { ...baseDeliveryWhere, id: input.tokenId };
+    } else {
+      deliveryWhere = {
+        ...baseDeliveryWhere,
+        emailSentAt: null,
+        emailError: input.mode === "PENDING" ? null : { not: null },
+      };
+    }
     const retryableTokens = await prisma.votingToken.findMany({
       where: deliveryWhere,
       orderBy: { createdAt: "asc" },
-      take: config.mail.deliveryBatchSize,
+      take: input.mode === "RESEND" ? 1 : config.mail.deliveryBatchSize,
       select: {
         id: true,
         tokenCiphertext: true,
@@ -366,6 +391,14 @@ export class TokenService {
         studentEmail: true,
       },
     });
+
+    if (input.mode === "RESEND" && retryableTokens.length === 0) {
+      throw new ServiceError(
+        "TOKEN_EMAIL_RESEND_UNAVAILABLE",
+        "Token tidak dapat dikirim ulang karena sudah dipakai atau data emailnya tidak tersedia.",
+        422,
+      );
+    }
 
     const electionTitle = election.title;
     let sent = 0;
@@ -406,7 +439,11 @@ export class TokenService {
       await prisma.votingToken.update({
         where: { id: tokenRecord.id },
         data: {
-          emailSentAt: result.ok ? new Date() : null,
+          ...(result.ok
+            ? { emailSentAt: new Date() }
+            : input.mode === "RESEND"
+              ? {}
+              : { emailSentAt: null }),
           emailError: result.ok ? null : (result.error ?? "Gagal mengirim email."),
         },
       });
@@ -420,7 +457,8 @@ export class TokenService {
       }
     }
 
-    const remaining = await prisma.votingToken.count({ where: deliveryWhere });
+    const remaining =
+      input.mode === "RESEND" ? 0 : await prisma.votingToken.count({ where: deliveryWhere });
     if (remaining === 0 && googleSheetsService.enabled) {
       await googleSheetsService.syncElection(input.electionId);
     }
@@ -436,6 +474,7 @@ export class TokenService {
       metadata: {
         electionId: input.electionId,
         mode: input.mode,
+        tokenId: input.tokenId,
         batchSize: config.mail.deliveryBatchSize,
         attempted: retryableTokens.length,
         sent,

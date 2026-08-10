@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 
@@ -87,11 +88,16 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
   const [generating, setGenerating] = useState(false);
   const [retryingEmail, setRetryingEmail] = useState(false);
   const [deliveringEmail, setDeliveringEmail] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const [resendTarget, setResendTarget] = useState<TokenMetadata | null>(null);
   const [generated, setGenerated] = useState<GenerateResult | null>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const canGenerate = user.role !== "VIEWER" && election?.status === "SETUP";
+  const canManageEmail =
+    user.role !== "VIEWER" &&
+    Boolean(election && election.status !== "CLOSED" && election.status !== "ARCHIVED");
   const pendingEmails = tokens.filter(
     (token) => token.studentEmail && !token.emailSentAt && !token.emailError,
   ).length;
@@ -233,10 +239,10 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
     }
   }
 
-  function requestEmailDelivery(mode: "PENDING" | "FAILED") {
+  function requestEmailDelivery(mode: "PENDING" | "FAILED" | "RESEND", tokenId?: string) {
     return adminFetch<EmailDeliveryResult>("/api/admin/tokens/retry-email", {
       method: "POST",
-      body: JSON.stringify({ electionId, mode }),
+      body: JSON.stringify({ electionId, mode, ...(tokenId ? { tokenId } : {}) }),
     });
   }
 
@@ -253,6 +259,31 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
       setError(fetchError instanceof Error ? fetchError.message : "Gagal retry email token.");
     } finally {
       setRetryingEmail(false);
+    }
+  }
+
+  async function resendSentEmail() {
+    if (!resendTarget) {
+      return;
+    }
+
+    setResendingEmail(true);
+    try {
+      setError(null);
+      const result = await requestEmailDelivery("RESEND", resendTarget.id);
+      if (result.sent === 1) {
+        setImportMessage(`Token berhasil dikirim ulang ke ${resendTarget.studentEmail}.`);
+      } else {
+        setError(
+          `Email token ke ${resendTarget.studentEmail} belum berhasil dikirim ulang. Periksa status error pada tabel.`,
+        );
+      }
+      setResendTarget(null);
+      await load();
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "Gagal mengirim ulang token.");
+    } finally {
+      setResendingEmail(false);
     }
   }
 
@@ -309,7 +340,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
         <button
           type="button"
           onClick={() => void deliverPendingEmails()}
-          disabled={!canGenerate || deliveringEmail || pendingEmails === 0}
+          disabled={!canManageEmail || deliveringEmail || pendingEmails === 0}
           className="h-11 rounded-lg border border-sky-200 bg-white px-4 text-sm font-semibold text-sky-700 hover:bg-sky-50 disabled:opacity-50"
         >
           {deliveringEmail
@@ -319,7 +350,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
         <button
           type="button"
           onClick={() => void retryFailedEmails()}
-          disabled={!canGenerate || retryingEmail || deliveringEmail || failedEmails === 0}
+          disabled={!canManageEmail || retryingEmail || deliveringEmail || failedEmails === 0}
           className="h-11 rounded-lg border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
         >
           {retryingEmail ? "Retry..." : `Retry Email Gagal (${failedEmails})`}
@@ -444,6 +475,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                 <th className="px-5 py-3">Status</th>
                 <th className="px-5 py-3">Email token</th>
                 <th className="px-5 py-3">Dipakai pada</th>
+                <th className="px-5 py-3 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -488,12 +520,28 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                       ) : null}
                     </td>
                     <td className="px-5 py-3 text-neutral-500">{formatDateTime(token.usedAt)}</td>
+                    <td className="px-5 py-3 text-right">
+                      {token.emailSentAt && token.studentEmail && !token.usedAt ? (
+                        <button
+                          type="button"
+                          onClick={() => setResendTarget(token)}
+                          disabled={!canManageEmail || resendingEmail}
+                          title="Kirim ulang token yang sama"
+                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-sky-200 px-3 text-xs font-semibold text-sky-700 hover:bg-sky-50 disabled:opacity-50"
+                        >
+                          <RefreshCw aria-hidden="true" className="size-4" />
+                          Resend
+                        </button>
+                      ) : (
+                        <span className="text-neutral-400">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan={weightedMode ? 8 : 9}
+                    colSpan={weightedMode ? 9 : 10}
                     className="px-5 py-8 text-center text-neutral-500"
                   >
                     Belum ada token yang cocok dengan filter.
@@ -620,6 +668,39 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
               </button>
             </div>
           </form>
+        </Modal>
+      ) : null}
+
+      {resendTarget ? (
+        <Modal title="Kirim Ulang Token" onClose={() => setResendTarget(null)}>
+          <p className="text-sm leading-6 text-neutral-600">
+            Kirim ulang token yang sama untuk{" "}
+            <strong>{resendTarget.studentName ?? "pemilih"}</strong> ke{" "}
+            <strong>{resendTarget.studentEmail}</strong>? Pengiriman sebelumnya tetap tercatat dan
+            token baru tidak akan dibuat.
+          </p>
+          <div className="mt-5 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setResendTarget(null)}
+              disabled={resendingEmail}
+              className="h-10 rounded-lg border border-neutral-200 px-4 text-sm font-semibold text-neutral-700 disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={() => void resendSentEmail()}
+              disabled={resendingEmail}
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-50"
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={`size-4 ${resendingEmail ? "animate-spin" : ""}`}
+              />
+              {resendingEmail ? "Mengirim..." : "Kirim Ulang"}
+            </button>
+          </div>
         </Modal>
       ) : null}
 

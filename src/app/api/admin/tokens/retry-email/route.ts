@@ -12,6 +12,7 @@ export async function POST(request: Request) {
       await tokenService.retryFailedTokenEmails({
         electionId: body.electionId,
         mode: body.mode,
+        tokenId: body.tokenId,
         actorId: admin.id,
         actorRole: admin.role as "ADMIN" | "SUPER_ADMIN",
         ...getRequestContext(request),

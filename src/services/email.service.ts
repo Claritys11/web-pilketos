@@ -44,7 +44,9 @@ export class EmailService {
         error:
           config.mail.driver === "gmail_api"
             ? "Gmail API belum dikonfigurasi."
-            : "SMTP belum dikonfigurasi.",
+            : config.mail.driver === "smtp"
+              ? "SMTP belum dikonfigurasi."
+              : "Pengiriman email dinonaktifkan.",
       };
     }
 

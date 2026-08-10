@@ -90,6 +90,9 @@ Token dibuat dari tab `Token` pada detail election.
 7. Jika browser/jaringan terputus, gunakan `Kirim Email Antre` untuk melanjutkan token pending.
 8. Jika provider menolak email, gunakan `Retry Email Gagal`; retry membuka token terenkripsi di
    server tanpa menampilkan plaintext kepada admin.
+9. Jika pemilih tidak menemukan email meskipun statusnya `Terkirim`, klik `Resend` pada baris
+   pemilih dan konfirmasi. Sistem mengirim token yang sama dan tidak membuat token baru. Resend tidak
+   tersedia setelah token dipakai atau election ditutup.
 
 Mode `Per Siswa` direkomendasikan untuk pemilihan nyata dan bisa berisi siswa maupun guru.
 Dashboard admin menyimpan metadata pemilih, status email, dan status token dipakai, tetapi tidak

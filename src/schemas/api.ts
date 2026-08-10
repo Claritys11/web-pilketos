@@ -123,9 +123,28 @@ export const tokenGenerateSchema = z
     }
   });
 
-export const tokenEmailDeliverySchema = electionIdBodySchema.extend({
-  mode: z.enum(["PENDING", "FAILED"]).default("PENDING"),
-});
+export const tokenEmailDeliverySchema = electionIdBodySchema
+  .extend({
+    mode: z.enum(["PENDING", "FAILED", "RESEND"]).default("PENDING"),
+    tokenId: cuidSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.mode === "RESEND" && !value.tokenId) {
+      context.addIssue({
+        code: "custom",
+        path: ["tokenId"],
+        message: "tokenId wajib diisi untuk resend email.",
+      });
+    }
+
+    if (value.mode !== "RESEND" && value.tokenId) {
+      context.addIssue({
+        code: "custom",
+        path: ["tokenId"],
+        message: "tokenId hanya boleh dipakai untuk mode RESEND.",
+      });
+    }
+  });
 
 export const adminRoleSchema = z.enum(["SUPER_ADMIN", "ADMIN", "VIEWER"]);
 

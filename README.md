@@ -547,14 +547,16 @@ Alur setup pemilihan:
    tidak ditampilkan dan tidak diunduh dari dashboard.
 10. Jika ada email gagal, gunakan tombol `Retry Email Gagal`; server akan mengirim ulang dari token
     terenkripsi tanpa mengekspos plaintext ke admin.
-11. Pastikan email pemilih valid sebelum election dibuka.
-12. Pantau tabel `Status Token Pemilih` atau Google Sheets untuk melihat siapa yang belum voting dan
+11. Jika status sudah `Terkirim` tetapi pemilih tidak menerima email, gunakan tombol `Resend` pada
+    baris pemilih. Sistem mengirim token yang sama tanpa membuat token baru.
+12. Pastikan email pemilih valid sebelum election dibuka.
+13. Pantau tabel `Status Token Pemilih` atau Google Sheets untuk melihat siapa yang belum voting dan
     status email token.
-13. Kembali ke detail election, klik `Tandai Siap`.
-14. Saat voting dimulai, klik `Buka Voting`.
-15. Siswa membuka `/vote`, memasukkan token, memilih kandidat, lalu mengirim suara.
-16. Pantau hasil masuk di `/admin/dashboard`.
-17. Setelah selesai, ubah status election ke `CLOSED`, lalu `ARCHIVED` jika hasil sudah disahkan.
+14. Kembali ke detail election, klik `Tandai Siap`.
+15. Saat voting dimulai, klik `Buka Voting`.
+16. Siswa membuka `/vote`, memasukkan token, memilih kandidat, lalu mengirim suara.
+17. Pantau hasil masuk di `/admin/dashboard`.
+18. Setelah selesai, ubah status election ke `CLOSED`, lalu `ARCHIVED` jika hasil sudah disahkan.
 
 Catatan token:
 

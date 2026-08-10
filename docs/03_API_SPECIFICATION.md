@@ -1604,13 +1604,13 @@ student_identifier,student_name,student_class,student_email,voter_type
 G001,Nama Guru 1,Guru,guru1@example.com,GURU
 ```
 
-### T-03 — Deliver Pending / Retry Failed Token Emails
+### T-03 — Deliver Pending / Retry or Resend Token Emails
 
 **`POST /api/admin/tokens/retry-email`**
 
-**Purpose:** Mengirim satu batch pendek email pending atau mencoba ulang email gagal. Endpoint ini
-memakai token terenkripsi server-side, tidak mengembalikan plaintext token, dan dapat dipanggil
-berulang sampai `remaining` bernilai `0`.
+**Purpose:** Mengirim satu batch pendek email pending, mencoba ulang email gagal, atau mengirim ulang
+satu token yang sebelumnya sudah terkirim. Endpoint ini memakai token terenkripsi server-side dan
+tidak mengembalikan plaintext token.
 
 **Request Body:**
 
@@ -1623,6 +1623,19 @@ berulang sampai `remaining` bernilai `0`.
 
 `mode` bernilai `PENDING` untuk melanjutkan antrean awal atau `FAILED` untuk mencoba ulang email yang
 memiliki error. Jumlah record per request dibatasi `TOKEN_EMAIL_BATCH_SIZE`.
+
+Untuk mengirim ulang satu token yang sudah berstatus terkirim, gunakan mode `RESEND` dengan ID token:
+
+```json
+{
+  "electionId": "clxxx...",
+  "mode": "RESEND",
+  "tokenId": "clyyy..."
+}
+```
+
+Resend mengirim token yang sama, tidak membuat token baru, dan ditolak jika token sudah dipakai atau
+election sudah `CLOSED`/`ARCHIVED`.
 
 **Success Response:**
 
@@ -1643,15 +1656,14 @@ memiliki error. Jumlah record per request dibatasi `TOKEN_EMAIL_BATCH_SIZE`.
 
 **Possible Error Responses:**
 
-| HTTP Status | Error Code                  | Kondisi                                            |
-| ----------- | --------------------------- | -------------------------------------------------- |
-| 400         | `VALIDATION_ERROR`          | `electionId` tidak valid                           |
-| 404         | `ELECTION_NOT_FOUND`        | Election tidak ditemukan                           |
-| 409         | `TOKEN_EMAIL_DELIVERY_BUSY` | Batch lain untuk election yang sama masih berjalan |
-| 401         | `UNAUTHORIZED`              | Tidak terautentikasi                               |
-| 403         | `FORBIDDEN`                 | Role tidak memiliki akses                          |
-
-**Audit Logging:** `TOKEN_BATCH_EXPORTED` dengan `metadata: { electionId, tokenCount }`.
+| HTTP Status | Error Code                       | Kondisi                                            |
+| ----------- | -------------------------------- | -------------------------------------------------- |
+| 400         | `VALIDATION_ERROR`               | `electionId` tidak valid                           |
+| 404         | `ELECTION_NOT_FOUND`             | Election tidak ditemukan                           |
+| 409         | `TOKEN_EMAIL_DELIVERY_BUSY`      | Batch lain untuk election yang sama masih berjalan |
+| 422         | `TOKEN_EMAIL_RESEND_UNAVAILABLE` | Token sudah dipakai atau data email tidak tersedia |
+| 401         | `UNAUTHORIZED`                   | Tidak terautentikasi                               |
+| 403         | `FORBIDDEN`                      | Role tidak memiliki akses                          |
 
 **PRD Reference:** §3
 **DB Tables:** `VotingToken`
