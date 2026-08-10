@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AlertTriangle, CheckCircle2, LockKeyhole, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -9,6 +10,13 @@ import { Badge, electionStatusTone } from "@/components/common/Badge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Modal } from "@/components/common/Modal";
 import { SkeletonCard } from "@/components/common/Skeleton";
+import {
+  DEFAULT_REMINDER_EMAIL_MESSAGE,
+  DEFAULT_REMINDER_EMAIL_SUBJECT,
+  DEFAULT_TOKEN_EMAIL_MESSAGE,
+  DEFAULT_TOKEN_EMAIL_SUBJECT,
+  EMAIL_TEMPLATE_HELP,
+} from "@/config/email-templates";
 import { adminFetch } from "@/lib/admin/api";
 import type { AdminSessionUser, ElectionDetail, ElectionStatus } from "@/lib/admin/types";
 
@@ -40,7 +48,15 @@ export function ElectionDetailClient({
   const [error, setError] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus] = useState<ElectionStatus | null>(null);
   const [syncingSheet, setSyncingSheet] = useState(false);
+  const [savingTemplates, setSavingTemplates] = useState(false);
+  const [startingReminder, setStartingReminder] = useState<"PENDING" | "FAILED" | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [emailTemplates, setEmailTemplates] = useState({
+    tokenEmailSubject: DEFAULT_TOKEN_EMAIL_SUBJECT,
+    tokenEmailMessage: DEFAULT_TOKEN_EMAIL_MESSAGE,
+    reminderEmailSubject: DEFAULT_REMINDER_EMAIL_SUBJECT,
+    reminderEmailMessage: DEFAULT_REMINDER_EMAIL_MESSAGE,
+  });
   const canManage = user.role !== "VIEWER";
 
   const actions = useMemo(
@@ -52,7 +68,14 @@ export function ElectionDetailClient({
     setLoading(true);
     try {
       setError(null);
-      setElection(await adminFetch<ElectionDetail>(`/api/admin/elections/${electionId}`));
+      const data = await adminFetch<ElectionDetail>(`/api/admin/elections/${electionId}`);
+      setElection(data);
+      setEmailTemplates({
+        tokenEmailSubject: data.tokenEmailSubject ?? DEFAULT_TOKEN_EMAIL_SUBJECT,
+        tokenEmailMessage: data.tokenEmailMessage ?? DEFAULT_TOKEN_EMAIL_MESSAGE,
+        reminderEmailSubject: data.reminderEmailSubject ?? DEFAULT_REMINDER_EMAIL_SUBJECT,
+        reminderEmailMessage: data.reminderEmailMessage ?? DEFAULT_REMINDER_EMAIL_MESSAGE,
+      });
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Gagal memuat detail election.");
     } finally {
@@ -72,6 +95,31 @@ export function ElectionDetailClient({
     };
   }, [load]);
 
+  useEffect(() => {
+    if (!election || election.status !== "OPEN" || election.reminderSummary.pending === 0) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void adminFetch<ElectionDetail>(`/api/admin/elections/${electionId}`)
+        .then(setElection)
+        .catch(() => undefined);
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [election, electionId]);
+
+  useEffect(() => {
+    if (!error && !notice) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setError(null);
+      setNotice(null);
+    }, 7000);
+    return () => window.clearTimeout(timeout);
+  }, [error, notice]);
+
   async function transitionStatus() {
     if (!pendingStatus) {
       return;
@@ -83,6 +131,9 @@ export function ElectionDetailClient({
         method: "PATCH",
         body: JSON.stringify({ status: pendingStatus }),
       });
+      if (pendingStatus === "OPEN") {
+        setNotice("Voting dibuka. Reminder untuk pemilih yang belum voting mulai dikirim.");
+      }
       setPendingStatus(null);
       await load();
     } catch (fetchError) {
@@ -90,6 +141,46 @@ export function ElectionDetailClient({
         fetchError instanceof Error ? fetchError.message : "Gagal mengubah status election.",
       );
       setPendingStatus(null);
+    }
+  }
+
+  async function saveEmailTemplates() {
+    setSavingTemplates(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await adminFetch(`/api/admin/elections/${electionId}`, {
+        method: "PATCH",
+        body: JSON.stringify(emailTemplates),
+      });
+      setNotice("Template email token dan reminder berhasil disimpan.");
+      await load();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Gagal menyimpan template email.");
+    } finally {
+      setSavingTemplates(false);
+    }
+  }
+
+  async function startReminder(mode: "PENDING" | "FAILED") {
+    setStartingReminder(mode);
+    setError(null);
+    setNotice(null);
+    try {
+      await adminFetch("/api/admin/tokens/reminder", {
+        method: "POST",
+        body: JSON.stringify({ electionId, mode }),
+      });
+      setNotice(
+        mode === "FAILED"
+          ? "Reminder gagal dimasukkan kembali ke antrean."
+          : "Pengiriman reminder tertunda dilanjutkan.",
+      );
+      await load();
+    } catch (reminderError) {
+      setError(reminderError instanceof Error ? reminderError.message : "Gagal memulai reminder.");
+    } finally {
+      setStartingReminder(null);
     }
   }
 
@@ -130,17 +221,6 @@ export function ElectionDetailClient({
         Kembali ke Elections
       </Link>
 
-      {error ? (
-        <Alert tone="danger" title="Aksi tidak bisa diproses">
-          {error}
-        </Alert>
-      ) : null}
-      {notice ? (
-        <Alert tone="success" title="Berhasil">
-          {notice}
-        </Alert>
-      ) : null}
-
       <section className="rounded-lg border border-red-100 bg-white p-5 shadow-sm shadow-red-950/5">
         <AdminPageHeader
           eyebrow="Detail election"
@@ -160,6 +240,129 @@ export function ElectionDetailClient({
           {election.mode === "WEIGHTED_FIVE" ? (
             <span className="text-neutral-600">OSIS 40% · MPK 30% · GURU 30%</span>
           ) : null}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-red-100 bg-white p-5 shadow-sm shadow-red-950/5">
+        <div className="flex flex-col gap-3 border-b border-neutral-200 pb-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-neutral-950">Email Token dan Reminder</h3>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-neutral-500">
+              Edit subjek dan pesan pembuka untuk election ini. Bagian penting email tetap
+              ditambahkan otomatis dan terlihat pada pratinjau lengkap di bawah form.
+            </p>
+            <p className="mt-2 text-xs font-medium text-neutral-500">{EMAIL_TEMPLATE_HELP}</p>
+          </div>
+          {canManage && !["CLOSED", "ARCHIVED"].includes(election.status) ? (
+            <button
+              type="button"
+              onClick={() => void saveEmailTemplates()}
+              disabled={savingTemplates}
+              className="h-10 shrink-0 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-50"
+            >
+              {savingTemplates ? "Menyimpan..." : "Simpan Template"}
+            </button>
+          ) : null}
+        </div>
+
+        <fieldset
+          disabled={!canManage || ["CLOSED", "ARCHIVED"].includes(election.status)}
+          className="mt-5 grid gap-6 lg:grid-cols-2 disabled:opacity-70"
+        >
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold uppercase text-[var(--color-primary-700)]">
+              Email token awal
+            </h4>
+            <TemplateField
+              label="Subjek email (editable)"
+              value={emailTemplates.tokenEmailSubject}
+              onChange={(value) =>
+                setEmailTemplates((current) => ({ ...current, tokenEmailSubject: value }))
+              }
+              maxLength={200}
+            />
+            <TemplateField
+              label="Pesan pembuka (editable)"
+              value={emailTemplates.tokenEmailMessage}
+              onChange={(value) =>
+                setEmailTemplates((current) => ({ ...current, tokenEmailMessage: value }))
+              }
+              multiline
+              maxLength={4000}
+            />
+            <EmailPreview
+              kind="TOKEN"
+              subject={emailTemplates.tokenEmailSubject}
+              message={emailTemplates.tokenEmailMessage}
+              electionTitle={election.title}
+            />
+          </div>
+          <div className="space-y-4 lg:border-l lg:border-neutral-200 lg:pl-6">
+            <h4 className="text-sm font-semibold uppercase text-[var(--color-primary-700)]">
+              Reminder saat voting dibuka
+            </h4>
+            <TemplateField
+              label="Subjek email (editable)"
+              value={emailTemplates.reminderEmailSubject}
+              onChange={(value) =>
+                setEmailTemplates((current) => ({ ...current, reminderEmailSubject: value }))
+              }
+              maxLength={200}
+            />
+            <TemplateField
+              label="Pesan pembuka (editable)"
+              value={emailTemplates.reminderEmailMessage}
+              onChange={(value) =>
+                setEmailTemplates((current) => ({ ...current, reminderEmailMessage: value }))
+              }
+              multiline
+              maxLength={4000}
+            />
+            <EmailPreview
+              kind="REMINDER"
+              subject={emailTemplates.reminderEmailSubject}
+              message={emailTemplates.reminderEmailMessage}
+              electionTitle={election.title}
+            />
+          </div>
+        </fieldset>
+
+        <div className="mt-6 border-t border-neutral-200 pt-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <h4 className="text-sm font-semibold text-neutral-950">Status reminder</h4>
+              <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                <ReminderStat label="Layak" value={election.reminderSummary.eligible} />
+                <ReminderStat label="Antre" value={election.reminderSummary.pending} />
+                <ReminderStat label="Terkirim" value={election.reminderSummary.sent} />
+                <ReminderStat label="Gagal" value={election.reminderSummary.failed} danger />
+              </div>
+              <p className="mt-3 text-xs text-neutral-500">
+                Hanya pemilih yang sudah menerima email token dan belum voting yang diingatkan.
+                Reminder otomatis dimulai saat election pertama kali dibuka.
+              </p>
+            </div>
+            {canManage && election.status === "OPEN" ? (
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => void startReminder("PENDING")}
+                  disabled={startingReminder !== null || election.reminderSummary.pending === 0}
+                  className="h-10 rounded-lg border border-neutral-300 px-4 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                >
+                  {startingReminder === "PENDING" ? "Memulai..." : "Lanjutkan Antrean"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void startReminder("FAILED")}
+                  disabled={startingReminder !== null || election.reminderSummary.failed === 0}
+                  className="h-10 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-50"
+                >
+                  {startingReminder === "FAILED" ? "Mengantrekan..." : "Retry Reminder Gagal"}
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </section>
 
@@ -291,6 +494,10 @@ export function ElectionDetailClient({
                 Sistem hanya mengizinkan satu election berstatus OPEN atau PAUSED. Jika masih ada
                 election lain yang aktif, tutup atau arsipkan dulu election tersebut sebelum membuka
                 voting ini.
+                <span className="mt-2 block">
+                  Setelah berhasil dibuka, sistem otomatis mengirim reminder kepada pemilih yang
+                  sudah menerima token dan belum memberikan suara.
+                </span>
               </Alert>
             </div>
           ) : null}
@@ -312,6 +519,17 @@ export function ElectionDetailClient({
           </div>
         </Modal>
       ) : null}
+
+      {error || notice ? (
+        <ActionToast
+          tone={error ? "danger" : "success"}
+          message={error ?? notice ?? ""}
+          onClose={() => {
+            setError(null);
+            setNotice(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -321,6 +539,175 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg border border-red-100 bg-white p-5 shadow-sm shadow-red-950/5">
       <p className="text-sm font-medium text-neutral-500">{label}</p>
       <p className="mt-3 text-3xl font-bold text-neutral-950">{value}</p>
+    </div>
+  );
+}
+
+function TemplateField({
+  label,
+  value,
+  onChange,
+  maxLength,
+  multiline = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  maxLength: number;
+  multiline?: boolean;
+}) {
+  const className =
+    "mt-2 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-950 outline-none focus:border-[var(--color-vote-primary)] focus:ring-2 focus:ring-red-100";
+  return (
+    <label className="block text-sm font-medium text-neutral-700">
+      {label}
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          maxLength={maxLength}
+          rows={6}
+          className={`${className} resize-y`}
+        />
+      ) : (
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          maxLength={maxLength}
+          className={className}
+        />
+      )}
+      <span className="mt-1 block text-right text-xs text-neutral-400">
+        {value.length}/{maxLength}
+      </span>
+    </label>
+  );
+}
+
+function ReminderStat({
+  label,
+  value,
+  danger = false,
+}: {
+  label: string;
+  value: number;
+  danger?: boolean;
+}) {
+  return (
+    <span className={danger && value > 0 ? "font-semibold text-red-700" : "text-neutral-600"}>
+      {label}: <strong>{value}</strong>
+    </span>
+  );
+}
+
+function EmailPreview({
+  kind,
+  subject,
+  message,
+  electionTitle,
+}: {
+  kind: "TOKEN" | "REMINDER";
+  subject: string;
+  message: string;
+  electionTitle: string;
+}) {
+  const values = { name: "Nama Pemilih", election: electionTitle };
+  const renderedSubject = renderTemplatePreview(subject, values);
+  const renderedMessage = renderTemplatePreview(message, values);
+
+  return (
+    <div className="border border-neutral-200 bg-neutral-50" aria-label="Pratinjau email lengkap">
+      <div className="flex items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3">
+        <div>
+          <p className="text-xs font-semibold uppercase text-neutral-500">
+            Pratinjau email lengkap
+          </p>
+          <p className="mt-1 break-words text-sm font-semibold text-neutral-900">
+            {renderedSubject || "Subjek email"}
+          </p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-neutral-500">
+          <LockKeyhole aria-hidden="true" className="size-3.5" />
+          Struktur aman
+        </span>
+      </div>
+      <div className="space-y-4 p-4 text-sm leading-6 text-neutral-700">
+        <p className="whitespace-pre-line">{renderedMessage || "Pesan pembuka admin"}</p>
+        <div className="border-l-2 border-neutral-300 pl-3">
+          <p className="text-xs font-semibold uppercase text-neutral-500">Ditambahkan sistem</p>
+          <p className="mt-2">
+            <strong>Token:</strong>{" "}
+            <code className="rounded bg-neutral-200 px-1.5 py-0.5 font-semibold text-neutral-950">
+              ABCD-EFGH-1234
+            </code>
+          </p>
+          <span className="mt-3 inline-flex min-h-10 items-center bg-[var(--color-vote-primary)] px-4 font-semibold text-white">
+            {kind === "REMINDER" ? "Buka Voting Sekarang" : "Buka Voting dan Isi Token Otomatis"}
+          </span>
+          <p className="mt-3 break-all text-xs text-sky-700 underline">
+            https://domain-pilketos.example/vote?token=...
+          </p>
+          <p className="mt-3 text-xs text-neutral-600">
+            Token hanya bisa dipakai satu kali. Jangan bagikan token kepada orang lain.
+          </p>
+          <div className="mt-3 border-t border-neutral-200 pt-3">
+            <p className="font-semibold text-neutral-800">Link atau website bermasalah?</p>
+            <span className="mt-2 inline-flex min-h-9 items-center bg-emerald-600 px-3 text-xs font-semibold text-white">
+              Hubungi Admin via WhatsApp
+            </span>
+            <p className="mt-2 text-xs text-neutral-500">
+              Ditampilkan jika nomor WhatsApp support dikonfigurasi.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function renderTemplatePreview(template: string, values: { name: string; election: string }) {
+  return template.replace(/{{\s*(name|election)\s*}}/gi, (_match, key: string) => {
+    return key.toLowerCase() === "name" ? values.name : values.election;
+  });
+}
+
+function ActionToast({
+  tone,
+  message,
+  onClose,
+}: {
+  tone: "success" | "danger";
+  message: string;
+  onClose: () => void;
+}) {
+  const success = tone === "success";
+  const Icon = success ? CheckCircle2 : AlertTriangle;
+  return (
+    <div
+      role={success ? "status" : "alert"}
+      aria-live={success ? "polite" : "assertive"}
+      className={`fixed bottom-4 left-4 right-4 z-[70] border p-4 shadow-xl sm:left-auto sm:right-6 sm:max-w-md ${
+        success
+          ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+          : "border-red-200 bg-red-50 text-red-950"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <Icon aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">{success ? "Berhasil" : "Aksi tidak dapat diproses"}</p>
+          <p className="mt-1 break-words text-sm leading-5">{message}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          title="Tutup notifikasi"
+          aria-label="Tutup notifikasi"
+          className="inline-flex size-8 shrink-0 items-center justify-center hover:bg-black/5"
+        >
+          <X aria-hidden="true" className="size-4" />
+        </button>
+      </div>
     </div>
   );
 }

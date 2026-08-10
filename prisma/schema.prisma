@@ -34,6 +34,7 @@ enum AuditAction {
   ADMIN_LOGIN_SUCCESS
   ADMIN_LOGIN_FAILED
   ELECTION_CREATED
+  ELECTION_EMAIL_TEMPLATE_UPDATED
   ELECTION_STATUS_CHANGED
   ELECTION_DELETED
   CANDIDATE_CREATED
@@ -42,6 +43,7 @@ enum AuditAction {
   TOKEN_BATCH_GENERATED
   TOKEN_BATCH_EXPORTED
   TOKEN_EMAIL_RETRIED
+  TOKEN_REMINDER_SENT
   VOTE_CAST
   BACKUP_RESTORED
 }
@@ -90,6 +92,12 @@ model Election {
   googleSheetsSpreadsheetId String?        @map("google_sheets_spreadsheet_id") @db.VarChar(128)
   googleSheetsSyncedAt      DateTime?      @map("google_sheets_synced_at") @db.Timestamptz(6)
   googleSheetsSyncError     String?        @map("google_sheets_sync_error") @db.Text
+  tokenEmailSubject         String?        @map("token_email_subject") @db.VarChar(200)
+  tokenEmailMessage         String?        @map("token_email_message") @db.Text
+  reminderEmailSubject      String?        @map("reminder_email_subject") @db.VarChar(200)
+  reminderEmailMessage      String?        @map("reminder_email_message") @db.Text
+  reminderQueuedAt          DateTime?      @map("reminder_queued_at") @db.Timestamptz(6)
+  reminderCompletedAt       DateTime?      @map("reminder_completed_at") @db.Timestamptz(6)
   createdById               String         @map("created_by")
   createdAt                 DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                 DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -133,6 +141,8 @@ model VotingToken {
   studentEmail      String?    @map("student_email") @db.VarChar(255)
   emailSentAt       DateTime?  @map("email_sent_at") @db.Timestamptz(6)
   emailError        String?    @map("email_error") @db.Text
+  reminderSentAt    DateTime?  @map("reminder_sent_at") @db.Timestamptz(6)
+  reminderError     String?    @map("reminder_error") @db.Text
   usedAt            DateTime?  @map("used_at") @db.Timestamptz(6)
   createdById       String     @map("created_by")
   createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -144,6 +154,7 @@ model VotingToken {
   @@index([electionId], map: "idx_voting_token_election_id")
   @@index([electionId, usedAt], map: "idx_voting_token_election_used_at")
   @@index([electionId, studentEmail], map: "idx_voting_token_election_student_email")
+  @@index([electionId, reminderSentAt], map: "idx_voting_token_election_reminder_sent_at")
   @@index([createdById], map: "idx_voting_token_created_by")
 }
 

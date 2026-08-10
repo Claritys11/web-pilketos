@@ -75,6 +75,12 @@ batas pengiriman harian akun dan menaikkannya tidak membuat kuota harian bertamb
 Sebelum mengirim batch production, siapkan autentikasi domain dan cek deliverability sesuai
 [`12_EMAIL_DELIVERABILITY.md`](12_EMAIL_DELIVERABILITY.md).
 
+Template email per election dan reminder otomatis tidak membutuhkan environment variable baru.
+Keduanya memakai konfigurasi Gmail/SMTP, `NEXT_PUBLIC_APP_URL`, rate, dan batch size yang sama.
+Service `migrate` akan menambahkan kolom reminder saat redeploy. Election yang sudah terlanjur
+berstatus `OPEN` sebelum upgrade tidak mengirim reminder secara mendadak; mulai antreannya dari
+ringkasan election dengan tombol `Lanjutkan Antrean`.
+
 Refresh token harus dibuat dari script terbaru dan memiliki scope `gmail.send`, `spreadsheets`, dan
 `drive.file`. Refresh token lama yang hanya memiliki `gmail.send` tetap dapat mengirim email, tetapi
 tidak dapat membuat spreadsheet.

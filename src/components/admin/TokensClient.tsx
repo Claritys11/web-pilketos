@@ -55,6 +55,8 @@ interface TokenMetadata {
   voterType: VoterType | null;
   emailSentAt: string | null;
   emailError: string | null;
+  reminderSentAt: string | null;
+  reminderError: string | null;
   usedAt: string | null;
   createdAt: string;
 }
@@ -474,6 +476,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                 <th className="px-5 py-3">Email</th>
                 <th className="px-5 py-3">Status</th>
                 <th className="px-5 py-3">Email token</th>
+                <th className="px-5 py-3">Reminder</th>
                 <th className="px-5 py-3">Dipakai pada</th>
                 <th className="px-5 py-3 text-right">Aksi</th>
               </tr>
@@ -519,6 +522,16 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                         </p>
                       ) : null}
                     </td>
+                    <td className="px-5 py-3">
+                      <Badge tone={reminderTone(token)}>
+                        {reminderLabel(token, election?.status ?? "SETUP")}
+                      </Badge>
+                      {token.reminderError && !token.usedAt ? (
+                        <p className="mt-1 max-w-64 truncate text-xs text-red-600">
+                          {token.reminderError}
+                        </p>
+                      ) : null}
+                    </td>
                     <td className="px-5 py-3 text-neutral-500">{formatDateTime(token.usedAt)}</td>
                     <td className="px-5 py-3 text-right">
                       {token.emailSentAt && token.studentEmail && !token.usedAt ? (
@@ -541,7 +554,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
               ) : (
                 <tr>
                   <td
-                    colSpan={weightedMode ? 9 : 10}
+                    colSpan={weightedMode ? 10 : 11}
                     className="px-5 py-8 text-center text-neutral-500"
                   >
                     Belum ada token yang cocok dengan filter.
@@ -964,6 +977,41 @@ function emailTone(token: TokenMetadata) {
   }
 
   return "neutral";
+}
+
+function reminderTone(token: TokenMetadata) {
+  if (token.reminderSentAt) {
+    return "success";
+  }
+
+  if (token.usedAt) {
+    return "neutral";
+  }
+
+  if (token.reminderError) {
+    return "danger";
+  }
+
+  return "neutral";
+}
+
+function reminderLabel(token: TokenMetadata, electionStatus: ElectionDetail["status"]) {
+  if (token.reminderSentAt) {
+    return "Terkirim";
+  }
+  if (token.usedAt) {
+    return "Tidak perlu";
+  }
+  if (!token.emailSentAt) {
+    return "Belum tersedia";
+  }
+  if (token.reminderError) {
+    return "Gagal";
+  }
+  if (electionStatus === "OPEN") {
+    return "Antre";
+  }
+  return "Belum";
 }
 
 function formatDateTime(value: string | null) {

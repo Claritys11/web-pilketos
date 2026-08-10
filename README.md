@@ -144,6 +144,9 @@ refresh token lama.
 Email token berisi tombol voting ke `/vote?token=...`, sehingga token otomatis terisi di halaman
 voting dan pemilih tinggal menekan lanjut. Jika `SUPPORT_WHATSAPP_NUMBER` diisi, email juga
 menampilkan tombol WhatsApp untuk melaporkan link atau website yang bermasalah.
+Template subjek/pesan dapat diubah per election dari halaman ringkasan. Saat election baru pertama
+kali dibuka, sistem otomatis mengirim reminder rate-limited kepada penerima token yang belum voting.
+Fitur ini tidak membutuhkan environment variable tambahan.
 
 Untuk menyiapkan custom-domain sender, SPF, DKIM, DMARC, kuota Gmail, dan pemeriksaan Spam, ikuti
 [`docs/12_EMAIL_DELIVERABILITY.md`](docs/12_EMAIL_DELIVERABILITY.md). Nilai 50 email/menit sudah
@@ -563,9 +566,12 @@ Alur setup pemilihan:
     status email token.
 14. Kembali ke detail election, klik `Tandai Siap`.
 15. Saat voting dimulai, klik `Buka Voting`.
-16. Siswa membuka `/vote`, memasukkan token, memilih kandidat, lalu mengirim suara.
-17. Pantau hasil masuk di `/admin/dashboard`.
-18. Setelah selesai, ubah status election ke `CLOSED`, lalu `ARCHIVED` jika hasil sudah disahkan.
+16. Pembukaan pertama otomatis mengantrekan reminder untuk penerima token yang belum voting. Pantau
+    statusnya pada ringkasan election dan lanjutkan/retry dari sana jika diperlukan.
+17. Siswa membuka `/vote`, melihat election yang sedang aktif, memasukkan token, memilih kandidat,
+    lalu mengirim suara. Jika belum ada election `OPEN`, halaman menampilkan status belum aktif.
+18. Pantau hasil masuk di `/admin/dashboard`.
+19. Setelah selesai, ubah status election ke `CLOSED`, lalu `ARCHIVED` jika hasil sudah disahkan.
 
 Catatan token:
 
@@ -575,6 +581,10 @@ Catatan token:
   menyimpan kandidat yang dipilih oleh pemilih tersebut.
 - Email siswa disimpan untuk distribusi dan pengecekan status. `email_sent_at` dan `email_error`
   membantu operator melihat token mana yang terkirim atau gagal dikirim.
+- Template subjek/pesan token dan reminder dapat disunting per election. Token, tombol voting,
+  peringatan keamanan, dan kontak bantuan tetap ditambahkan oleh sistem.
+- Status reminder disimpan terpisah di `reminder_sent_at` dan `reminder_error`; reminder otomatis
+  tidak dikirim kepada token yang sudah dipakai.
 - Jika Google Sheets sync aktif, kolom status token akan berubah dari `BELUM_VOTING` ke
   `SUDAH_VOTING` setelah pemilih mengirim suara.
 - Jika email gagal, retry dari dashboard selama token belum dipakai dan ciphertext masih tersedia.

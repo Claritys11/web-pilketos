@@ -344,6 +344,16 @@ GET /api/admin/elections?filterBy[status]=OPEN
 
 ---
 
+### V-00 — Active Election
+
+**`GET /api/vote/active-election`**
+
+Mengembalikan ringkasan election berstatus `OPEN` untuk ditampilkan pada `/vote`. Response `data`
+bernilai `null` jika belum ada voting aktif. Endpoint publik ini hanya mengembalikan ID, judul,
+deskripsi, mode, dan waktu dibuka; kandidat serta data pemilih tidak disertakan.
+
+---
+
 ### V-01 — Validate Token
 
 **`POST /api/vote/validate-token`**
@@ -918,6 +928,8 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 | 401         | `UNAUTHORIZED`       | Tidak terautentikasi                   |
 
 **Notes:** `participationRate` dihitung sebagai `(used / total) * 100`, dibulatkan ke 1 desimal.
+Response juga memuat template email dan `reminderSummary` (`eligible`, `pending`, `sent`, `failed`)
+untuk panel operasi admin.
 
 **PRD Reference:** §6, §8
 **DB Tables:** `Election`, `Candidate`, `VotingToken`
@@ -1001,14 +1013,29 @@ Set-Cookie: next-auth.session-token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Pat
 
 1. Transisi hanya bisa maju (kecuali OPEN ↔ PAUSED). _(PRD §6)_
 2. Saat transisi ke `OPEN`: set `openedAt = now()`.
-3. Saat transisi ke `CLOSED`: set `closedAt = now()`.
-4. Transisi dieksekusi dalam database transaction bersama insert AuditLog. _(DB TX-2)_
+3. Saat pertama kali transisi ke `OPEN`, set `reminderQueuedAt` dan mulai antrean background untuk
+   token yang email awalnya terkirim serta belum dipakai. Transisi `PAUSED -> OPEN` hanya melanjutkan
+   antrean tersisa dan tidak mengirim ulang reminder sukses.
+4. Saat transisi ke `CLOSED`: set `closedAt = now()`.
+5. Transisi dieksekusi dalam database transaction bersama insert AuditLog. _(DB TX-2)_
 
 **Audit Logging:** `ELECTION_STATUS_CHANGED` dengan `metadata: { from: "SETUP", to: "READY" }`.
 
 **PRD Reference:** §6 (State Machine)
 **DB Tables:** `Election`, `AuditLog`
 **DB Transaction:** TX-2
+
+---
+
+### E-04b — Update Election Email Templates
+
+**`PATCH /api/admin/elections/[id]`**
+
+Menyimpan `tokenEmailSubject`, `tokenEmailMessage`, `reminderEmailSubject`, dan
+`reminderEmailMessage`. Subjek maksimal 200 karakter tanpa newline; pesan maksimal 4.000 karakter.
+Placeholder yang didukung adalah `{{name}}` dan `{{election}}`. Sistem selalu menambahkan token,
+link voting, peringatan keamanan, dan kontak bantuan di luar pesan editable. Ditolak untuk election
+`CLOSED` atau `ARCHIVED`. Audit action: `ELECTION_EMAIL_TEMPLATE_UPDATED`.
 
 ---
 
@@ -1670,7 +1697,25 @@ election sudah `CLOSED`/`ARCHIVED`.
 
 ---
 
-### T-03 — List Token Metadata
+### T-04 — Start or Retry Election Reminders
+
+**`POST /api/admin/tokens/reminder`**
+
+```json
+{
+  "electionId": "clxxx...",
+  "mode": "PENDING"
+}
+```
+
+`PENDING` melanjutkan antrean yang belum diproses. `FAILED` membersihkan error reminder token yang
+belum dipakai lalu mengantrekannya kembali. Endpoint hanya menerima election `OPEN`, mengembalikan
+`202 Accepted`, dan melanjutkan pengiriman rate-limited di background. Audit action per batch:
+`TOKEN_REMINDER_SENT`.
+
+---
+
+### T-05 — List Token Metadata
 
 **`GET /api/admin/tokens`**
 

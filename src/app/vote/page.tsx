@@ -24,11 +24,22 @@ interface ValidateTokenData {
   electionTitle: string;
 }
 
+interface ActiveElectionData {
+  id: string;
+  title: string;
+  description: string | null;
+  mode: "STANDARD" | "WEIGHTED_FIVE";
+  openedAt: string | null;
+}
+
 export default function VoteTokenPage() {
   const router = useRouter();
   const [token, setToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeElection, setActiveElection] = useState<ActiveElectionData | null>(null);
+  const [activeElectionLoading, setActiveElectionLoading] = useState(true);
+  const [activeElectionError, setActiveElectionError] = useState<string | null>(null);
 
   useEffect(() => {
     const tokenParam = new URLSearchParams(window.location.search).get("token");
@@ -37,9 +48,47 @@ export default function VoteTokenPage() {
     }
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadActiveElection() {
+      try {
+        const response = await fetch("/api/vote/active-election", { cache: "no-store" });
+        const result = (await response.json()) as ApiResponse<ActiveElectionData | null>;
+        if (!response.ok || !result.success) {
+          throw new Error(result.error?.message ?? "Status voting tidak dapat dimuat.");
+        }
+        if (active) {
+          setActiveElection(result.data ?? null);
+          setActiveElectionError(null);
+        }
+      } catch {
+        if (active) {
+          setActiveElectionError("Status voting tidak dapat diperiksa. Coba muat ulang halaman.");
+        }
+      } finally {
+        if (active) {
+          setActiveElectionLoading(false);
+        }
+      }
+    }
+
+    void loadActiveElection();
+    const interval = window.setInterval(() => void loadActiveElection(), 15000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedToken = normalizeToken(token);
+
+    if (!activeElection) {
+      setError("Belum ada voting yang aktif.");
+      return;
+    }
 
     if (normalizedToken.length < 8) {
       setError("Token minimal 8 karakter.");
@@ -129,6 +178,42 @@ export default function VoteTokenPage() {
               Masukkan token
             </h2>
           </div>
+          <div
+            className={`mb-6 border-l-4 px-4 py-3 text-sm ${
+              activeElection
+                ? "border-emerald-500 bg-emerald-50 text-emerald-900"
+                : activeElectionError
+                  ? "border-red-500 bg-red-50 text-red-800"
+                  : "border-amber-500 bg-amber-50 text-amber-900"
+            }`}
+            role="status"
+          >
+            {activeElectionLoading ? (
+              <p className="font-semibold">Memeriksa status voting...</p>
+            ) : activeElection ? (
+              <div>
+                <p className="text-xs font-semibold uppercase text-emerald-700">Sedang aktif</p>
+                <p className="mt-1 font-bold">{activeElection.title}</p>
+                {activeElection.description ? (
+                  <p className="mt-1 leading-5 text-emerald-800">{activeElection.description}</p>
+                ) : null}
+                {activeElection.openedAt ? (
+                  <p className="mt-2 text-xs text-emerald-700">
+                    Dibuka {new Date(activeElection.openedAt).toLocaleString("id-ID")}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div>
+                <p className="font-semibold">
+                  {activeElectionError ?? "Belum ada voting yang aktif saat ini."}
+                </p>
+                {!activeElectionError ? (
+                  <p className="mt-1 leading-5">Halaman akan memperbarui status secara otomatis.</p>
+                ) : null}
+              </div>
+            )}
+          </div>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="token" className="text-sm font-semibold text-neutral-800">
@@ -145,6 +230,7 @@ export default function VoteTokenPage() {
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
+                disabled={!activeElection || activeElectionLoading}
                 placeholder="CONTOH12345"
                 className={`mt-2 h-14 w-full rounded-lg border px-4 font-mono text-lg font-semibold text-neutral-950 outline-none transition focus:ring-2 focus:ring-[var(--color-vote-primary)] ${
                   error ? "border-red-500 bg-red-50" : "border-red-100 bg-neutral-50"
@@ -155,7 +241,7 @@ export default function VoteTokenPage() {
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !activeElection || activeElectionLoading}
               className="h-14 w-full rounded-lg bg-[var(--color-vote-primary)] px-6 text-base font-semibold text-white shadow-sm transition hover:bg-[var(--color-primary-700)] focus:outline-none focus:ring-2 focus:ring-[var(--color-vote-primary)] focus:ring-offset-2 disabled:opacity-60"
             >
               {isSubmitting ? "Memvalidasi..." : "Lanjut"}
