@@ -1393,7 +1393,7 @@ link voting, peringatan keamanan, dan kontak bantuan di luar pesan editable. Dit
 
 | Field   | Rule                                                                                       |
 | ------- | ------------------------------------------------------------------------------------------ |
-| `photo` | Required; file; MIME type harus `image/jpeg`, `image/png`, atau `image/webp`; max size 2MB |
+| `photo` | Required; file; MIME type harus `image/jpeg`, `image/png`, atau `image/webp`; max size 5MB |
 
 **Success Response — `200 OK`:**
 
@@ -1413,7 +1413,7 @@ link voting, peringatan keamanan, dan kontak bantuan di luar pesan editable. Dit
 | ----------- | ---------------------- | ----------------------------- |
 | 400         | `VALIDATION_ERROR`     | File tidak disertakan         |
 | 400         | `INVALID_FILE_TYPE`    | MIME type bukan JPEG/PNG/WebP |
-| 400         | `FILE_TOO_LARGE`       | File > 2MB                    |
+| 400         | `FILE_TOO_LARGE`       | File > 5MB                    |
 | 404         | `CANDIDATE_NOT_FOUND`  | Kandidat tidak ditemukan      |
 | 422         | `ELECTION_WRONG_STATE` | Election bukan `SETUP`        |
 | 500         | `PHOTO_UPLOAD_FAILED`  | Storage service error         |

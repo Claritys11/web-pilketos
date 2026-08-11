@@ -2162,7 +2162,7 @@ Seluruh icon menggunakan **Lucide Icons** (SVG, stroke-based). Size default: 20p
 | Aspect Ratio         | 1:1 (square) — crop center                                              |
 | Display size         | 80×80px (card), 200×200px (modal detail)                                |
 | Minimum upload       | 200×200px                                                               |
-| Maximum upload       | 2MB                                                                     |
+| Maximum upload       | 5MB                                                                     |
 | Format yang diterima | JPEG, PNG, WebP                                                         |
 | Output format        | WebP (dikonversi server-side jika memungkinkan)                         |
 | Cropping             | Center crop otomatis; tidak ada manual cropping di v1                   |
@@ -2194,7 +2194,7 @@ Warna background ditentukan secara deterministik dari hash nama (konsisten per k
 | [Upload icon, 32px]                    |
 |                                        |
 | Klik untuk upload atau drag & drop     |
-| JPEG, PNG, WebP · Max 2MB              |
+| JPEG, PNG, WebP · Max 5MB              |
 +----------------------------------------+
 ```
 
@@ -2223,7 +2223,7 @@ Warna background ditentukan secara deterministik dari hash nama (konsisten per k
 | Rule                | Pesan Error                                                                            |
 | ------------------- | -------------------------------------------------------------------------------------- |
 | Bukan JPEG/PNG/WebP | "Format file tidak didukung. Gunakan JPEG, PNG, atau WebP."                            |
-| > 2MB               | "Ukuran file terlalu besar. Maksimal 2MB."                                             |
+| > 5MB               | "Ukuran file terlalu besar. Maksimal 5MB."                                             |
 | Dimensi < 200×200   | "Foto terlalu kecil. Minimal 200×200 piksel." (opsional, jika bisa detect client-side) |
 
 ---
