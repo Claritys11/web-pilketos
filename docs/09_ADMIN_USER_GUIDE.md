@@ -130,7 +130,9 @@ election dapat ditandai `READY`.
 
 Header Excel/CSV yang dikenali: `student_identifier`/`nis`/`id`, `student_name`/`nama`,
 `student_class`/`kelas`/`jabatan`, `student_email`/`email`, dan `voter_type`/`role`/`tipe`.
-Pemisah manual boleh koma, titik koma, atau tab. ID tidak boleh duplikat dalam satu election.
+Mode berbobot juga menerima CSV tanpa header dengan urutan `nama,kelas,email,role`, termasuk file
+`pilketos_voters_formatted.csv`. Field yang mengandung koma harus mengikuti aturan CSV dan dibungkus
+tanda kutip ganda. Pemisah manual boleh koma, titik koma, atau tab. ID tidak boleh duplikat dalam satu election.
 Email bersifat opsional per baris, tetapi token hanya dikirim otomatis untuk pemilih yang punya email.
 Jika Google Sheets sync aktif, metadata pemilih, status email, dan status sudah/belum voting juga
 masuk ke spreadsheet. Pilihan kandidat tidak pernah dikirim ke spreadsheet.

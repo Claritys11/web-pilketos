@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
+import Papa from "papaparse";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 
@@ -299,7 +300,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
       setImportMessage(null);
       const parsedRows =
         file.name.toLowerCase().endsWith(".csv") || file.name.toLowerCase().endsWith(".tsv")
-          ? parseStudents(await file.text(), weightedMode)
+          ? parseStudents(await file.text(), weightedMode, true)
           : await parseExcelFile(file, weightedMode);
 
       if (parsedRows.length === 0) {
@@ -607,9 +608,10 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                   />
                   <span className="mt-2 block text-xs font-medium text-neutral-500">
                     {weightedMode
-                      ? "Header: nama, kelas, email, role. Role wajib OSIS/MPK/GURU; kelas tidak perlu untuk GURU; NIS/ID tidak digunakan."
+                      ? "Kolom: nama, kelas, email, role. Header boleh ada atau tidak. Role wajib OSIS/MPK/GURU; kelas tidak perlu untuk GURU; NIS/ID tidak digunakan."
                       : "Header: student_identifier/nis/id, student_name/nama, student_class/kelas, student_email/email, voter_type/role. Role SISWA/GURU."}{" "}
-                    Email dikirim bertahap mengikuti batas server.
+                    CSV dengan koma di dalam nama atau jabatan didukung. Email dikirim bertahap
+                    mengikuti batas server.
                   </span>
                   <a
                     href={`/api/admin/tokens/import-template?mode=${weightedMode ? "WEIGHTED_FIVE" : "STANDARD"}`}
@@ -799,41 +801,68 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function parseStudents(value: string, weightedMode: boolean): ParsedStudent[] {
-  return value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => line.split(/\t|;|,/).map((cell) => cell.trim()))
-    .filter((cells) => {
-      const firstCell = cells[0]?.toLowerCase();
-      return (
-        cells.length >= 2 &&
-        firstCell !== "student_identifier" &&
-        firstCell !== "nis" &&
-        firstCell !== "student_name" &&
-        firstCell !== "nama"
-      );
-    })
-    .reduce<ParsedStudent[]>((students, cells) => {
-      const [studentIdentifier, studentName, studentClass, studentEmail, voterType] = weightedMode
-        ? [undefined, cells[0], cells[1], cells[2], cells[3]]
-        : cells;
+export function parseStudents(
+  value: string,
+  weightedMode: boolean,
+  strict = false,
+): ParsedStudent[] {
+  const result = Papa.parse<string[]>(value.replace(/^\uFEFF/, ""), {
+    skipEmptyLines: "greedy",
+    transform: (cell) => cell.trim(),
+  });
 
-      if ((!weightedMode && !studentIdentifier) || !studentName) {
-        return students;
-      }
+  if (strict && result.errors.length > 0) {
+    const firstError = result.errors[0];
+    const row = firstError?.row === undefined ? "" : ` pada baris ${firstError.row + 1}`;
+    throw new Error(`Format CSV tidak valid${row}: ${firstError?.message ?? "gagal dibaca"}.`);
+  }
 
-      students.push({
-        ...(studentIdentifier ? { studentIdentifier } : {}),
-        studentName,
-        ...(studentClass ? { studentClass } : {}),
-        ...(studentEmail ? { studentEmail } : {}),
-        voterType: normalizeVoterType(voterType, weightedMode),
-      });
+  const rows = result.data.filter((cells) => cells.some(Boolean));
+  const firstRow = rows[0];
+  if (!firstRow) {
+    return [];
+  }
 
+  if (isVoterHeaderRow(firstRow)) {
+    const headers = firstRow.map(normalizeHeader);
+    return rows
+      .slice(1)
+      .map((row) =>
+        parseSpreadsheetRow(
+          Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])),
+          weightedMode,
+        ),
+      )
+      .filter((row) => row !== null);
+  }
+
+  return rows.reduce<ParsedStudent[]>((students, cells) => {
+    const [studentIdentifier, studentName, studentClass, studentEmail, voterType] = weightedMode
+      ? [undefined, cells[0], cells[1], cells[2], cells[3]]
+      : cells;
+
+    if ((!weightedMode && !studentIdentifier) || !studentName) {
       return students;
-    }, []);
+    }
+
+    students.push({
+      ...(studentIdentifier ? { studentIdentifier } : {}),
+      studentName,
+      ...(studentClass ? { studentClass } : {}),
+      ...(studentEmail ? { studentEmail } : {}),
+      voterType: normalizeVoterType(voterType, weightedMode),
+    });
+
+    return students;
+  }, []);
+}
+
+function isVoterHeaderRow(row: string[]) {
+  const headers = new Set(row.map(normalizeHeader));
+  return (
+    ["student_name", "nama", "name"].some((header) => headers.has(header)) &&
+    ["student_email", "email", "mail"].some((header) => headers.has(header))
+  );
 }
 
 function parseSpreadsheetRow(
@@ -903,19 +932,19 @@ function pickValue(row: Record<string, string>, keys: string[]) {
   return undefined;
 }
 
-function formatStudentLine(student: ParsedStudent) {
+export function formatStudentLine(student: ParsedStudent) {
   const voterType = voterTypeLabel(student.voterType).toUpperCase();
-  return student.studentIdentifier
+  const cells = student.studentIdentifier
     ? [
         student.studentIdentifier,
         student.studentName,
         student.studentClass ?? "",
         student.studentEmail ?? "",
         voterType,
-      ].join(",")
-    : [student.studentName, student.studentClass ?? "", student.studentEmail ?? "", voterType].join(
-        ",",
-      );
+      ]
+    : [student.studentName, student.studentClass ?? "", student.studentEmail ?? "", voterType];
+
+  return Papa.unparse([cells], { newline: "\n" });
 }
 
 function statusLabel(status: TokenStatusFilter) {
