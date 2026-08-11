@@ -167,6 +167,14 @@ export const tokenEmailDeliverySchema = electionIdBodySchema
 
 export const adminRoleSchema = z.enum(["SUPER_ADMIN", "ADMIN", "VIEWER"]);
 
+export const adminPasswordSchema = z
+  .string()
+  .min(8, "Password minimal 8 karakter.")
+  .max(128, "Password maksimal 128 karakter.")
+  .regex(/[a-z]/, "Password harus memiliki huruf kecil.")
+  .regex(/[A-Z]/, "Password harus memiliki huruf besar.")
+  .regex(/[0-9]/, "Password harus memiliki angka.");
+
 export const adminListQuerySchema = paginationQuerySchema.extend({
   "filterBy[role]": adminRoleSchema.optional(),
   "filterBy[isActive]": z.coerce.boolean().optional(),
@@ -178,19 +186,29 @@ export const createAdminSchema = z.object({
     .trim()
     .regex(/^[A-Za-z0-9_]{3,50}$/),
   email: z.string().email().max(255),
-  password: z.string().min(8).max(128).regex(/[a-z]/).regex(/[A-Z]/).regex(/[0-9]/),
+  password: adminPasswordSchema,
   role: adminRoleSchema,
 });
 
 export const updateAdminSchema = z
   .object({
     email: z.string().email().max(255).optional(),
-    password: z.string().min(8).max(128).regex(/[a-z]/).regex(/[A-Z]/).regex(/[0-9]/).optional(),
+    password: adminPasswordSchema.optional(),
     role: adminRoleSchema.optional(),
     isActive: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: "Minimal satu field harus dikirim.",
+  });
+
+export const changeOwnPasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Password saat ini wajib diisi.").max(128),
+    newPassword: adminPasswordSchema,
+  })
+  .refine((value) => value.currentPassword !== value.newPassword, {
+    path: ["newPassword"],
+    message: "Password baru harus berbeda dari password saat ini.",
   });
 
 export const auditResultSchema = z.enum(["SUCCESS", "FAILURE"]);

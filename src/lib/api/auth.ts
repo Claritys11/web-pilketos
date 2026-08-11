@@ -1,6 +1,7 @@
 import type { AdminRole } from "@prisma/client";
 
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import { ServiceError, assertRole } from "@/services/errors";
 
 export interface ApiAdminSession {
@@ -16,11 +17,18 @@ export async function requireAdmin(allowed: AdminRole[] = ["VIEWER", "ADMIN", "S
     throw new ServiceError("FORBIDDEN", "Tidak terautentikasi.", 401);
   }
 
-  const admin = {
-    id: session.user.id,
-    username: session.user.username,
-    role: session.user.role,
-  };
+  const admin = await prisma.admin.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, username: true, role: true, isActive: true },
+  });
+
+  if (!admin?.isActive) {
+    throw new ServiceError(
+      "FORBIDDEN",
+      "Sesi admin sudah tidak berlaku. Silakan login kembali.",
+      401,
+    );
+  }
 
   assertRole(admin.role, allowed);
 
