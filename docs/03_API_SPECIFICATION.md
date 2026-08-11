@@ -2144,6 +2144,42 @@ belum dipakai lalu mengantrekannya kembali. Endpoint hanya menerima election `OP
 
 ---
 
+### AM-04 — Change Own Password
+
+**`PATCH /api/admin/me/password`**
+
+**Purpose:** Mengganti password akun Super Admin yang sedang login dengan verifikasi password saat ini.
+
+**Authentication:** Admin session.
+
+**Authorization:** `SUPER_ADMIN` only.
+
+**Request Body:**
+
+| Field             | Type     | Required | Deskripsi                       |
+| ----------------- | -------- | -------- | ------------------------------- |
+| `currentPassword` | `string` | Yes      | Password akun yang berlaku      |
+| `newPassword`     | `string` | Yes      | Password baru yang akan di-hash |
+
+**Validation Rules:**
+
+- Password baru berisi 8-128 karakter, huruf kecil, huruf besar, dan angka.
+- Password baru harus berbeda dari password saat ini.
+
+**Possible Error Responses:**
+
+| HTTP Status | Error Code                   | Kondisi                              |
+| ----------- | ---------------------------- | ------------------------------------ |
+| 400         | `VALIDATION_ERROR`           | Password baru tidak memenuhi aturan  |
+| 401         | `FORBIDDEN`                  | Session sudah tidak berlaku          |
+| 403         | `FORBIDDEN`                  | Bukan `SUPER_ADMIN`                  |
+| 422         | `CURRENT_PASSWORD_INVALID`   | Password saat ini salah              |
+| 422         | `PASSWORD_REUSE_NOT_ALLOWED` | Password baru sama dengan sebelumnya |
+
+**Audit Logging:** `ADMIN_PASSWORD_CHANGED` tanpa menyimpan nilai password.
+
+---
+
 ## Health API
 
 ---

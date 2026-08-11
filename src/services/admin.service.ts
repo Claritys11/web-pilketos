@@ -1,6 +1,6 @@
 import type { AdminRole, Prisma } from "@prisma/client";
 
-import { hashPassword } from "@/lib/auth/argon";
+import { hashPassword, verifyPassword } from "@/lib/auth/argon";
 import { prisma } from "@/lib/prisma";
 import { auditService } from "@/services/audit.service";
 import { assertRole, ServiceError } from "@/services/errors";
@@ -19,6 +19,11 @@ export interface UpdateAdminInput extends ActorContext {
   password?: string | undefined;
   role?: AdminRole | undefined;
   isActive?: boolean | undefined;
+}
+
+export interface ChangeOwnPasswordInput extends ActorContext {
+  currentPassword: string;
+  newPassword: string;
 }
 
 export class AdminService {
@@ -202,6 +207,56 @@ export class AdminService {
 
       return admin;
     });
+  }
+
+  async changeOwnPassword(input: ChangeOwnPasswordInput) {
+    assertRole(input.actorRole, ["SUPER_ADMIN"]);
+
+    const admin = await prisma.admin.findUnique({
+      where: { id: input.actorId },
+      select: { id: true, passwordHash: true, isActive: true },
+    });
+
+    if (!admin?.isActive) {
+      throw new ServiceError("ADMIN_NOT_FOUND", "Akun Super Admin tidak ditemukan.", 404);
+    }
+
+    if (!(await verifyPassword(admin.passwordHash, input.currentPassword))) {
+      throw new ServiceError("CURRENT_PASSWORD_INVALID", "Password saat ini tidak sesuai.", 422);
+    }
+
+    if (await verifyPassword(admin.passwordHash, input.newPassword)) {
+      throw new ServiceError(
+        "PASSWORD_REUSE_NOT_ALLOWED",
+        "Password baru harus berbeda dari password saat ini.",
+        422,
+      );
+    }
+
+    const passwordHash = await hashPassword(input.newPassword);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.admin.update({
+        where: { id: admin.id },
+        data: { passwordHash },
+      });
+
+      await auditService.writeLog(
+        {
+          actorId: admin.id,
+          action: "ADMIN_PASSWORD_CHANGED",
+          targetType: "admin",
+          targetId: admin.id,
+          result: "SUCCESS",
+          ipAddress: input.ipAddress,
+          userAgent: input.userAgent,
+          metadata: { changedBySelf: true },
+        },
+        tx,
+      );
+    });
+
+    return { changed: true };
   }
 }
 

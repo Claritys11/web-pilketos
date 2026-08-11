@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+import { logger } from "@/lib/logger";
 import { ServiceError } from "@/services/errors";
 
 export function ok<T>(data: T, init?: ResponseInit) {
@@ -34,6 +35,7 @@ export function handleApiError(error: unknown) {
     return fail("VALIDATION_ERROR", "Input tidak valid.", 400, error.flatten().fieldErrors);
   }
 
+  logger.error("Unhandled API error", error);
   return fail("INTERNAL_ERROR", "Terjadi kesalahan internal.", 500);
 }
 

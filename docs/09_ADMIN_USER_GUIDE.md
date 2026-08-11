@@ -196,6 +196,18 @@ Aturan penting:
 
 ---
 
+## Mengelola Admin dan Password
+
+1. Buka `Settings` menggunakan akun `SUPER_ADMIN`.
+2. Klik `Tambah Admin`, isi username dan email unik, pilih role, lalu masukkan password beserta konfirmasinya.
+3. Untuk mengganti password akun lain, klik `Edit` pada akun tersebut dan isi password baru.
+4. Untuk mengganti password akun yang sedang dipakai, klik `Ganti Password Saya` dan masukkan password saat ini.
+5. Password harus berisi 8-128 karakter serta memiliki huruf kecil, huruf besar, dan angka.
+
+Perubahan password akun sendiri dicatat sebagai `ADMIN_PASSWORD_CHANGED` tanpa menyimpan password ke audit log.
+
+---
+
 ## Troubleshooting Singkat
 
 | Masalah                         | Cek                                             |

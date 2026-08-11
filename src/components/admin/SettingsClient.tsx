@@ -1,5 +1,6 @@
 "use client";
 
+import { Eye, EyeOff, KeyRound, LoaderCircle, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
@@ -9,7 +10,7 @@ import { Badge, roleTone } from "@/components/common/Badge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Modal } from "@/components/common/Modal";
 import { SkeletonTable } from "@/components/common/Skeleton";
-import { adminFetch, buildQuery } from "@/lib/admin/api";
+import { AdminApiError, adminFetch, buildQuery } from "@/lib/admin/api";
 import type { AdminAccount, AdminRole, AdminSessionUser, Paginated } from "@/lib/admin/types";
 
 interface AdminFormState {
@@ -17,9 +18,19 @@ interface AdminFormState {
   username: string;
   email: string;
   password: string;
+  confirmPassword: string;
   role: AdminRole;
   isActive: boolean;
 }
+
+interface PasswordFormState {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+type AdminFormField = "username" | "email" | "password" | "confirmPassword";
+type AdminFormErrors = Partial<Record<AdminFormField, string>>;
 
 const ROLES: AdminRole[] = ["SUPER_ADMIN", "ADMIN", "VIEWER"];
 
@@ -27,8 +38,15 @@ const EMPTY_FORM: AdminFormState = {
   username: "",
   email: "",
   password: "",
+  confirmPassword: "",
   role: "VIEWER",
   isActive: true,
+};
+
+const EMPTY_PASSWORD_FORM: PasswordFormState = {
+  currentPassword: "",
+  newPassword: "",
+  confirmPassword: "",
 };
 
 function formatDate(value: string | null) {
@@ -47,6 +65,13 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
   const [roleFilter, setRoleFilter] = useState<AdminRole | "">("");
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
   const [form, setForm] = useState<AdminFormState | null>(null);
+  const [formErrors, setFormErrors] = useState<AdminFormErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [savingAdmin, setSavingAdmin] = useState(false);
+  const [passwordForm, setPasswordForm] = useState<PasswordFormState | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,13 +130,32 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
   }, [load]);
 
   function startEdit(admin: AdminAccount) {
+    setFormErrors({});
+    setFormError(null);
+    setShowPassword(false);
     setForm({
       id: admin.id,
       username: admin.username,
       email: admin.email,
       password: "",
+      confirmPassword: "",
       role: admin.role,
       isActive: admin.isActive,
+    });
+  }
+
+  function startCreate() {
+    setFormErrors({});
+    setFormError(null);
+    setShowPassword(false);
+    setForm({ ...EMPTY_FORM });
+  }
+
+  function clearAdminFormError(field: AdminFormField) {
+    setFormErrors((current) => {
+      const next = { ...current };
+      delete next[field];
+      return next;
     });
   }
 
@@ -123,6 +167,14 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
 
     setNotice(null);
     setError(null);
+    setFormError(null);
+
+    const validationErrors = validateAdminForm(form);
+    setFormErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) {
+      setFormError("Periksa kembali field yang ditandai.");
+      return;
+    }
 
     const payload = form.id
       ? {
@@ -139,6 +191,7 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
         };
 
     try {
+      setSavingAdmin(true);
       if (form.id) {
         await adminFetch<AdminAccount>(`/api/admin/admins/${form.id}`, {
           method: "PATCH",
@@ -155,9 +208,57 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
       setForm(null);
       await load(1);
     } catch (submitError) {
-      setError(
+      if (submitError instanceof AdminApiError) {
+        if (submitError.code === "ADMIN_USERNAME_TAKEN") {
+          setFormErrors({ username: "Username sudah digunakan akun lain." });
+        } else if (submitError.code === "ADMIN_EMAIL_TAKEN") {
+          setFormErrors({ email: "Email sudah digunakan akun lain." });
+        }
+      }
+      setFormError(
         submitError instanceof Error ? submitError.message : "Perubahan admin gagal disimpan.",
       );
+    } finally {
+      setSavingAdmin(false);
+    }
+  }
+
+  async function changeOwnPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!passwordForm) {
+      return;
+    }
+
+    setPasswordError(null);
+    const passwordValidationError = validatePassword(passwordForm.newPassword);
+    if (passwordValidationError) {
+      setPasswordError(passwordValidationError);
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("Konfirmasi password baru tidak sama.");
+      return;
+    }
+
+    try {
+      setChangingPassword(true);
+      await adminFetch<{ changed: true }>("/api/admin/me/password", {
+        method: "PATCH",
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      });
+      setPasswordForm(null);
+      setNotice(
+        "Password akun Anda berhasil diganti. Gunakan password baru saat login berikutnya.",
+      );
+    } catch (changeError) {
+      setPasswordError(
+        changeError instanceof Error ? changeError.message : "Password gagal diganti.",
+      );
+    } finally {
+      setChangingPassword(false);
     }
   }
 
@@ -202,13 +303,28 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
         title="Admin Management"
         description="Kelola akun panitia, role RBAC, dan status akses admin. Gunakan VIEWER untuk pemantau yang tidak boleh mengubah data."
       >
-        <button
-          type="button"
-          onClick={() => setForm(EMPTY_FORM)}
-          className="h-11 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)]"
-        >
-          Tambah Admin
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setPasswordError(null);
+              setShowPassword(false);
+              setPasswordForm({ ...EMPTY_PASSWORD_FORM });
+            }}
+            className="inline-flex h-11 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+          >
+            <KeyRound aria-hidden="true" size={17} />
+            Ganti Password Saya
+          </button>
+          <button
+            type="button"
+            onClick={startCreate}
+            className="inline-flex h-11 items-center gap-2 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)]"
+          >
+            <Plus aria-hidden="true" size={17} />
+            Tambah Admin
+          </button>
+        </div>
       </AdminPageHeader>
 
       <Alert tone="info" title="Role akses">
@@ -259,15 +375,22 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
         </div>
       </section>
 
-      {notice ? (
-        <Alert tone="success" title="Berhasil">
-          {notice}
-        </Alert>
-      ) : null}
-      {error ? (
-        <Alert tone="danger" title="Settings gagal diproses">
-          {error}
-        </Alert>
+      {notice || error ? (
+        <div
+          aria-live="polite"
+          className="fixed bottom-4 right-4 z-[70] w-[min(24rem,calc(100vw-2rem))]"
+        >
+          {notice ? (
+            <Alert tone="success" title="Berhasil">
+              {notice}
+            </Alert>
+          ) : null}
+          {error ? (
+            <Alert tone="danger" title="Settings gagal diproses">
+              {error}
+            </Alert>
+          ) : null}
+        </div>
       ) : null}
 
       <section className="overflow-hidden rounded-lg border border-red-100 bg-white shadow-sm shadow-red-950/5">
@@ -374,26 +497,47 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
       </div>
 
       {form ? (
-        <Modal title={form.id ? "Edit Admin" : "Tambah Admin"} onClose={() => setForm(null)}>
+        <Modal
+          title={form.id ? "Edit Admin" : "Tambah Admin"}
+          onClose={() => {
+            if (!savingAdmin) {
+              setForm(null);
+            }
+          }}
+        >
           <form onSubmit={submitAdmin} className="space-y-4">
-            <Field label="Username">
+            {formError ? (
+              <Alert tone="danger" title="Admin gagal disimpan">
+                {formError}
+              </Alert>
+            ) : null}
+            <Field label="Username" error={formErrors.username}>
               <input
                 value={form.username}
-                onChange={(event) => setForm({ ...form, username: event.target.value })}
+                onChange={(event) => {
+                  setForm({ ...form, username: event.target.value });
+                  clearAdminFormError("username");
+                }}
                 disabled={Boolean(form.id)}
                 required
                 minLength={3}
                 maxLength={50}
                 pattern="[A-Za-z0-9_]+"
+                aria-invalid={Boolean(formErrors.username)}
                 className="h-11 w-full rounded-lg border border-neutral-200 px-3 disabled:bg-neutral-100"
               />
             </Field>
-            <Field label="Email">
+            <Field label="Email" error={formErrors.email}>
               <input
                 type="email"
                 value={form.email}
-                onChange={(event) => setForm({ ...form, email: event.target.value })}
+                onChange={(event) => {
+                  setForm({ ...form, email: event.target.value });
+                  clearAdminFormError("email");
+                }}
                 required
+                maxLength={255}
+                aria-invalid={Boolean(formErrors.email)}
                 className="h-11 w-full rounded-lg border border-neutral-200 px-3"
               />
             </Field>
@@ -425,34 +569,143 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
                 </select>
               </Field>
             </div>
-            <Field label={form.id ? "Password Baru" : "Password"}>
-              <input
-                type="password"
-                value={form.password}
-                onChange={(event) => setForm({ ...form, password: event.target.value })}
-                required={!form.id}
-                minLength={8}
-                maxLength={128}
-                autoComplete="new-password"
-                className="h-11 w-full rounded-lg border border-neutral-200 px-3"
-              />
-            </Field>
-            <p className="text-xs leading-5 text-neutral-500">
-              Password wajib 8-128 karakter dan memiliki huruf kecil, huruf besar, serta angka.
-            </p>
+            {form.id === user.id ? (
+              <Alert tone="info" title="Password akun Anda">
+                Gunakan tombol Ganti Password Saya agar perubahan diverifikasi dengan password saat
+                ini.
+              </Alert>
+            ) : (
+              <>
+                <Field
+                  label={form.id ? "Password Baru (opsional)" : "Password"}
+                  error={formErrors.password}
+                >
+                  <PasswordInput
+                    value={form.password}
+                    visible={showPassword}
+                    onToggle={() => setShowPassword((current) => !current)}
+                    onChange={(value) => {
+                      setForm({ ...form, password: value });
+                      clearAdminFormError("password");
+                    }}
+                    required={!form.id}
+                  />
+                </Field>
+                <Field label="Konfirmasi Password" error={formErrors.confirmPassword}>
+                  <PasswordInput
+                    value={form.confirmPassword}
+                    visible={showPassword}
+                    onToggle={() => setShowPassword((current) => !current)}
+                    onChange={(value) => {
+                      setForm({ ...form, confirmPassword: value });
+                      clearAdminFormError("confirmPassword");
+                    }}
+                    required={!form.id || Boolean(form.password)}
+                  />
+                </Field>
+                <p className="text-xs leading-5 text-neutral-500">
+                  Gunakan 8-128 karakter dengan huruf kecil, huruf besar, dan angka.
+                </p>
+              </>
+            )}
             <div className="flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setForm(null)}
-                className="h-10 rounded-lg border border-neutral-200 px-4 text-sm font-semibold"
+                disabled={savingAdmin}
+                className="h-10 rounded-lg border border-neutral-200 px-4 text-sm font-semibold disabled:opacity-50"
               >
                 Batal
               </button>
               <button
                 type="submit"
-                className="h-10 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)]"
+                disabled={savingAdmin}
+                className="inline-flex h-10 min-w-24 items-center justify-center gap-2 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-60"
               >
-                Simpan
+                {savingAdmin ? (
+                  <LoaderCircle aria-hidden="true" className="animate-spin" size={17} />
+                ) : null}
+                {savingAdmin ? "Menyimpan" : "Simpan"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
+
+      {passwordForm ? (
+        <Modal
+          title="Ganti Password Saya"
+          onClose={() => {
+            if (!changingPassword) {
+              setPasswordForm(null);
+            }
+          }}
+        >
+          <form onSubmit={changeOwnPassword} className="space-y-4">
+            {passwordError ? (
+              <Alert tone="danger" title="Password gagal diganti">
+                {passwordError}
+              </Alert>
+            ) : null}
+            <Field label="Password Saat Ini">
+              <PasswordInput
+                value={passwordForm.currentPassword}
+                visible={showPassword}
+                onToggle={() => setShowPassword((current) => !current)}
+                onChange={(value) => {
+                  setPasswordForm({ ...passwordForm, currentPassword: value });
+                  setPasswordError(null);
+                }}
+                required
+                autoComplete="current-password"
+              />
+            </Field>
+            <Field label="Password Baru">
+              <PasswordInput
+                value={passwordForm.newPassword}
+                visible={showPassword}
+                onToggle={() => setShowPassword((current) => !current)}
+                onChange={(value) => {
+                  setPasswordForm({ ...passwordForm, newPassword: value });
+                  setPasswordError(null);
+                }}
+                required
+              />
+            </Field>
+            <Field label="Konfirmasi Password Baru">
+              <PasswordInput
+                value={passwordForm.confirmPassword}
+                visible={showPassword}
+                onToggle={() => setShowPassword((current) => !current)}
+                onChange={(value) => {
+                  setPasswordForm({ ...passwordForm, confirmPassword: value });
+                  setPasswordError(null);
+                }}
+                required
+              />
+            </Field>
+            <p className="text-xs leading-5 text-neutral-500">
+              Password baru harus berbeda dan menggunakan 8-128 karakter dengan huruf kecil, huruf
+              besar, dan angka.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPasswordForm(null)}
+                disabled={changingPassword}
+                className="h-10 rounded-lg border border-neutral-200 px-4 text-sm font-semibold disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={changingPassword}
+                className="inline-flex h-10 min-w-36 items-center justify-center gap-2 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-60"
+              >
+                {changingPassword ? (
+                  <LoaderCircle aria-hidden="true" className="animate-spin" size={17} />
+                ) : null}
+                {changingPassword ? "Mengganti" : "Ganti Password"}
               </button>
             </div>
           </form>
@@ -462,11 +715,101 @@ export function SettingsClient({ user }: { user: AdminSessionUser }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string | undefined;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
       <span className="text-sm font-semibold text-neutral-800">{label}</span>
       <div className="mt-2">{children}</div>
+      {error ? <span className="mt-1 block text-xs font-medium text-red-700">{error}</span> : null}
     </label>
   );
+}
+
+function PasswordInput({
+  value,
+  visible,
+  required,
+  autoComplete = "new-password",
+  onChange,
+  onToggle,
+}: {
+  value: string;
+  visible: boolean;
+  required?: boolean;
+  autoComplete?: "current-password" | "new-password";
+  onChange: (value: string) => void;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="relative">
+      <input
+        type={visible ? "text" : "password"}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required={required}
+        minLength={required || value ? 8 : undefined}
+        maxLength={128}
+        autoComplete={autoComplete}
+        className="h-11 w-full rounded-lg border border-neutral-200 px-3 pr-11"
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={visible ? "Sembunyikan password" : "Tampilkan password"}
+        title={visible ? "Sembunyikan password" : "Tampilkan password"}
+        className="absolute right-1 top-1 inline-flex h-9 w-9 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+      >
+        {visible ? <EyeOff aria-hidden="true" size={17} /> : <Eye aria-hidden="true" size={17} />}
+      </button>
+    </div>
+  );
+}
+
+function validateAdminForm(form: AdminFormState): AdminFormErrors {
+  const errors: AdminFormErrors = {};
+  if (!form.id && !/^[A-Za-z0-9_]{3,50}$/.test(form.username.trim())) {
+    errors.username = "Gunakan 3-50 karakter berupa huruf, angka, atau underscore.";
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) || form.email.length > 255) {
+    errors.email = "Masukkan alamat email yang valid.";
+  }
+  if (!form.id && !form.password) {
+    errors.password = "Password wajib diisi.";
+  } else if (form.password) {
+    const passwordError = validatePassword(form.password);
+    if (passwordError) {
+      errors.password = passwordError;
+    }
+    if (form.password !== form.confirmPassword) {
+      errors.confirmPassword = "Konfirmasi password tidak sama.";
+    }
+  }
+  return errors;
+}
+
+function validatePassword(password: string): string | null {
+  if (password.length < 8) {
+    return "Password minimal 8 karakter.";
+  }
+  if (password.length > 128) {
+    return "Password maksimal 128 karakter.";
+  }
+  if (!/[a-z]/.test(password)) {
+    return "Tambahkan minimal satu huruf kecil.";
+  }
+  if (!/[A-Z]/.test(password)) {
+    return "Tambahkan minimal satu huruf besar.";
+  }
+  if (!/[0-9]/.test(password)) {
+    return "Tambahkan minimal satu angka.";
+  }
+  return null;
 }
