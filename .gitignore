@@ -53,4 +53,7 @@ google-oauth-token*.json
 gmail-token*.json
 *service-account*.json
 buatgmailapipllketos-*.json
+
+# local voter data containing personal information
+/pilketos_voters*.csv
 _reference/

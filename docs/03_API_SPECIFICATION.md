@@ -1631,6 +1631,10 @@ student_identifier,student_name,student_class,student_email,voter_type
 G001,Nama Guru 1,Guru,guru1@example.com,GURU
 ```
 
+Import CSV mengikuti quoting standar CSV sehingga nama atau jabatan yang mengandung koma tetap
+dibaca sebagai satu kolom. Untuk mode `WEIGHTED_FIVE`, file tanpa header juga diterima dengan urutan
+`student_name,student_class,student_email,voter_type`.
+
 ### T-03 — Deliver Pending / Retry or Resend Token Emails
 
 **`POST /api/admin/tokens/retry-email`**
