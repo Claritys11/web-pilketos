@@ -1,4 +1,5 @@
 import { getRequestContext, requireAdmin } from "@/lib/api/auth";
+import { MAX_CANDIDATE_PHOTO_SIZE_BYTES, MAX_CANDIDATE_PHOTO_SIZE_MB } from "@/config/uploads";
 import { fail, handleApiError, ok } from "@/lib/api/response";
 import {
   isAllowedPhotoMimeType,
@@ -24,8 +25,8 @@ export async function POST(request: Request, context: RouteContext) {
       return fail("VALIDATION_ERROR", "File foto wajib disertakan.", 400);
     }
 
-    if (photo.size > 2 * 1024 * 1024) {
-      return fail("FILE_TOO_LARGE", "Ukuran file terlalu besar.", 400);
+    if (photo.size > MAX_CANDIDATE_PHOTO_SIZE_BYTES) {
+      return fail("FILE_TOO_LARGE", `Ukuran foto maksimal ${MAX_CANDIDATE_PHOTO_SIZE_MB} MB.`, 400);
     }
 
     if (!isAllowedPhotoMimeType(photo.type)) {

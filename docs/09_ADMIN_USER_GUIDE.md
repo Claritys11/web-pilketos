@@ -71,7 +71,7 @@ election bisa masuk ke `READY`.
 Foto kandidat:
 
 - Format: JPG, PNG, atau WEBP.
-- Maksimal 2MB.
+- Maksimal 5MB.
 - File divalidasi dari ekstensi, MIME type, dan magic bytes.
 
 ---

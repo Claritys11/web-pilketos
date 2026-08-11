@@ -682,7 +682,7 @@ _Stack trace_ (seperti file path, database query dump, line number) **TIDAK BOLE
 
 - **CORS (Cross-Origin Resource Sharing):** Karena domain pemilih dan admin berada dalam satu aplikasi Next.js (same-origin by default), CORS dinonaktifkan secara ketat untuk domain luar. Semua request dari origin yang berbeda ditolak secara default.
 - **Content-Type Validation:** Server hanya menerima request dengan header `Content-Type: application/json` untuk endpoint JSON API. Jika header tidak sesuai, server langsung mengembalikan HTTP 415 Unsupported Media Type.
-- **Request Size Limit:** Batas maksimal ukuran payload request JSON ditetapkan sebesar **1MB** untuk mencegah serangan kehabisan memori server (_payload limit exhaustion DoS_). Pengecualian hanya untuk endpoint upload foto kandidat (maksimal 2MB).
+- **Request Size Limit:** Batas maksimal ukuran payload request JSON ditetapkan sebesar **1MB** untuk mencegah serangan kehabisan memori server (_payload limit exhaustion DoS_). Pengecualian hanya untuk endpoint upload foto kandidat (maksimal 5MB).
 
 ---
 
@@ -834,7 +834,7 @@ Aksi mengunggah gambar oleh admin (foto kandidat) memiliki risiko tinggi jika ti
 
 ```mermaid
 graph TD
-    A["Request Upload (multipart/form-data)"] --> B["Batas Ukuran File Check\n(Maksimal 2MB)"]
+    A["Request Upload (multipart/form-data)"] --> B["Batas Ukuran File Check\n(Maksimal 5MB)"]
     B -->|"Lolos"| C["MIME Type & Extension Check\n(Hanya image/jpeg, image/png, image/webp)"]
     C -->|"Lolos"| D["Image Magic Byte Check\n(Verifikasi header hex file)"]
     D -->|"Lolos"| E["Generate Nama File Acak\n(cuid_photo.webp)"]

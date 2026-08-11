@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { Modal } from "@/components/common/Modal";
 import { SidePanel } from "@/components/common/SidePanel";
 import { SkeletonCard } from "@/components/common/Skeleton";
+import { MAX_CANDIDATE_PHOTO_SIZE_BYTES, MAX_CANDIDATE_PHOTO_SIZE_MB } from "@/config/uploads";
 import { AdminApiError, adminFetch, buildQuery } from "@/lib/admin/api";
 import type { AdminSessionUser, Candidate, ElectionDetail } from "@/lib/admin/types";
 
@@ -204,9 +205,14 @@ export function CandidatesClient({
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setPhotoError("Ukuran foto maksimal 2 MB. Kompres foto lalu pilih kembali.");
-      setFieldErrors((current) => ({ ...current, photo: "Ukuran foto melebihi 2 MB." }));
+    if (file.size > MAX_CANDIDATE_PHOTO_SIZE_BYTES) {
+      setPhotoError(
+        `Ukuran foto maksimal ${MAX_CANDIDATE_PHOTO_SIZE_MB} MB. Kompres foto lalu pilih kembali.`,
+      );
+      setFieldErrors((current) => ({
+        ...current,
+        photo: `Ukuran foto melebihi ${MAX_CANDIDATE_PHOTO_SIZE_MB} MB.`,
+      }));
       focusCandidateField("photo");
       return;
     }
@@ -784,7 +790,7 @@ export function CandidatesClient({
                   Foto kandidat
                 </h3>
                 <p className="mt-1 text-xs leading-5 text-neutral-500">
-                  Opsional. Gunakan JPG, PNG, atau WEBP maksimal 2 MB.
+                  Opsional. Gunakan JPG, PNG, atau WEBP maksimal {MAX_CANDIDATE_PHOTO_SIZE_MB} MB.
                 </p>
               </div>
               <Field label="Foto" htmlFor={FIELD_IDS.photo} error={fieldErrors.photo}>
@@ -810,7 +816,7 @@ export function CandidatesClient({
                     <span className="font-semibold">Pilih atau drop foto kandidat</span>
                   )}
                   <span className="mt-2 text-xs text-neutral-500">
-                    JPG, PNG, WEBP · maksimal 2 MB
+                    JPG, PNG, WEBP · maksimal {MAX_CANDIDATE_PHOTO_SIZE_MB} MB
                   </span>
                   <input
                     id={FIELD_IDS.photo}
@@ -1013,8 +1019,8 @@ function validateCandidateForm(
 
   if (form.photo && !["image/jpeg", "image/png", "image/webp"].includes(form.photo.type)) {
     errors.photo = "Pilih foto berformat JPG, PNG, atau WEBP.";
-  } else if (form.photo && form.photo.size > 2 * 1024 * 1024) {
-    errors.photo = "Ukuran foto maksimal 2 MB.";
+  } else if (form.photo && form.photo.size > MAX_CANDIDATE_PHOTO_SIZE_BYTES) {
+    errors.photo = `Ukuran foto maksimal ${MAX_CANDIDATE_PHOTO_SIZE_MB} MB.`;
   }
 
   return errors;
