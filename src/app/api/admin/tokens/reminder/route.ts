@@ -18,17 +18,19 @@ export async function POST(request: Request) {
       actorRole: admin.role as "ADMIN" | "SUPER_ADMIN",
     });
 
-    after(async () => {
-      try {
-        await tokenService.deliverElectionReminderQueue({
-          electionId: body.electionId,
-          actorId: admin.id,
-          ...requestContext,
-        });
-      } catch (error) {
-        console.error("Election reminder queue failed.", error);
-      }
-    });
+    if (queued.pending > 0) {
+      after(async () => {
+        try {
+          await tokenService.deliverElectionReminderQueue({
+            electionId: body.electionId,
+            actorId: admin.id,
+            ...requestContext,
+          });
+        } catch (error) {
+          console.error("Election reminder queue failed.", error);
+        }
+      });
+    }
 
     return ok(queued, { status: 202 });
   } catch (error) {

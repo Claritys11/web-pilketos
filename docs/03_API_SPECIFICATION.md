@@ -1745,9 +1745,11 @@ election sudah `CLOSED`/`ARCHIVED`.
 ```
 
 `PENDING` melanjutkan antrean yang belum diproses. `FAILED` membersihkan error reminder token yang
-belum dipakai lalu mengantrekannya kembali. Endpoint hanya menerima election `OPEN`, mengembalikan
-`202 Accepted`, dan melanjutkan pengiriman rate-limited di background. Audit action per batch:
-`TOKEN_REMINDER_SENT`.
+belum dipakai lalu mengantrekannya kembali. `RESEND_UNUSED` memulai siklus reminder baru untuk semua
+pemilih yang email token awalnya sudah terkirim tetapi tokennya masih belum dipakai. Siklus baru
+mereset status reminder, tetapi mempertahankan token voting yang sama. Endpoint hanya menerima
+election `OPEN`, mengembalikan `202 Accepted`, dan melanjutkan pengiriman rate-limited di background.
+Audit action per batch: `TOKEN_REMINDER_SENT`.
 
 ---
 
