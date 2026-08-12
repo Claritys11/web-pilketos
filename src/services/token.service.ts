@@ -33,6 +33,15 @@ export interface TokenStudentAssignmentInput {
   voterType?: VoterType | undefined;
 }
 
+export interface UpdateTokenEmailInput {
+  tokenId: string;
+  studentEmail: string;
+  actorId: string;
+  actorRole: "ADMIN" | "SUPER_ADMIN";
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}
+
 export interface ValidateTokenResult {
   electionId: string;
   electionTitle: string;
@@ -91,6 +100,132 @@ export class TokenService {
 
   async exportTokenMetadata(electionId: string) {
     return this.listTokenMetadata(electionId);
+  }
+
+  async updateTokenEmail(input: UpdateTokenEmailInput) {
+    assertRole(input.actorRole, ["ADMIN", "SUPER_ADMIN"]);
+    const studentEmail = input.studentEmail.trim().toLowerCase();
+
+    const token = await prisma.votingToken.findUnique({
+      where: { id: input.tokenId },
+      select: {
+        id: true,
+        electionId: true,
+        studentEmail: true,
+        emailSentAt: true,
+        usedAt: true,
+        election: { select: { status: true } },
+      },
+    });
+
+    if (!token) {
+      throw new ServiceError("TOKEN_NOT_FOUND", "Token pemilih tidak ditemukan.", 404);
+    }
+    if (token.usedAt) {
+      throw new ServiceError(
+        "TOKEN_ALREADY_USED",
+        "Email tidak dapat diubah karena token sudah dipakai.",
+        422,
+      );
+    }
+    if (["CLOSED", "ARCHIVED"].includes(token.election.status)) {
+      throw new ServiceError(
+        "ELECTION_WRONG_STATE",
+        "Email tidak dapat diubah setelah election ditutup atau diarsipkan.",
+        422,
+      );
+    }
+    if (token.studentEmail?.toLowerCase() === studentEmail) {
+      throw new ServiceError(
+        "TOKEN_EMAIL_UNCHANGED",
+        "Email baru sama dengan email yang tersimpan.",
+        422,
+      );
+    }
+    if (
+      this.activeEmailDeliveries.has(token.electionId) ||
+      this.activeReminderDeliveries.has(token.electionId)
+    ) {
+      throw new ServiceError(
+        "TOKEN_EMAIL_DELIVERY_BUSY",
+        "Email tidak dapat diubah saat pengiriman token atau reminder sedang berjalan.",
+        409,
+      );
+    }
+
+    this.activeEmailDeliveries.add(token.electionId);
+    try {
+      const duplicate = await prisma.votingToken.findFirst({
+        where: {
+          electionId: token.electionId,
+          id: { not: token.id },
+          studentEmail: { equals: studentEmail, mode: "insensitive" },
+        },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw new ServiceError(
+          "TOKEN_EMAIL_ALREADY_ASSIGNED",
+          "Email sudah digunakan pemilih lain pada election ini.",
+          409,
+        );
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const record = await tx.votingToken.update({
+          where: { id: token.id },
+          data: {
+            studentEmail,
+            emailSentAt: null,
+            emailError: null,
+            reminderSentAt: null,
+            reminderError: null,
+          },
+          select: {
+            id: true,
+            electionId: true,
+            studentIdentifier: true,
+            studentName: true,
+            studentClass: true,
+            studentEmail: true,
+            voterType: true,
+            emailSentAt: true,
+            emailError: true,
+            reminderSentAt: true,
+            reminderError: true,
+            usedAt: true,
+            createdAt: true,
+          },
+        });
+
+        await auditService.writeLog(
+          {
+            actorId: input.actorId,
+            action: "TOKEN_EMAIL_UPDATED",
+            targetType: "voting_token",
+            targetId: token.id,
+            result: "SUCCESS",
+            ipAddress: input.ipAddress,
+            userAgent: input.userAgent,
+            metadata: {
+              electionId: token.electionId,
+              deliveryStatusReset: Boolean(token.emailSentAt || token.studentEmail),
+            },
+          },
+          tx,
+        );
+
+        return record;
+      });
+
+      const sheetsSync = googleSheetsService.enabled
+        ? await googleSheetsService.syncElection(token.electionId)
+        : null;
+
+      return { token: updated, sheetsSync };
+    } finally {
+      this.activeEmailDeliveries.delete(token.electionId);
+    }
   }
 
   async generateTokenBatch(input: GenerateTokenBatchInput) {

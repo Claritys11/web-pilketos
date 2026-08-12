@@ -165,6 +165,10 @@ export const tokenEmailDeliverySchema = electionIdBodySchema
     }
   });
 
+export const updateTokenEmailSchema = z.object({
+  studentEmail: z.string().trim().email("Format email tidak valid.").max(255),
+});
+
 export const adminRoleSchema = z.enum(["SUPER_ADMIN", "ADMIN", "VIEWER"]);
 
 export const adminPasswordSchema = z
@@ -229,6 +233,7 @@ export const auditActionSchema = z.enum([
   "CANDIDATE_DELETED",
   "TOKEN_BATCH_GENERATED",
   "TOKEN_BATCH_EXPORTED",
+  "TOKEN_EMAIL_UPDATED",
   "TOKEN_EMAIL_RETRIED",
   "TOKEN_REMINDER_SENT",
   "VOTE_CAST",

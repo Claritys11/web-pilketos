@@ -1635,6 +1635,38 @@ Import CSV mengikuti quoting standar CSV sehingga nama atau jabatan yang mengand
 dibaca sebagai satu kolom. Untuk mode `WEIGHTED_FIVE`, file tanpa header juga diterima dengan urutan
 `student_name,student_class,student_email,voter_type`.
 
+### T-02c — Update Voter Email
+
+**`PATCH /api/admin/tokens/[id]/email`**
+
+**Purpose:** Memperbaiki alamat email pemilih tanpa membuat token baru.
+
+**Authorization:** `ADMIN`, `SUPER_ADMIN`.
+
+**Request Body:**
+
+```json
+{
+  "studentEmail": "alamat.baru@example.com"
+}
+```
+
+Saat email berubah, `emailSentAt`, `emailError`, `reminderSentAt`, dan `reminderError` direset agar
+pengiriman ke alamat baru dapat diproses. Perubahan ditolak jika token sudah digunakan, election
+sudah `CLOSED`/`ARCHIVED`, atau email telah digunakan pemilih lain dalam election yang sama.
+
+| HTTP Status | Error Code                     | Kondisi                           |
+| ----------- | ------------------------------ | --------------------------------- |
+| 400         | `VALIDATION_ERROR`             | Format email tidak valid          |
+| 404         | `TOKEN_NOT_FOUND`              | Token tidak ditemukan             |
+| 409         | `TOKEN_EMAIL_ALREADY_ASSIGNED` | Email dipakai pemilih lain        |
+| 409         | `TOKEN_EMAIL_DELIVERY_BUSY`    | Pengiriman email sedang berjalan  |
+| 422         | `TOKEN_ALREADY_USED`           | Token sudah digunakan             |
+| 422         | `TOKEN_EMAIL_UNCHANGED`        | Email baru sama dengan email lama |
+| 422         | `ELECTION_WRONG_STATE`         | Election sudah ditutup/diarsipkan |
+
+**Audit Logging:** `TOKEN_EMAIL_UPDATED` tanpa menyimpan alamat email lama atau baru dalam metadata.
+
 ### T-03 — Deliver Pending / Retry or Resend Token Emails
 
 **`POST /api/admin/tokens/retry-email`**
