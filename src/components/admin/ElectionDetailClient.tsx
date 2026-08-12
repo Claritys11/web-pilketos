@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, LockKeyhole, X } from "lucide-react";
+import { AlertTriangle, BellRing, CheckCircle2, LockKeyhole, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -49,7 +49,10 @@ export function ElectionDetailClient({
   const [pendingStatus, setPendingStatus] = useState<ElectionStatus | null>(null);
   const [syncingSheet, setSyncingSheet] = useState(false);
   const [savingTemplates, setSavingTemplates] = useState(false);
-  const [startingReminder, setStartingReminder] = useState<"PENDING" | "FAILED" | null>(null);
+  const [startingReminder, setStartingReminder] = useState<
+    "PENDING" | "FAILED" | "RESEND_UNUSED" | null
+  >(null);
+  const [confirmReminderResend, setConfirmReminderResend] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [emailTemplates, setEmailTemplates] = useState({
     tokenEmailSubject: DEFAULT_TOKEN_EMAIL_SUBJECT,
@@ -162,7 +165,7 @@ export function ElectionDetailClient({
     }
   }
 
-  async function startReminder(mode: "PENDING" | "FAILED") {
+  async function startReminder(mode: "PENDING" | "FAILED" | "RESEND_UNUSED") {
     setStartingReminder(mode);
     setError(null);
     setNotice(null);
@@ -172,10 +175,13 @@ export function ElectionDetailClient({
         body: JSON.stringify({ electionId, mode }),
       });
       setNotice(
-        mode === "FAILED"
-          ? "Reminder gagal dimasukkan kembali ke antrean."
-          : "Pengiriman reminder tertunda dilanjutkan.",
+        mode === "RESEND_UNUSED"
+          ? "Reminder ulang mulai dikirim kepada pemilih yang masih belum voting."
+          : mode === "FAILED"
+            ? "Reminder gagal dimasukkan kembali ke antrean."
+            : "Pengiriman reminder tertunda dilanjutkan.",
       );
+      setConfirmReminderResend(false);
       await load();
     } catch (reminderError) {
       setError(reminderError instanceof Error ? reminderError.message : "Gagal memulai reminder.");
@@ -360,11 +366,65 @@ export function ElectionDetailClient({
                 >
                   {startingReminder === "FAILED" ? "Mengantrekan..." : "Retry Reminder Gagal"}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmReminderResend(true)}
+                  disabled={
+                    startingReminder !== null ||
+                    election.reminderSummary.eligible === 0 ||
+                    election.reminderSummary.pending > 0
+                  }
+                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 text-sm font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50"
+                >
+                  <BellRing aria-hidden="true" size={17} />
+                  Kirim Reminder Lagi
+                </button>
               </div>
             ) : null}
           </div>
         </div>
       </section>
+
+      {confirmReminderResend ? (
+        <Modal
+          title="Kirim Reminder Lagi"
+          onClose={() => {
+            if (!startingReminder) {
+              setConfirmReminderResend(false);
+            }
+          }}
+        >
+          <div className="space-y-5">
+            <Alert tone="warning" title="Pengiriman massal">
+              Sistem akan mengirim ulang email reminder berisi token yang sama dan tombol voting
+              kepada {election.reminderSummary.eligible} pemilih yang masih belum voting.
+            </Alert>
+            <p className="text-sm leading-6 text-neutral-600">
+              Pemilih yang sudah voting tidak akan menerima email. Pengiriman memakai template
+              reminder terbaru dan berjalan bertahap sesuai rate limit server.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmReminderResend(false)}
+                disabled={startingReminder !== null}
+                className="h-10 rounded-lg border border-neutral-200 px-4 text-sm font-semibold text-neutral-700 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => void startReminder("RESEND_UNUSED")}
+                disabled={startingReminder !== null}
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-60"
+              >
+                <BellRing aria-hidden="true" size={17} />
+                {startingReminder === "RESEND_UNUSED" ? "Mengantrekan..." : "Ya, Kirim Reminder"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
 
       <section className="rounded-lg border border-red-100 bg-white p-5 shadow-sm shadow-red-950/5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

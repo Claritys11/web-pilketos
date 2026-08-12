@@ -641,7 +641,7 @@ export class TokenService {
 
   async prepareElectionReminders(input: {
     electionId: string;
-    mode: "PENDING" | "FAILED";
+    mode: "PENDING" | "FAILED" | "RESEND_UNUSED";
     actorRole: "ADMIN" | "SUPER_ADMIN";
   }) {
     assertRole(input.actorRole, ["ADMIN", "SUPER_ADMIN"]);
@@ -659,6 +659,43 @@ export class TokenService {
         "Reminder hanya dapat dikirim saat election berstatus OPEN.",
         422,
       );
+    }
+
+    if (input.mode === "RESEND_UNUSED" && this.activeReminderDeliveries.has(input.electionId)) {
+      throw new ServiceError(
+        "TOKEN_EMAIL_DELIVERY_BUSY",
+        "Tunggu pengiriman reminder yang sedang berjalan selesai sebelum mengirim ulang.",
+        409,
+      );
+    }
+
+    if (input.mode === "RESEND_UNUSED") {
+      const reminderQueuedAt = new Date();
+      const reset = await prisma.$transaction(async (tx) => {
+        const eligible = await tx.votingToken.updateMany({
+          where: reminderEligibleWhere(input.electionId, reminderQueuedAt),
+          data: {
+            reminderSentAt: null,
+            reminderError: null,
+          },
+        });
+
+        await tx.election.update({
+          where: { id: input.electionId },
+          data: {
+            reminderQueuedAt,
+            reminderCompletedAt: null,
+          },
+        });
+
+        return eligible.count;
+      });
+
+      return {
+        pending: reset,
+        alreadyRunning: false,
+        resendCycle: true,
+      };
     }
 
     if (input.mode === "FAILED") {
@@ -688,6 +725,7 @@ export class TokenService {
     return {
       pending: await this.countPendingReminders(input.electionId, reminderQueuedAt),
       alreadyRunning: this.activeReminderDeliveries.has(input.electionId),
+      resendCycle: false,
     };
   }
 
@@ -845,6 +883,7 @@ export class TokenService {
       ipAddress: input.ipAddress,
       userAgent: input.userAgent,
       metadata: {
+        reminderQueuedAt: election.reminderQueuedAt.toISOString(),
         batchSize: config.mail.deliveryBatchSize,
         attempted: reminderTokens.length,
         sent,
@@ -963,13 +1002,19 @@ function buildTokenVoteUrl(token: string) {
 
 function reminderPendingWhere(electionId: string, queuedAt: Date): Prisma.VotingTokenWhereInput {
   return {
+    ...reminderEligibleWhere(electionId, queuedAt),
+    reminderSentAt: null,
+    reminderError: null,
+  };
+}
+
+function reminderEligibleWhere(electionId: string, queuedAt: Date): Prisma.VotingTokenWhereInput {
+  return {
     electionId,
     usedAt: null,
     emailSentAt: { not: null, lte: queuedAt },
     studentEmail: { not: null },
     tokenCiphertext: { not: null },
-    reminderSentAt: null,
-    reminderError: null,
   };
 }
 

@@ -71,7 +71,7 @@ export const updateElectionEmailTemplatesSchema = z.object({
 });
 
 export const tokenReminderSchema = electionIdBodySchema.extend({
-  mode: z.enum(["PENDING", "FAILED"]).default("PENDING"),
+  mode: z.enum(["PENDING", "FAILED", "RESEND_UNUSED"]).default("PENDING"),
 });
 
 export const candidateCreateSchema = z.object({

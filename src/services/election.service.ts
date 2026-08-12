@@ -192,29 +192,33 @@ export class ElectionService {
       throw new ServiceError("ELECTION_NOT_FOUND", "Election tidak ditemukan.", 404);
     }
 
-    const reminderBaseWhere: Prisma.VotingTokenWhereInput = {
+    const reminderEligibleWhere: Prisma.VotingTokenWhereInput = {
       electionId: id,
+      usedAt: null,
+      emailSentAt: { not: null },
+      studentEmail: { not: null },
+      tokenCiphertext: { not: null },
+    };
+    const reminderCycleWhere: Prisma.VotingTokenWhereInput = {
+      ...reminderEligibleWhere,
       emailSentAt: election.reminderQueuedAt
         ? { not: null, lte: election.reminderQueuedAt }
         : { not: null },
-      studentEmail: { not: null },
     };
     const [eligible, pending, sent, failed] = await prisma.$transaction([
-      prisma.votingToken.count({ where: reminderBaseWhere }),
+      prisma.votingToken.count({ where: reminderEligibleWhere }),
       prisma.votingToken.count({
         where: {
-          ...reminderBaseWhere,
-          usedAt: null,
-          tokenCiphertext: { not: null },
+          ...reminderCycleWhere,
           reminderSentAt: null,
           reminderError: null,
         },
       }),
       prisma.votingToken.count({
-        where: { ...reminderBaseWhere, reminderSentAt: { not: null } },
+        where: { ...reminderCycleWhere, reminderSentAt: { not: null } },
       }),
       prisma.votingToken.count({
-        where: { ...reminderBaseWhere, usedAt: null, reminderError: { not: null } },
+        where: { ...reminderCycleWhere, reminderError: { not: null } },
       }),
     ]);
 

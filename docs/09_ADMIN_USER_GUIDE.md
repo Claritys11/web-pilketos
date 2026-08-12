@@ -174,6 +174,9 @@ Aturan penting:
 - Sistem menyimpan email siswa untuk pengiriman token dan pengecekan siapa yang belum voting.
 - Sistem tidak menyimpan relasi token ke kandidat yang dipilih.
 - Token gagal kirim bisa di-retry dari server selama belum dipakai.
+- Saat election `OPEN`, tombol `Kirim Reminder Lagi` mengirim token yang sama dan tombol voting hanya
+  kepada penerima email awal yang masih belum voting. Konfirmasi menampilkan jumlah penerima sebelum
+  antrean dimulai.
 - Token hanya bisa digunakan saat election berstatus `OPEN`.
 - Token yang sudah digunakan tidak bisa dipakai lagi.
 
