@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { RefreshCw } from "lucide-react";
+import { LoaderCircle, Pencil, RefreshCw, Send } from "lucide-react";
 import Papa from "papaparse";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
@@ -70,6 +70,14 @@ interface EmailDeliveryResult {
   remaining: number;
 }
 
+interface UpdateTokenEmailResult {
+  token: TokenMetadata;
+  sheetsSync: {
+    status: "SYNCED" | "DISABLED" | "FAILED";
+    error: string | null;
+  } | null;
+}
+
 interface ParsedStudent {
   studentIdentifier?: string;
   studentName: string;
@@ -93,6 +101,10 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
   const [deliveringEmail, setDeliveringEmail] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
   const [resendTarget, setResendTarget] = useState<TokenMetadata | null>(null);
+  const [emailEditTarget, setEmailEditTarget] = useState<TokenMetadata | null>(null);
+  const [editedEmail, setEditedEmail] = useState("");
+  const [emailEditError, setEmailEditError] = useState<string | null>(null);
+  const [savingEmail, setSavingEmail] = useState<"save" | "send" | null>(null);
   const [generated, setGenerated] = useState<GenerateResult | null>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -287,6 +299,74 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
       setError(fetchError instanceof Error ? fetchError.message : "Gagal mengirim ulang token.");
     } finally {
       setResendingEmail(false);
+    }
+  }
+
+  function startEmailEdit(token: TokenMetadata) {
+    setEmailEditTarget(token);
+    setEditedEmail(token.studentEmail ?? "");
+    setEmailEditError(null);
+  }
+
+  async function saveTokenEmail(sendAfterSave: boolean) {
+    if (!emailEditTarget) {
+      return;
+    }
+
+    const studentEmail = editedEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(studentEmail)) {
+      setEmailEditError("Masukkan alamat email yang valid.");
+      return;
+    }
+    if (studentEmail === emailEditTarget.studentEmail?.trim().toLowerCase()) {
+      setEmailEditError("Email baru sama dengan email yang tersimpan.");
+      return;
+    }
+
+    setSavingEmail(sendAfterSave ? "send" : "save");
+    setEmailEditError(null);
+    setError(null);
+    setImportMessage(null);
+
+    try {
+      const result = await adminFetch<UpdateTokenEmailResult>(
+        `/api/admin/tokens/${emailEditTarget.id}/email`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ studentEmail }),
+        },
+      );
+
+      let outcomeMessage: string | null = null;
+      let outcomeError: string | null = null;
+      if (sendAfterSave) {
+        try {
+          const delivery = await requestEmailDelivery("RESEND", emailEditTarget.id);
+          if (delivery.sent === 1) {
+            outcomeMessage = `Email diperbarui dan token berhasil dikirim ke ${studentEmail}.`;
+          } else {
+            outcomeError = `Email sudah diperbarui ke ${studentEmail}, tetapi token belum berhasil dikirim. Periksa status email lalu gunakan Resend.`;
+          }
+        } catch (deliveryError) {
+          outcomeError = `Email sudah diperbarui ke ${studentEmail}, tetapi pengiriman gagal: ${
+            deliveryError instanceof Error ? deliveryError.message : "kesalahan tidak diketahui"
+          }`;
+        }
+      } else {
+        outcomeMessage = `Email pemilih berhasil diperbarui ke ${studentEmail}.`;
+      }
+
+      if (result.sheetsSync?.status === "FAILED") {
+        outcomeError = `Email tersimpan, tetapi Google Sheets belum tersinkron: ${result.sheetsSync.error ?? "coba sinkronkan ulang dari detail election."}`;
+      }
+      await load();
+      setEmailEditTarget(null);
+      setImportMessage(outcomeMessage);
+      setError(outcomeError);
+    } catch (saveError) {
+      setEmailEditError(saveError instanceof Error ? saveError.message : "Email gagal diperbarui.");
+    } finally {
+      setSavingEmail(null);
     }
   }
 
@@ -535,20 +615,33 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                     </td>
                     <td className="px-5 py-3 text-neutral-500">{formatDateTime(token.usedAt)}</td>
                     <td className="px-5 py-3 text-right">
-                      {token.emailSentAt && token.studentEmail && !token.usedAt ? (
-                        <button
-                          type="button"
-                          onClick={() => setResendTarget(token)}
-                          disabled={!canManageEmail || resendingEmail}
-                          title="Kirim ulang token yang sama"
-                          className="inline-flex h-9 items-center gap-2 rounded-lg border border-sky-200 px-3 text-xs font-semibold text-sky-700 hover:bg-sky-50 disabled:opacity-50"
-                        >
-                          <RefreshCw aria-hidden="true" className="size-4" />
-                          Resend
-                        </button>
-                      ) : (
-                        <span className="text-neutral-400">-</span>
-                      )}
+                      <div className="flex justify-end gap-2">
+                        {!token.usedAt ? (
+                          <button
+                            type="button"
+                            onClick={() => startEmailEdit(token)}
+                            disabled={!canManageEmail || savingEmail !== null}
+                            title="Ubah email pemilih"
+                            aria-label={`Ubah email ${token.studentName ?? "pemilih"}`}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                          >
+                            <Pencil aria-hidden="true" className="size-4" />
+                          </button>
+                        ) : null}
+                        {token.emailSentAt && token.studentEmail && !token.usedAt ? (
+                          <button
+                            type="button"
+                            onClick={() => setResendTarget(token)}
+                            disabled={!canManageEmail || resendingEmail}
+                            title="Kirim ulang token yang sama"
+                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-sky-200 px-3 text-xs font-semibold text-sky-700 hover:bg-sky-50 disabled:opacity-50"
+                          >
+                            <RefreshCw aria-hidden="true" className="size-4" />
+                            Resend
+                          </button>
+                        ) : null}
+                        {token.usedAt ? <span className="text-neutral-400">-</span> : null}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -683,6 +776,94 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
               </button>
             </div>
           </form>
+        </Modal>
+      ) : null}
+
+      {emailEditTarget ? (
+        <Modal
+          title="Ubah Email Pemilih"
+          onClose={() => {
+            if (!savingEmail) {
+              setEmailEditTarget(null);
+            }
+          }}
+        >
+          <div className="space-y-5">
+            <div>
+              <p className="font-semibold text-neutral-950">
+                {emailEditTarget.studentName ?? "Pemilih tanpa nama"}
+              </p>
+              <p className="mt-1 text-sm text-neutral-500">
+                {emailEditTarget.studentIdentifier ?? voterTypeLabel(emailEditTarget.voterType)}
+              </p>
+            </div>
+
+            <Alert tone="info" title="Status pengiriman akan direset">
+              Setelah email disimpan, status email token dan reminder kembali menjadi belum dikirim.
+              Token voting tetap sama dan tidak ada token baru yang dibuat.
+            </Alert>
+
+            {emailEditError ? (
+              <Alert tone="danger" title="Email gagal diperbarui">
+                {emailEditError}
+              </Alert>
+            ) : null}
+
+            <label className="block">
+              <span className="text-sm font-semibold text-neutral-800">Email baru</span>
+              <input
+                type="email"
+                value={editedEmail}
+                onChange={(event) => {
+                  setEditedEmail(event.target.value);
+                  setEmailEditError(null);
+                }}
+                required
+                maxLength={255}
+                autoComplete="email"
+                disabled={savingEmail !== null}
+                aria-invalid={Boolean(emailEditError)}
+                className="mt-2 h-11 w-full rounded-lg border border-neutral-200 px-3 outline-none focus:ring-2 focus:ring-[var(--color-primary-600)] disabled:bg-neutral-100"
+              />
+            </label>
+
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setEmailEditTarget(null)}
+                disabled={savingEmail !== null}
+                className="h-10 rounded-lg border border-neutral-200 px-4 text-sm font-semibold text-neutral-700 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveTokenEmail(false)}
+                disabled={savingEmail !== null}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-neutral-200 px-4 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                {savingEmail === "save" ? (
+                  <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
+                ) : (
+                  <Pencil aria-hidden="true" className="size-4" />
+                )}
+                {savingEmail === "save" ? "Menyimpan" : "Simpan"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveTokenEmail(true)}
+                disabled={savingEmail !== null}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[var(--color-vote-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-700)] disabled:opacity-60"
+              >
+                {savingEmail === "send" ? (
+                  <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
+                ) : (
+                  <Send aria-hidden="true" className="size-4" />
+                )}
+                {savingEmail === "send" ? "Mengirim" : "Simpan & Kirim Token"}
+              </button>
+            </div>
+          </div>
         </Modal>
       ) : null}
 

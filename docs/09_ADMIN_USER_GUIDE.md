@@ -157,6 +157,15 @@ Di tab `Token`, tabel `Status Token Pemilih` menampilkan:
 Gunakan pencarian untuk menemukan siswa tertentu. Tombol `Refresh` memuat ulang status terbaru.
 `Export Metadata` mengunduh CSV metadata dan status token, bukan plaintext token.
 
+Jika alamat pemilih salah, klik ikon pensil pada kolom aksi. Masukkan email yang benar, lalu pilih:
+
+- `Simpan` untuk memperbarui alamat tanpa langsung mengirim.
+- `Simpan & Kirim Token` untuk memperbarui alamat dan mengirim token yang sama ke email baru.
+
+Perubahan email mereset status email token dan reminder menjadi belum dikirim. Email hanya dapat
+diubah selama token belum dipakai dan election belum `CLOSED`/`ARCHIVED`. Email yang sudah dipakai
+pemilih lain pada election yang sama akan ditolak.
+
 Aturan penting:
 
 - Satu token untuk satu siswa.
