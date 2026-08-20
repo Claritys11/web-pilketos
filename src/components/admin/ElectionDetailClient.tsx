@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, BellRing, CheckCircle2, LockKeyhole, X } from "lucide-react";
+import { AlertTriangle, BellRing, CheckCircle2, ExternalLink, LockKeyhole, Tv, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -239,12 +239,26 @@ export function ElectionDetailClient({
           Dibuat oleh {election.createdBy?.username ?? "-"} pada{" "}
           {new Date(election.createdAt).toLocaleString("id-ID")}
         </p>
-        <div className="mt-4 flex flex-wrap gap-2 text-sm">
-          <Badge tone="primary">
-            {election.mode === "WEIGHTED_FIVE" ? "5 kandidat berbobot" : "Kandidat bebas"}
-          </Badge>
-          {election.mode === "WEIGHTED_FIVE" ? (
-            <span className="text-neutral-600">OSIS 40% · MPK 30% · GURU 30%</span>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="primary">
+              {election.mode === "WEIGHTED_FIVE" ? "5 kandidat berbobot" : "Kandidat bebas"}
+            </Badge>
+            {election.mode === "WEIGHTED_FIVE" ? (
+              <span className="text-neutral-600">OSIS 40% · MPK 30% · GURU 30%</span>
+            ) : null}
+          </div>
+          {election.status === "OPEN" || election.status === "PAUSED" ? (
+            <Link
+              href={`/live/${election.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow hover:bg-slate-800 transition"
+            >
+              <Tv className="size-3.5 text-red-400" />
+              Buka Live Mode
+              <ExternalLink className="size-3 text-neutral-400" />
+            </Link>
           ) : null}
         </div>
       </section>
