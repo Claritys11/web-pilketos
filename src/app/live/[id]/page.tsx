@@ -4,7 +4,7 @@ import { use, useEffect, useState } from "react";
 import { LiveCandidateCard } from "@/components/live/LiveCandidateCard";
 import { LiveCounterAnimation } from "@/components/live/LiveCounterAnimation";
 import { LiveProgressBar } from "@/components/live/LiveProgressBar";
-import { AlertCircle, RefreshCw, Vote } from "lucide-react";
+import { AlertCircle, RefreshCw, Vote, ShieldCheck, Clock } from "lucide-react";
 
 interface Candidate {
   id: string;
@@ -82,10 +82,12 @@ export default function LiveCountPage({
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-950 text-slate-400">
-        <div className="flex flex-col items-center gap-3">
-          <RefreshCw className="h-8 w-8 animate-spin text-red-500" />
-          <p className="text-sm font-medium">Memuat Live Count...</p>
+      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-[#0B0F17] text-slate-400">
+        <div className="flex flex-col items-center gap-4 rounded-3xl bg-slate-900/60 p-8 border border-slate-800 backdrop-blur-xl shadow-2xl">
+          <RefreshCw className="h-10 w-10 animate-spin text-red-500" />
+          <p className="text-sm font-semibold tracking-wide text-slate-300">
+            Menyiapkan Display Live Count...
+          </p>
         </div>
       </div>
     );
@@ -93,14 +95,14 @@ export default function LiveCountPage({
 
   if (error || !data) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-950 p-6">
-        <div className="flex max-w-md flex-col items-center text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Gagal Memuat Live Mode</h2>
+      <div className="flex min-h-screen w-full items-center justify-center bg-[#0B0F17] p-6">
+        <div className="flex max-w-md flex-col items-center text-center rounded-3xl bg-slate-900/80 p-8 border border-slate-800 backdrop-blur-xl shadow-2xl">
+          <AlertCircle className="h-14 w-14 text-red-500 mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Gagal Memuat Live Mode</h2>
           <p className="text-sm text-slate-400 mb-6">{error || "Data tidak ditemukan."}</p>
           <button
             onClick={() => window.location.reload()}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition"
+            className="rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition shadow-lg shadow-red-600/30"
           >
             Coba Lagi
           </button>
@@ -109,41 +111,57 @@ export default function LiveCountPage({
     );
   }
 
-  const { election, candidates, totalVotes } = data;
+  const { election, candidates, totalVotes, generatedAt } = data;
   const isTwoCandidates = candidates.length === 2;
   const cand1 = candidates[0];
   const cand2 = candidates[1];
 
+  const cand1IsLeader = isTwoCandidates && cand1 && cand2 && cand1.voteCount > cand2.voteCount;
+  const cand2IsLeader = isTwoCandidates && cand1 && cand2 && cand2.voteCount > cand1.voteCount;
+
+  const formattedSyncTime = new Date(generatedAt).toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
   return (
-    <main className="flex min-h-screen flex-col justify-between p-6 sm:p-12 lg:px-24">
-      {/* Header */}
-      <header className="flex flex-col items-center text-center space-y-3">
-        <div className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+    <main className="flex min-h-screen flex-col justify-between p-4 sm:p-8 lg:p-12 max-w-[1600px] mx-auto">
+      {/* Broadcast Header */}
+      <header className="flex flex-col items-center text-center space-y-4 pt-2">
+        {/* Live Status Pill */}
+        <div className="inline-flex items-center gap-3 rounded-full border border-red-500/30 bg-gradient-to-r from-red-950/40 via-red-900/30 to-red-950/40 px-4 py-1.5 backdrop-blur-md shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)]" />
           </span>
-          LIVE COUNTING
+          <span className="text-xs font-black uppercase tracking-widest text-red-400 font-mono">
+            E-PILKETOS LIVE COUNTING
+          </span>
+          <span className="text-slate-600">•</span>
+          <span className="text-xs font-semibold text-slate-400">REAL-TIME BROADCAST</span>
         </div>
 
-        <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
+        {/* Election Main Title */}
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-100 to-slate-300">
           {election.title}
         </h1>
+
         {election.description && (
-          <p className="text-sm sm:text-base text-slate-400 max-w-2xl">
+          <p className="text-sm sm:text-base text-slate-400 max-w-3xl leading-relaxed">
             {election.description}
           </p>
         )}
       </header>
 
-      {/* Main Content Area */}
-      <section className="my-auto py-8 w-full max-w-6xl mx-auto">
+      {/* Main Showcase Center Arena */}
+      <section className="my-auto py-6 sm:py-10 w-full">
         {isTwoCandidates && cand1 && cand2 ? (
-          /* 1v1 Head-to-Head Mode (Matching Reference UI) */
+          /* 1v1 Broadcast Head-to-Head Arena */
           <div className="flex flex-col gap-10">
-            {/* Top Cards & Counter Display */}
+            {/* Candidates & Middle VS Scoreboard */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              {/* Candidate 1 */}
+              {/* Left Showcase (Candidate 1 - Red) */}
               <div className="lg:col-span-4 flex justify-center lg:justify-start">
                 <LiveCandidateCard
                   orderNumber={cand1.orderNumber}
@@ -151,40 +169,44 @@ export default function LiveCountPage({
                   className={cand1.className}
                   photoUrl={cand1.photoUrl}
                   align="left"
+                  isLeader={cand1IsLeader}
                 />
               </div>
 
-              {/* Middle Section: Scores & VS */}
-              <div className="lg:col-span-4 flex flex-col items-center justify-center gap-4 text-center">
+              {/* Center Scoreboards & VS Badge */}
+              <div className="lg:col-span-4 flex flex-col items-center justify-center gap-6 text-center">
                 <div className="flex items-center justify-center gap-6 sm:gap-10">
-                  {/* Cand 1 Percentage */}
+                  {/* Candidate 1 Score Box */}
                   <div className="flex flex-col items-center">
-                    <span className="text-3xl sm:text-5xl font-black text-red-400">
+                    <span className="text-4xl sm:text-6xl lg:text-7xl font-black text-red-400 font-mono tracking-tight drop-shadow-[0_0_25px_rgba(248,113,113,0.3)]">
                       <LiveCounterAnimation value={cand1.percentage} />
                     </span>
-                    <span className="text-xs font-medium text-slate-400 mt-1">
-                      {cand1.voteCount} suara
+                    <span className="mt-2 inline-block px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-xs font-bold text-red-300 font-mono">
+                      {cand1.voteCount} Suara
                     </span>
                   </div>
 
-                  {/* VS Divider */}
-                  <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-slate-800 border border-slate-700 text-red-500 font-extrabold text-lg sm:text-xl shadow-lg">
-                    VS
+                  {/* VS Badge Ring */}
+                  <div className="relative flex shrink-0 h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-gradient-to-b from-slate-800 to-slate-950 border border-slate-700/80 text-white font-black text-xl sm:text-2xl shadow-2xl">
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-sky-400 font-extrabold">
+                      VS
+                    </span>
+                    <div className="absolute inset-0 rounded-full border border-white/10 animate-pulse" />
                   </div>
 
-                  {/* Cand 2 Percentage */}
+                  {/* Candidate 2 Score Box */}
                   <div className="flex flex-col items-center">
-                    <span className="text-3xl sm:text-5xl font-black text-indigo-400">
+                    <span className="text-4xl sm:text-6xl lg:text-7xl font-black text-sky-400 font-mono tracking-tight drop-shadow-[0_0_25px_rgba(56,189,248,0.3)]">
                       <LiveCounterAnimation value={cand2.percentage} />
                     </span>
-                    <span className="text-xs font-medium text-slate-400 mt-1">
-                      {cand2.voteCount} suara
+                    <span className="mt-2 inline-block px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-xs font-bold text-sky-300 font-mono">
+                      {cand2.voteCount} Suara
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Candidate 2 */}
+              {/* Right Showcase (Candidate 2 - Sky/Blue) */}
               <div className="lg:col-span-4 flex justify-center lg:justify-end">
                 <LiveCandidateCard
                   orderNumber={cand2.orderNumber}
@@ -192,28 +214,31 @@ export default function LiveCountPage({
                   className={cand2.className}
                   photoUrl={cand2.photoUrl}
                   align="right"
+                  isLeader={cand2IsLeader}
                 />
               </div>
             </div>
 
-            {/* Central Dual Progress Bar */}
-            <div className="w-full max-w-4xl mx-auto bg-slate-900/90 p-6 sm:p-8 rounded-2xl border border-slate-800 shadow-2xl">
+            {/* Central Dual Progress Bar Card */}
+            <div className="w-full max-w-5xl mx-auto bg-slate-900/60 p-6 sm:p-8 rounded-3xl border border-slate-800/80 backdrop-blur-xl shadow-2xl">
               <LiveProgressBar
                 percent1={cand1.percentage}
                 name1={cand1.name}
                 name2={cand2.name}
+                voteCount1={cand1.voteCount}
+                voteCount2={cand2.voteCount}
               />
             </div>
           </div>
         ) : (
-          /* Multi-candidate (or 1 candidate) fallback grid */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          /* Multi-Candidate Grid View */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {candidates.map((cand) => (
               <div
                 key={cand.id}
-                className="flex flex-col p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl"
+                className="flex flex-col justify-between p-6 rounded-3xl bg-slate-900/70 border border-slate-800 backdrop-blur-xl shadow-xl hover:border-slate-700 transition"
               >
-                <div className="flex items-center gap-4 mb-4">
+                <div className="mb-4">
                   <LiveCandidateCard
                     orderNumber={cand.orderNumber}
                     name={cand.name}
@@ -221,13 +246,13 @@ export default function LiveCountPage({
                     photoUrl={cand.photoUrl}
                   />
                 </div>
-                <div className="mt-auto pt-4 border-t border-slate-800 flex justify-between items-end">
+                <div className="pt-4 border-t border-slate-800/80 flex items-end justify-between">
                   <div>
-                    <span className="text-xs text-slate-400">Jumlah Suara</span>
-                    <p className="text-lg font-bold text-white">{cand.voteCount}</p>
+                    <span className="text-xs font-medium text-slate-400">Total Suara</span>
+                    <p className="text-xl font-bold text-white font-mono">{cand.voteCount}</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-3xl font-black text-red-400">
+                    <span className="text-4xl font-black text-red-400 font-mono">
                       <LiveCounterAnimation value={cand.percentage} />
                     </span>
                   </div>
@@ -238,15 +263,30 @@ export default function LiveCountPage({
         )}
       </section>
 
-      {/* Footer Info Bar */}
-      <footer className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-800/80 pt-6 text-xs text-slate-400">
-        <div className="flex items-center gap-2">
-          <Vote className="h-4 w-4 text-red-500" />
-          <span>
-            Total Suara Masuk: <strong className="text-white">{totalVotes}</strong>
-          </span>
+      {/* Broadcast Footer Info Ticker */}
+      <footer className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 p-4 px-6 text-xs text-slate-400 backdrop-blur-md">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 text-slate-200 font-semibold">
+            <Vote className="h-4 w-4 text-red-500" />
+            <span>
+              Total Suara Masuk: <strong className="text-white font-mono text-sm ml-1">{totalVotes}</strong>
+            </span>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 text-slate-400">
+            <ShieldCheck className="h-4 w-4 text-emerald-500" />
+            <span>Sistem Pemilihan Resmi</span>
+          </div>
         </div>
-        <div>Auto-refresh setiap 5 detik</div>
+
+        <div className="flex items-center gap-4 font-mono text-slate-400">
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 text-slate-500" />
+            <span>Update: {formattedSyncTime}</span>
+          </div>
+          <span>•</span>
+          <span className="text-slate-400">Auto-refresh 5s</span>
+        </div>
       </footer>
     </main>
   );

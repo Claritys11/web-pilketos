@@ -8,18 +8,21 @@ interface LiveCounterAnimationProps {
   /** Animation duration in ms */
   durationMs?: number;
   suffix?: string;
+  decimals?: number;
+  className?: string;
 }
 
 /**
  * Animates a numeric value from its previous state to the new target.
- * Uses requestAnimationFrame for smooth, non-blocking animation.
- *
- * Inspired by CountCandidatesInterval.tsx from _reference/e-pilketos
+ * Uses requestAnimationFrame with cubic ease-out for smooth broadcast animation.
+ * Enforces tabular-nums so digits do not jump around while animating.
  */
 export function LiveCounterAnimation({
   value,
-  durationMs = 1000,
+  durationMs = 1200,
   suffix = "%",
+  decimals = 1,
+  className = "",
 }: LiveCounterAnimationProps) {
   const [displayed, setDisplayed] = useState(value);
   const prevRef = useRef(value);
@@ -42,16 +45,17 @@ export function LiveCounterAnimation({
     const step = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / durationMs, 1);
-      // Ease-out cubic
+      // Ease-out cubic for smooth deceleration
       const eased = 1 - Math.pow(1 - progress, 3);
       const current = start + (end - start) * eased;
 
-      setDisplayed(Number(current.toFixed(1)));
+      setDisplayed(current);
 
       if (progress < 1) {
         frameRef.current = requestAnimationFrame(step);
       } else {
         prevRef.current = end;
+        setDisplayed(end);
         frameRef.current = null;
       }
     };
@@ -66,8 +70,8 @@ export function LiveCounterAnimation({
   }, [value, durationMs]);
 
   return (
-    <span>
-      {displayed.toFixed(1)}
+    <span className={`tabular-nums font-mono ${className}`}>
+      {displayed.toFixed(decimals)}
       {suffix}
     </span>
   );
