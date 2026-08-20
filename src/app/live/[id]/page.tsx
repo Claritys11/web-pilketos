@@ -1,10 +1,9 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
-import { LiveCandidateCard } from "@/components/live/LiveCandidateCard";
+import { use, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { RefreshCw, AlertCircle, User } from "lucide-react";
 import { LiveCounterAnimation } from "@/components/live/LiveCounterAnimation";
-import { LiveProgressBar } from "@/components/live/LiveProgressBar";
-import { AlertCircle, RefreshCw, Vote, ShieldCheck, Clock } from "lucide-react";
 
 interface Candidate {
   id: string;
@@ -31,11 +30,205 @@ interface LiveData {
   generatedAt: string;
 }
 
-export default function LiveCountPage({
-  params,
+// ─── Pulse dot animation (inline style for portability) ──────────────────────
+const pulseDotStyle = `
+  @keyframes pulse-dot {
+    0%   { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(192,0,24,0.7); }
+    70%  { transform: scale(1);    box-shadow: 0 0 0 10px rgba(192,0,24,0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(192,0,24,0); }
+  }
+  .live-dot { animation: pulse-dot 2s infinite; }
+
+  @keyframes marquee {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .marquee-track { animation: marquee 28s linear infinite; }
+`;
+
+// ─── Glass card helper ────────────────────────────────────────────────────────
+const glassStyle: React.CSSProperties = {
+  background: "rgba(255,255,255,0.82)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  borderTop: "1px solid rgba(255,255,255,0.45)",
+  borderLeft: "1px solid rgba(255,255,255,0.45)",
+};
+
+// ─── Candidate photo avatar ───────────────────────────────────────────────────
+function CandidateAvatar({
+  photoUrl,
+  name,
 }: {
-  params: Promise<{ id: string }>;
+  photoUrl?: string | null | undefined;
+  name: string;
 }) {
+  return (
+    <div className="w-[88px] h-[88px] rounded-full overflow-hidden border-4 border-white shadow-md bg-[#e4e2e1] flex-shrink-0">
+      {photoUrl ? (
+        <Image
+          src={photoUrl}
+          alt={name}
+          width={88}
+          height={88}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <User className="w-10 h-10 text-[#926f6b]" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── VS vertical rail that shifts the badge based on cand1 lead ───────────────
+function VSRail({ percent1 }: { percent1: number }) {
+  const [pos, setPos] = useState(percent1);
+  const prev = useRef(percent1);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      prev.current = percent1;
+      setPos(percent1);
+    }, 100);
+    return () => clearTimeout(t);
+  }, [percent1]);
+
+  return (
+    <div className="relative flex items-center justify-center w-full h-full">
+      {/* The rail track */}
+      <div className="absolute w-2.5 h-full rounded-full bg-[#e4e2e1] overflow-hidden">
+        {/* Red fill from top = cand1 lead */}
+        <div
+          className="absolute top-0 left-0 w-full rounded-t-full bg-[#c00018]"
+          style={{ height: `${pos}%`, transition: "height 1.8s cubic-bezier(0.16,1,0.3,1)" }}
+        />
+      </div>
+      {/* VS badge gliding along rail */}
+      <div
+        className="absolute z-20 flex items-center justify-center"
+        style={{
+          top: `${pos}%`,
+          transform: "translateY(-50%)",
+          transition: "top 1.8s cubic-bezier(0.16,1,0.3,1)",
+        }}
+      >
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#c00018] to-[#930000] flex items-center justify-center shadow-lg border-2 border-white text-white font-black text-base italic tracking-tight select-none">
+          VS
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Stat info card ───────────────────────────────────────────────────────────
+function StatCard({
+  icon,
+  label,
+  value,
+  sub,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div
+      style={glassStyle}
+      className="rounded-xl p-4 flex items-center gap-4 shadow-sm border border-white/40"
+    >
+      <div className="w-11 h-11 rounded-lg flex items-center justify-center bg-[#c00018]/10 text-[#c00018] flex-shrink-0">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <span className="block text-[10px] font-black uppercase tracking-widest text-[#926f6b] mb-0.5">
+          {label}
+        </span>
+        <span className="block text-[15px] font-bold text-[#1b1c1c] leading-snug">{value}</span>
+        {sub && <span className="block text-xs text-[#926f6b] mt-0.5">{sub}</span>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Multi-candidate grid (more than 2 candidates) ───────────────────────────
+function MultiCandidateGrid({
+  candidates,
+  totalVotes,
+}: {
+  candidates: Candidate[];
+  totalVotes: number;
+}) {
+  const maxVotes = Math.max(...candidates.map((c) => c.voteCount), 1);
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+      {candidates.map((cand) => {
+        const isLeader = cand.voteCount === maxVotes && totalVotes > 0;
+        return (
+          <div
+            key={cand.id}
+            style={glassStyle}
+            className={`relative rounded-2xl p-5 flex flex-col gap-3 border ${isLeader ? "border-[rgba(231,35,42,0.25)] shadow-[0_0_32px_-8px_rgba(231,35,42,0.15)]" : "border-white/40 shadow-sm"}`}
+          >
+            {isLeader && (
+              <div className="absolute top-0 right-0 bg-[#e7232a] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl rounded-tr-2xl z-10">
+                UNGGUL
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white shadow bg-[#e4e2e1] flex-shrink-0">
+                {cand.photoUrl ? (
+                  <Image
+                    src={cand.photoUrl}
+                    alt={cand.name}
+                    width={56}
+                    height={56}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <User className="w-7 h-7 text-[#926f6b]" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#926f6b]">
+                  Kandidat {cand.orderNumber}
+                </span>
+                <h2 className="text-sm font-bold text-[#1b1c1c] leading-tight">{cand.name}</h2>
+                <span className="text-xs text-[#926f6b]">{cand.className}</span>
+              </div>
+            </div>
+            <div className="mt-auto">
+              <span className="text-3xl font-black tabular-nums text-[#c00018]">
+                <LiveCounterAnimation
+                  value={cand.percentage}
+                  durationMs={1200}
+                  decimals={1}
+                  suffix="%"
+                />
+              </span>
+              <div className="mt-2 h-1.5 rounded-full bg-[#f0eded] overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-[#c00018] transition-all duration-[1800ms] ease-out"
+                  style={{ width: `${cand.percentage}%` }}
+                />
+              </div>
+              <span className="block mt-1 text-xs text-[#5d3f3c]">
+                {cand.voteCount.toLocaleString("id-ID")} suara
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+export default function LiveCountPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [data, setData] = useState<LiveData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,19 +236,20 @@ export default function LiveCountPage({
 
   useEffect(() => {
     let active = true;
-
-    async function fetchLiveCount() {
+    async function fetchLive() {
       try {
         const res = await fetch(`/api/live/${id}`);
         if (!res.ok) {
-          throw new Error("Gagal mengambil data Live Count");
+          throw new Error("Gagal mengambil data live count.");
         }
         const json = await res.json();
-        if (json.success && active) {
-          setData(json.data);
-          setError(null);
-        } else if (!json.success && active) {
-          setError(json.error?.message || "Terjadi kesalahan.");
+        if (active) {
+          if (json.success) {
+            setData(json.data);
+            setError(null);
+          } else {
+            setError(json.error?.message || "Terjadi kesalahan.");
+          }
         }
       } catch (err) {
         if (active) {
@@ -67,42 +261,45 @@ export default function LiveCountPage({
         }
       }
     }
-
-    void fetchLiveCount();
-
-    const intervalId = setInterval(() => {
-      void fetchLiveCount();
-    }, 5000);
-
+    void fetchLive();
+    const iv = setInterval(() => void fetchLive(), 5000);
     return () => {
       active = false;
-      clearInterval(intervalId);
+      clearInterval(iv);
     };
   }, [id]);
 
+  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-[#0B0F17] text-slate-400">
-        <div className="flex flex-col items-center gap-4 rounded-3xl bg-slate-900/60 p-8 border border-slate-800 backdrop-blur-xl shadow-2xl">
-          <RefreshCw className="h-10 w-10 animate-spin text-red-500" />
-          <p className="text-sm font-semibold tracking-wide text-slate-300">
-            Menyiapkan Display Live Count...
+      <div className="flex h-full items-center justify-center">
+        <div
+          style={glassStyle}
+          className="flex flex-col items-center gap-4 rounded-3xl p-10 border border-white/40 shadow-md"
+        >
+          <RefreshCw className="h-9 w-9 animate-spin text-[#c00018]" />
+          <p className="text-sm font-semibold tracking-wide text-[#5d3f3c]">
+            Menyiapkan Live Count…
           </p>
         </div>
       </div>
     );
   }
 
+  // ── Error ────────────────────────────────────────────────────────────────
   if (error || !data) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-[#0B0F17] p-6">
-        <div className="flex max-w-md flex-col items-center text-center rounded-3xl bg-slate-900/80 p-8 border border-slate-800 backdrop-blur-xl shadow-2xl">
-          <AlertCircle className="h-14 w-14 text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Gagal Memuat Live Mode</h2>
-          <p className="text-sm text-slate-400 mb-6">{error || "Data tidak ditemukan."}</p>
+      <div className="flex h-full items-center justify-center p-6">
+        <div
+          style={glassStyle}
+          className="flex max-w-md flex-col items-center text-center rounded-3xl p-10 border border-white/40 shadow-md"
+        >
+          <AlertCircle className="h-12 w-12 text-[#c00018] mb-4" />
+          <h2 className="text-2xl font-bold text-[#1b1c1c] mb-2">Gagal Memuat Live Mode</h2>
+          <p className="text-sm text-[#5d3f3c] mb-6">{error ?? "Data tidak ditemukan."}</p>
           <button
             onClick={() => window.location.reload()}
-            className="rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition shadow-lg shadow-red-600/30"
+            className="rounded-xl bg-[#c00018] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#930000] transition shadow-lg"
           >
             Coba Lagi
           </button>
@@ -115,179 +312,270 @@ export default function LiveCountPage({
   const isTwoCandidates = candidates.length === 2;
   const cand1 = candidates[0];
   const cand2 = candidates[1];
+  const cand1IsLeader = isTwoCandidates && !!cand1 && !!cand2 && cand1.voteCount > cand2.voteCount;
+  const cand2IsLeader = isTwoCandidates && !!cand1 && !!cand2 && cand2.voteCount > cand1.voteCount;
 
-  const cand1IsLeader = isTwoCandidates && cand1 && cand2 && cand1.voteCount > cand2.voteCount;
-  const cand2IsLeader = isTwoCandidates && cand1 && cand2 && cand2.voteCount > cand1.voteCount;
-
-  const formattedSyncTime = new Date(generatedAt).toLocaleTimeString("id-ID", {
+  const syncTime = new Date(generatedAt).toLocaleTimeString("id-ID", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
   });
 
+  // Live ticker items
+  const tickerItems = candidates.flatMap((c) => [
+    `${c.name}: ${c.voteCount.toLocaleString("id-ID")} suara (${c.percentage.toFixed(1)}%)`,
+  ]);
+  const tickerText = tickerItems.join("    •    ");
+
   return (
-    <main className="flex min-h-screen flex-col justify-between p-4 sm:p-8 lg:p-12 max-w-[1600px] mx-auto">
-      {/* Broadcast Header */}
-      <header className="flex flex-col items-center text-center space-y-4 pt-2">
-        {/* Live Status Pill */}
-        <div className="inline-flex items-center gap-3 rounded-full border border-red-500/30 bg-gradient-to-r from-red-950/40 via-red-900/30 to-red-950/40 px-4 py-1.5 backdrop-blur-md shadow-[0_0_20px_rgba(239,68,68,0.2)]">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)]" />
-          </span>
-          <span className="text-xs font-black uppercase tracking-widest text-red-400 font-mono">
-            E-PILKETOS LIVE COUNTING
-          </span>
-          <span className="text-slate-600">•</span>
-          <span className="text-xs font-semibold text-slate-400">REAL-TIME BROADCAST</span>
-        </div>
+    <>
+      <style>{pulseDotStyle}</style>
 
-        {/* Election Main Title */}
-        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-100 to-slate-300">
-          {election.title}
-        </h1>
-
-        {election.description && (
-          <p className="text-sm sm:text-base text-slate-400 max-w-3xl leading-relaxed">
-            {election.description}
-          </p>
-        )}
-      </header>
-
-      {/* Main Showcase Center Arena */}
-      <section className="my-auto py-6 sm:py-10 w-full">
-        {isTwoCandidates && cand1 && cand2 ? (
-          /* 1v1 Broadcast Head-to-Head Arena */
-          <div className="flex flex-col gap-10">
-            {/* Candidates & Middle VS Scoreboard */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              {/* Left Showcase (Candidate 1 - Red) */}
-              <div className="lg:col-span-4 flex justify-center lg:justify-start">
-                <LiveCandidateCard
-                  orderNumber={cand1.orderNumber}
-                  name={cand1.name}
-                  className={cand1.className}
-                  photoUrl={cand1.photoUrl}
-                  align="left"
-                  isLeader={cand1IsLeader}
-                />
-              </div>
-
-              {/* Center Scoreboards & VS Badge */}
-              <div className="lg:col-span-4 flex flex-col items-center justify-center gap-6 text-center">
-                <div className="flex items-center justify-center gap-6 sm:gap-10">
-                  {/* Candidate 1 Score Box */}
-                  <div className="flex flex-col items-center">
-                    <span className="text-4xl sm:text-6xl lg:text-7xl font-black text-red-400 font-mono tracking-tight drop-shadow-[0_0_25px_rgba(248,113,113,0.3)]">
-                      <LiveCounterAnimation value={cand1.percentage} />
-                    </span>
-                    <span className="mt-2 inline-block px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-xs font-bold text-red-300 font-mono">
-                      {cand1.voteCount} Suara
-                    </span>
-                  </div>
-
-                  {/* VS Badge Ring */}
-                  <div className="relative flex shrink-0 h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-gradient-to-b from-slate-800 to-slate-950 border border-slate-700/80 text-white font-black text-xl sm:text-2xl shadow-2xl">
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-sky-400 font-extrabold">
-                      VS
-                    </span>
-                    <div className="absolute inset-0 rounded-full border border-white/10 animate-pulse" />
-                  </div>
-
-                  {/* Candidate 2 Score Box */}
-                  <div className="flex flex-col items-center">
-                    <span className="text-4xl sm:text-6xl lg:text-7xl font-black text-sky-400 font-mono tracking-tight drop-shadow-[0_0_25px_rgba(56,189,248,0.3)]">
-                      <LiveCounterAnimation value={cand2.percentage} />
-                    </span>
-                    <span className="mt-2 inline-block px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-xs font-bold text-sky-300 font-mono">
-                      {cand2.voteCount} Suara
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Showcase (Candidate 2 - Sky/Blue) */}
-              <div className="lg:col-span-4 flex justify-center lg:justify-end">
-                <LiveCandidateCard
-                  orderNumber={cand2.orderNumber}
-                  name={cand2.name}
-                  className={cand2.className}
-                  photoUrl={cand2.photoUrl}
-                  align="right"
-                  isLeader={cand2IsLeader}
-                />
-              </div>
-            </div>
-
-            {/* Central Dual Progress Bar Card */}
-            <div className="w-full max-w-5xl mx-auto bg-slate-900/60 p-6 sm:p-8 rounded-3xl border border-slate-800/80 backdrop-blur-xl shadow-2xl">
-              <LiveProgressBar
-                percent1={cand1.percentage}
-                name1={cand1.name}
-                name2={cand2.name}
-                voteCount1={cand1.voteCount}
-                voteCount2={cand2.voteCount}
-              />
-            </div>
-          </div>
-        ) : (
-          /* Multi-Candidate Grid View */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {candidates.map((cand) => (
-              <div
-                key={cand.id}
-                className="flex flex-col justify-between p-6 rounded-3xl bg-slate-900/70 border border-slate-800 backdrop-blur-xl shadow-xl hover:border-slate-700 transition"
-              >
-                <div className="mb-4">
-                  <LiveCandidateCard
-                    orderNumber={cand.orderNumber}
-                    name={cand.name}
-                    className={cand.className}
-                    photoUrl={cand.photoUrl}
-                  />
-                </div>
-                <div className="pt-4 border-t border-slate-800/80 flex items-end justify-between">
-                  <div>
-                    <span className="text-xs font-medium text-slate-400">Total Suara</span>
-                    <p className="text-xl font-bold text-white font-mono">{cand.voteCount}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-4xl font-black text-red-400 font-mono">
-                      <LiveCounterAnimation value={cand.percentage} />
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Broadcast Footer Info Ticker */}
-      <footer className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 p-4 px-6 text-xs text-slate-400 backdrop-blur-md">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 text-slate-200 font-semibold">
-            <Vote className="h-4 w-4 text-red-500" />
-            <span>
-              Total Suara Masuk: <strong className="text-white font-mono text-sm ml-1">{totalVotes}</strong>
+      {/* ── Outer canvas: 16:9 constrained, flex column ────────────────── */}
+      <main className="relative z-10 h-full flex flex-col gap-5 px-8 pt-7 pb-0 max-w-[1280px] mx-auto w-full">
+        {/* ── HEADER ───────────────────────────────────────────────────── */}
+        <header className="flex flex-col items-center text-center gap-2 flex-shrink-0">
+          <div className="inline-flex items-center gap-2.5 rounded-full border border-[#c00018]/20 bg-[#c00018]/10 px-4 py-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#c00018] live-dot" />
+            <span className="text-[11px] font-black uppercase tracking-widest text-[#c00018]">
+              Live Update
             </span>
           </div>
+          <h1 className="text-4xl lg:text-5xl font-black tracking-tight text-[#1b1c1c] leading-tight">
+            {election.title}
+          </h1>
+          {election.description && (
+            <p className="text-sm text-[#5d3f3c] max-w-2xl leading-relaxed">
+              {election.description}
+            </p>
+          )}
+        </header>
 
-          <div className="hidden sm:flex items-center gap-2 text-slate-400">
-            <ShieldCheck className="h-4 w-4 text-emerald-500" />
-            <span>Sistem Pemilihan Resmi</span>
-          </div>
+        {/* ── MAIN DASHBOARD ────────────────────────────────────────────── */}
+        <section className="flex-1 min-h-0">
+          {isTwoCandidates && cand1 && cand2 ? (
+            /* 1v1 head-to-head with VS vertical rail */
+            <div className="grid grid-cols-[1fr_80px_1fr] gap-4 h-full items-stretch">
+              {/* Candidate 1 card */}
+              <div
+                style={{
+                  ...glassStyle,
+                  ...(cand1IsLeader
+                    ? {
+                        boxShadow: "0 0 40px -10px rgba(231,35,42,0.18)",
+                        border: "1px solid rgba(231,35,42,0.22)",
+                      }
+                    : { border: "1px solid rgba(255,255,255,0.4)" }),
+                }}
+                className="relative rounded-2xl p-6 flex flex-col overflow-hidden shadow-sm"
+              >
+                {cand1IsLeader && (
+                  <div className="absolute top-0 right-0 bg-[#e7232a] text-white text-[11px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-xl rounded-tr-2xl z-10 flex items-center gap-1">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                    UNGGUL
+                  </div>
+                )}
+                <div className="flex items-start gap-5 mb-4">
+                  <CandidateAvatar photoUrl={cand1.photoUrl} name={cand1.name} />
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#926f6b]">
+                      Kandidat {cand1.orderNumber}
+                    </span>
+                    <h2 className="text-xl font-bold text-[#1b1c1c] leading-tight mt-0.5">
+                      {cand1.name}
+                    </h2>
+                    <span className="text-sm font-medium text-[#c00018]">{cand1.className}</span>
+                  </div>
+                </div>
+                <div className="mt-auto flex flex-col items-start">
+                  <span
+                    className="font-black tracking-tighter leading-none text-[#c00018]"
+                    style={{ fontSize: "clamp(2.8rem,5.5vw,4rem)" }}
+                  >
+                    <LiveCounterAnimation
+                      value={cand1.percentage}
+                      durationMs={1400}
+                      decimals={1}
+                      suffix="%"
+                    />
+                  </span>
+                  <span className="mt-1.5 text-sm text-[#5d3f3c] flex items-center gap-1.5">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.8}
+                      className="w-4 h-4"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    {cand1.voteCount.toLocaleString("id-ID")} Suara
+                  </span>
+                </div>
+                {cand1IsLeader && (
+                  <div
+                    className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full blur-3xl pointer-events-none"
+                    style={{ background: "rgba(192,0,24,0.06)" }}
+                  />
+                )}
+              </div>
+
+              {/* Central VS rail */}
+              <div className="flex items-stretch justify-center py-4">
+                <VSRail percent1={cand1.percentage} />
+              </div>
+
+              {/* Candidate 2 card */}
+              <div
+                style={{
+                  ...glassStyle,
+                  ...(cand2IsLeader
+                    ? {
+                        boxShadow: "0 0 40px -10px rgba(231,35,42,0.18)",
+                        border: "1px solid rgba(231,35,42,0.22)",
+                      }
+                    : { border: "1px solid rgba(255,255,255,0.4)" }),
+                }}
+                className="relative rounded-2xl p-6 flex flex-col overflow-hidden shadow-sm"
+              >
+                {cand2IsLeader && (
+                  <div className="absolute top-0 left-0 bg-[#e7232a] text-white text-[11px] font-black uppercase tracking-widest px-4 py-1.5 rounded-br-xl rounded-tl-2xl z-10 flex items-center gap-1">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                    UNGGUL
+                  </div>
+                )}
+                <div className="flex items-start gap-5 mb-4 flex-row-reverse text-right">
+                  <CandidateAvatar photoUrl={cand2.photoUrl} name={cand2.name} />
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#926f6b]">
+                      Kandidat {cand2.orderNumber}
+                    </span>
+                    <h2 className="text-xl font-bold text-[#1b1c1c] leading-tight mt-0.5">
+                      {cand2.name}
+                    </h2>
+                    <span className="text-sm font-medium text-[#5d3f3c]">{cand2.className}</span>
+                  </div>
+                </div>
+                <div className="mt-auto flex flex-col items-end">
+                  <span
+                    className="font-black tracking-tighter leading-none opacity-80 text-[#1b1c1c]"
+                    style={{ fontSize: "clamp(2.8rem,5.5vw,4rem)" }}
+                  >
+                    <LiveCounterAnimation
+                      value={cand2.percentage}
+                      durationMs={1400}
+                      decimals={1}
+                      suffix="%"
+                    />
+                  </span>
+                  <span className="mt-1.5 text-sm text-[#5d3f3c] flex items-center gap-1.5">
+                    {cand2.voteCount.toLocaleString("id-ID")} Suara
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.8}
+                      className="w-4 h-4"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <MultiCandidateGrid candidates={candidates} totalVotes={totalVotes} />
+          )}
+        </section>
+
+        {/* ── STATS CARDS ──────────────────────────────────────────────── */}
+        <div className="grid grid-cols-3 gap-4 flex-shrink-0 pb-1">
+          <StatCard
+            icon={
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                className="w-5 h-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M17 20h5v-2a4 4 0 00-5-3.87M9 20H4v-2a4 4 0 015-3.87M12 12a4 4 0 100-8 4 4 0 000 8z"
+                />
+              </svg>
+            }
+            label="Total Suara Masuk"
+            value={totalVotes.toLocaleString("id-ID")}
+            sub="dari DPT yang terdaftar"
+          />
+          <StatCard
+            icon={
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                className="w-5 h-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+            }
+            label="Data Per Kandidat"
+            value={candidates
+              .map((c) => `${c.name.split(" ")[0]}: ${c.voteCount.toLocaleString("id-ID")}`)
+              .join("  ·  ")}
+          />
+          <StatCard
+            icon={
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                className="w-5 h-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            }
+            label="Terakhir Diperbarui"
+            value={syncTime}
+            sub="Auto-refresh setiap 5 detik"
+          />
         </div>
+      </main>
 
-        <div className="flex items-center gap-4 font-mono text-slate-400">
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5 text-slate-500" />
-            <span>Update: {formattedSyncTime}</span>
+      {/* ── LIVE TICKER FOOTER ────────────────────────────────────────── */}
+      <footer className="flex-shrink-0 w-full flex h-11 border-t border-[#e7bdb8] bg-white overflow-hidden relative z-20">
+        {/* "LATEST" badge */}
+        <div className="bg-[#c00018] flex items-center justify-center px-5 text-white text-[11px] font-black uppercase tracking-widest whitespace-nowrap shadow-[4px_0_12px_rgba(0,0,0,0.08)] z-10 flex-shrink-0">
+          <div className="w-2 h-2 rounded-full bg-white mr-2 live-dot" />
+          TERKINI
+        </div>
+        {/* Scrolling ticker */}
+        <div className="flex items-center flex-grow overflow-hidden bg-white relative">
+          <div className="marquee-track inline-flex gap-16 px-8 text-sm font-medium text-[#1b1c1c] whitespace-nowrap">
+            {/* Duplicate for seamless loop */}
+            <span>{tickerText}</span>
+            <span className="text-[#926f6b]">•</span>
+            <span>{tickerText}</span>
+            <span className="text-[#926f6b]">•</span>
           </div>
-          <span>•</span>
-          <span className="text-slate-400">Auto-refresh 5s</span>
         </div>
       </footer>
-    </main>
+    </>
   );
 }
