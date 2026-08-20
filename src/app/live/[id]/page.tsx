@@ -170,7 +170,11 @@ function MultiCandidateGrid({
           <div
             key={cand.id}
             style={glassStyle}
-            className={`relative rounded-2xl p-5 flex flex-col gap-3 border ${isLeader ? "border-[rgba(231,35,42,0.25)] shadow-[0_0_32px_-8px_rgba(231,35,42,0.15)]" : "border-white/40 shadow-sm"}`}
+            className={`relative rounded-2xl p-5 flex flex-col gap-3 border ${
+              isLeader
+                ? "border-[rgba(231,35,42,0.25)] shadow-[0_0_32px_-8px_rgba(231,35,42,0.15)]"
+                : "border-white/40 shadow-sm"
+            }`}
           >
             {isLeader && (
               <div className="absolute top-0 right-0 bg-[#e7232a] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl rounded-tr-2xl z-10">
@@ -233,6 +237,8 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
   const [data, setData] = useState<LiveData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activityLogs, setActivityLogs] = useState<string[]>([]);
+  const prevCandidatesRef = useRef<Candidate[] | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -245,8 +251,41 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
         const json = await res.json();
         if (active) {
           if (json.success) {
-            setData(json.data);
+            const newData: LiveData = json.data;
+            setData(newData);
             setError(null);
+
+            // Track incoming votes for Live Activity Feed
+            const prevCands = prevCandidatesRef.current;
+            if (prevCands) {
+              const newLogs: string[] = [];
+              newData.candidates.forEach((cand) => {
+                const prevCand = prevCands.find((c) => c.id === cand.id);
+                if (prevCand && cand.voteCount > prevCand.voteCount) {
+                  const diff = cand.voteCount - prevCand.voteCount;
+                  for (let i = 0; i < diff; i++) {
+                    newLogs.push(`+1 Vote for ${cand.name}`);
+                  }
+                }
+              });
+              if (newLogs.length > 0) {
+                setActivityLogs((prev) => [...newLogs, ...prev].slice(0, 20));
+              }
+            } else {
+              // Initial load activity feed generator based on candidate votes
+              const initialLogs: string[] = [];
+              newData.candidates.forEach((cand) => {
+                const count = Math.min(cand.voteCount, 3);
+                for (let i = 0; i < count; i++) {
+                  initialLogs.push(`+1 Vote for ${cand.name}`);
+                }
+              });
+              if (initialLogs.length === 0) {
+                initialLogs.push("Live voting is active • Awaiting incoming votes");
+              }
+              setActivityLogs(initialLogs);
+            }
+            prevCandidatesRef.current = newData.candidates;
           } else {
             setError(json.error?.message || "Terjadi kesalahan.");
           }
@@ -321,41 +360,38 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
     second: "2-digit",
   });
 
-  // Live ticker items
-  const tickerItems = candidates.flatMap((c) => [
-    `${c.name}: ${c.voteCount.toLocaleString("id-ID")} suara (${c.percentage.toFixed(1)}%)`,
-  ]);
-  const tickerText = tickerItems.join("    •    ");
+  // Ticker text from live activity feed log
+  const tickerText = activityLogs.join("    •    ");
 
   return (
     <>
       <style>{pulseDotStyle}</style>
 
       {/* ── Outer canvas: 16:9 constrained, flex column ────────────────── */}
-      <main className="relative z-10 h-full flex flex-col gap-5 px-8 pt-7 pb-0 max-w-[1280px] mx-auto w-full">
+      <main className="relative z-10 h-full flex flex-col justify-between gap-4 px-8 pt-6 pb-6 max-w-[1280px] mx-auto w-full">
         {/* ── HEADER ───────────────────────────────────────────────────── */}
-        <header className="flex flex-col items-center text-center gap-2 flex-shrink-0">
-          <div className="inline-flex items-center gap-2.5 rounded-full border border-[#c00018]/20 bg-[#c00018]/10 px-4 py-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#c00018] live-dot" />
-            <span className="text-[11px] font-black uppercase tracking-widest text-[#c00018]">
+        <header className="flex flex-col items-center text-center gap-1.5 flex-shrink-0">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#c00018]/20 bg-[#c00018]/10 px-3.5 py-1">
+            <div className="w-2 h-2 rounded-full bg-[#c00018] live-dot" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#c00018]">
               Live Update
             </span>
           </div>
-          <h1 className="text-4xl lg:text-5xl font-black tracking-tight text-[#1b1c1c] leading-tight">
+          <h1 className="text-3xl lg:text-4xl font-black tracking-tight text-[#1b1c1c] leading-tight">
             {election.title}
           </h1>
           {election.description && (
-            <p className="text-sm text-[#5d3f3c] max-w-2xl leading-relaxed">
+            <p className="text-xs text-[#5d3f3c] max-w-2xl leading-relaxed">
               {election.description}
             </p>
           )}
         </header>
 
         {/* ── MAIN DASHBOARD ────────────────────────────────────────────── */}
-        <section className="flex-1 min-h-0">
+        <section className="flex-1 min-h-0 flex items-stretch">
           {isTwoCandidates && cand1 && cand2 ? (
-            /* 1v1 head-to-head with VS vertical rail */
-            <div className="grid grid-cols-[1fr_80px_1fr] gap-4 h-full items-stretch">
+            /* 1v1 head-to-head with VS vertical rail sized to candidate card box */
+            <div className="grid grid-cols-[1fr_80px_1fr] gap-4 w-full h-full items-stretch">
               {/* Candidate 1 card */}
               <div
                 style={{
@@ -367,7 +403,7 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
                       }
                     : { border: "1px solid rgba(255,255,255,0.4)" }),
                 }}
-                className="relative rounded-2xl p-6 flex flex-col overflow-hidden shadow-sm"
+                className="relative rounded-2xl p-6 flex flex-col overflow-hidden shadow-sm h-full"
               >
                 {cand1IsLeader && (
                   <div className="absolute top-0 right-0 bg-[#e7232a] text-white text-[11px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-xl rounded-tr-2xl z-10 flex items-center gap-1">
@@ -422,8 +458,8 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
                 )}
               </div>
 
-              {/* Central VS rail */}
-              <div className="flex items-stretch justify-center py-4">
+              {/* Central VS rail matching candidate box height */}
+              <div className="flex items-stretch justify-center h-full">
                 <VSRail percent1={cand1.percentage} />
               </div>
 
@@ -438,7 +474,7 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
                       }
                     : { border: "1px solid rgba(255,255,255,0.4)" }),
                 }}
-                className="relative rounded-2xl p-6 flex flex-col overflow-hidden shadow-sm"
+                className="relative rounded-2xl p-6 flex flex-col overflow-hidden shadow-sm h-full"
               >
                 {cand2IsLeader && (
                   <div className="absolute top-0 left-0 bg-[#e7232a] text-white text-[11px] font-black uppercase tracking-widest px-4 py-1.5 rounded-br-xl rounded-tl-2xl z-10 flex items-center gap-1">
@@ -493,7 +529,7 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
         </section>
 
         {/* ── STATS CARDS ──────────────────────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-4 flex-shrink-0 pb-1">
+        <div className="grid grid-cols-3 gap-4 flex-shrink-0">
           <StatCard
             icon={
               <svg
@@ -556,26 +592,28 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
             sub="Auto-refresh setiap 5 detik"
           />
         </div>
-      </main>
 
-      {/* ── LIVE TICKER FOOTER ────────────────────────────────────────── */}
-      <footer className="flex-shrink-0 w-full flex h-11 border-t border-[#e7bdb8] bg-white overflow-hidden relative z-20">
-        {/* "LATEST" badge */}
-        <div className="bg-[#c00018] flex items-center justify-center px-5 text-white text-[11px] font-black uppercase tracking-widest whitespace-nowrap shadow-[4px_0_12px_rgba(0,0,0,0.08)] z-10 flex-shrink-0">
-          <div className="w-2 h-2 rounded-full bg-white mr-2 live-dot" />
-          TERKINI
-        </div>
-        {/* Scrolling ticker */}
-        <div className="flex items-center flex-grow overflow-hidden bg-white relative">
-          <div className="marquee-track inline-flex gap-16 px-8 text-sm font-medium text-[#1b1c1c] whitespace-nowrap">
-            {/* Duplicate for seamless loop */}
-            <span>{tickerText}</span>
-            <span className="text-[#926f6b]">•</span>
-            <span>{tickerText}</span>
-            <span className="text-[#926f6b]">•</span>
+        {/* ── LIVE ACTIVITY FEED (FOOTER TICKER) ────────────────────────── */}
+        <footer
+          style={glassStyle}
+          className="flex-shrink-0 w-full flex h-11 rounded-xl border border-white/40 overflow-hidden relative z-20 shadow-sm"
+        >
+          {/* "LATEST" badge */}
+          <div className="bg-[#c00018] flex items-center justify-center px-4 text-white text-[11px] font-black uppercase tracking-widest whitespace-nowrap shadow-md z-10 flex-shrink-0">
+            <div className="w-2 h-2 rounded-full bg-white mr-2 live-dot" />
+            LATEST
           </div>
-        </div>
-      </footer>
+          {/* Continuous scrolling ticker of incoming vote activity */}
+          <div className="flex items-center flex-grow overflow-hidden relative">
+            <div className="marquee-track inline-flex gap-12 px-6 text-sm font-semibold text-[#1b1c1c] whitespace-nowrap">
+              <span>{tickerText}</span>
+              <span className="text-[#926f6b]">•</span>
+              <span>{tickerText}</span>
+              <span className="text-[#926f6b]">•</span>
+            </div>
+          </div>
+        </footer>
+      </main>
     </>
   );
 }
