@@ -55,6 +55,8 @@ export interface ElectionListItem {
   tokenEmailMessage: string | null;
   reminderEmailSubject: string | null;
   reminderEmailMessage: string | null;
+  includeVoteLink?: boolean;
+  includeWhatsappSupport?: boolean;
   reminderQueuedAt: string | null;
   reminderCompletedAt: string | null;
   openedAt: string | null;

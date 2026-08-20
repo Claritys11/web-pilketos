@@ -59,6 +59,8 @@ export function ElectionDetailClient({
     tokenEmailMessage: DEFAULT_TOKEN_EMAIL_MESSAGE,
     reminderEmailSubject: DEFAULT_REMINDER_EMAIL_SUBJECT,
     reminderEmailMessage: DEFAULT_REMINDER_EMAIL_MESSAGE,
+    includeVoteLink: true,
+    includeWhatsappSupport: true,
   });
   const canManage = user.role !== "VIEWER";
 
@@ -78,6 +80,8 @@ export function ElectionDetailClient({
         tokenEmailMessage: data.tokenEmailMessage ?? DEFAULT_TOKEN_EMAIL_MESSAGE,
         reminderEmailSubject: data.reminderEmailSubject ?? DEFAULT_REMINDER_EMAIL_SUBJECT,
         reminderEmailMessage: data.reminderEmailMessage ?? DEFAULT_REMINDER_EMAIL_MESSAGE,
+        includeVoteLink: data.includeVoteLink ?? true,
+        includeWhatsappSupport: data.includeWhatsappSupport ?? true,
       });
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Gagal memuat detail election.");
@@ -285,6 +289,42 @@ export function ElectionDetailClient({
           ) : null}
         </div>
 
+        <div className="mt-5 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+          <h4 className="text-xs font-semibold uppercase text-neutral-600 tracking-wider mb-3">
+            Opsi Bagian Otomatis Email
+          </h4>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8 text-sm">
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={emailTemplates.includeVoteLink}
+                onChange={(e) =>
+                  setEmailTemplates((prev) => ({ ...prev, includeVoteLink: e.target.checked }))
+                }
+                disabled={!canManage || ["CLOSED", "ARCHIVED"].includes(election.status)}
+                className="h-4 w-4 rounded border-neutral-300 text-[var(--color-vote-primary)] focus:ring-red-500"
+              />
+              <span className="font-medium text-neutral-800">
+                Sertakan tombol &quot;Buka Voting / Isi Token Otomatis&quot;
+              </span>
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={emailTemplates.includeWhatsappSupport}
+                onChange={(e) =>
+                  setEmailTemplates((prev) => ({ ...prev, includeWhatsappSupport: e.target.checked }))
+                }
+                disabled={!canManage || ["CLOSED", "ARCHIVED"].includes(election.status)}
+                className="h-4 w-4 rounded border-neutral-300 text-[var(--color-vote-primary)] focus:ring-red-500"
+              />
+              <span className="font-medium text-neutral-800">
+                Sertakan bagian &quot;Hubungi Admin via WhatsApp&quot;
+              </span>
+            </label>
+          </div>
+        </div>
+
         <fieldset
           disabled={!canManage || ["CLOSED", "ARCHIVED"].includes(election.status)}
           className="mt-5 grid gap-6 lg:grid-cols-2 disabled:opacity-70"
@@ -315,6 +355,8 @@ export function ElectionDetailClient({
               subject={emailTemplates.tokenEmailSubject}
               message={emailTemplates.tokenEmailMessage}
               electionTitle={election.title}
+              includeVoteLink={emailTemplates.includeVoteLink}
+              includeWhatsappSupport={emailTemplates.includeWhatsappSupport}
             />
           </div>
           <div className="space-y-4 lg:border-l lg:border-neutral-200 lg:pl-6">
@@ -343,6 +385,8 @@ export function ElectionDetailClient({
               subject={emailTemplates.reminderEmailSubject}
               message={emailTemplates.reminderEmailMessage}
               electionTitle={election.title}
+              includeVoteLink={emailTemplates.includeVoteLink}
+              includeWhatsappSupport={emailTemplates.includeWhatsappSupport}
             />
           </div>
         </fieldset>
@@ -679,11 +723,15 @@ function EmailPreview({
   subject,
   message,
   electionTitle,
+  includeVoteLink = true,
+  includeWhatsappSupport = true,
 }: {
   kind: "TOKEN" | "REMINDER";
   subject: string;
   message: string;
   electionTitle: string;
+  includeVoteLink?: boolean;
+  includeWhatsappSupport?: boolean;
 }) {
   const values = { name: "Nama Pemilih", election: electionTitle };
   const renderedSubject = renderTemplatePreview(subject, values);
@@ -715,24 +763,30 @@ function EmailPreview({
               ABCD-EFGH-1234
             </code>
           </p>
-          <span className="mt-3 inline-flex min-h-10 items-center bg-[var(--color-vote-primary)] px-4 font-semibold text-white">
-            {kind === "REMINDER" ? "Buka Voting Sekarang" : "Buka Voting dan Isi Token Otomatis"}
-          </span>
-          <p className="mt-3 break-all text-xs text-sky-700 underline">
-            https://domain-pilketos.example/vote?token=...
-          </p>
+          {includeVoteLink ? (
+            <>
+              <span className="mt-3 inline-flex min-h-10 items-center bg-[var(--color-vote-primary)] px-4 font-semibold text-white">
+                {kind === "REMINDER" ? "Buka Voting Sekarang" : "Buka Voting dan Isi Token Otomatis"}
+              </span>
+              <p className="mt-3 break-all text-xs text-sky-700 underline">
+                https://domain-pilketos.example/vote?token=...
+              </p>
+            </>
+          ) : null}
           <p className="mt-3 text-xs text-neutral-600">
             Token hanya bisa dipakai satu kali. Jangan bagikan token kepada orang lain.
           </p>
-          <div className="mt-3 border-t border-neutral-200 pt-3">
-            <p className="font-semibold text-neutral-800">Link atau website bermasalah?</p>
-            <span className="mt-2 inline-flex min-h-9 items-center bg-emerald-600 px-3 text-xs font-semibold text-white">
-              Hubungi Admin via WhatsApp
-            </span>
-            <p className="mt-2 text-xs text-neutral-500">
-              Ditampilkan jika nomor WhatsApp support dikonfigurasi.
-            </p>
-          </div>
+          {includeWhatsappSupport ? (
+            <div className="mt-3 border-t border-neutral-200 pt-3">
+              <p className="font-semibold text-neutral-800">Link atau website bermasalah?</p>
+              <span className="mt-2 inline-flex min-h-9 items-center bg-emerald-600 px-3 text-xs font-semibold text-white">
+                Hubungi Admin via WhatsApp
+              </span>
+              <p className="mt-2 text-xs text-neutral-500">
+                Ditampilkan jika nomor WhatsApp support dikonfigurasi.
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

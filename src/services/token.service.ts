@@ -485,6 +485,8 @@ export class TokenService {
         status: true,
         tokenEmailSubject: true,
         tokenEmailMessage: true,
+        includeVoteLink: true,
+        includeWhatsappSupport: true,
       },
     });
 
@@ -771,6 +773,8 @@ export class TokenService {
         reminderQueuedAt: true,
         reminderEmailSubject: true,
         reminderEmailMessage: true,
+        includeVoteLink: true,
+        includeWhatsappSupport: true,
       },
     });
     if (!election) {
@@ -850,6 +854,8 @@ export class TokenService {
         kind: "REMINDER",
         subjectTemplate: election.reminderEmailSubject,
         messageTemplate: election.reminderEmailMessage,
+        includeVoteLink: election.includeVoteLink,
+        includeWhatsappSupport: election.includeWhatsappSupport,
       });
 
       await prisma.votingToken.update({

@@ -44,6 +44,8 @@ export interface UpdateElectionEmailTemplatesInput extends ActorContext {
   tokenEmailMessage: string;
   reminderEmailSubject: string;
   reminderEmailMessage: string;
+  includeVoteLink?: boolean | undefined;
+  includeWhatsappSupport?: boolean | undefined;
 }
 
 export class ElectionService {
@@ -311,6 +313,8 @@ export class ElectionService {
           tokenEmailMessage: input.tokenEmailMessage,
           reminderEmailSubject: input.reminderEmailSubject,
           reminderEmailMessage: input.reminderEmailMessage,
+          ...(input.includeVoteLink !== undefined ? { includeVoteLink: input.includeVoteLink } : {}),
+          ...(input.includeWhatsappSupport !== undefined ? { includeWhatsappSupport: input.includeWhatsappSupport } : {}),
         },
       });
       await auditService.writeLog(
