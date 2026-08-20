@@ -70,6 +70,7 @@ export const updateElectionEmailTemplatesSchema = z.object({
   reminderEmailMessage: emailMessageTemplateSchema,
   includeVoteLink: z.boolean().optional().default(true),
   includeWhatsappSupport: z.boolean().optional().default(true),
+  sendReminderOnOpen: z.boolean().optional().default(true),
 });
 
 export const tokenReminderSchema = electionIdBodySchema.extend({

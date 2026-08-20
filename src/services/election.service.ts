@@ -46,6 +46,7 @@ export interface UpdateElectionEmailTemplatesInput extends ActorContext {
   reminderEmailMessage: string;
   includeVoteLink?: boolean | undefined;
   includeWhatsappSupport?: boolean | undefined;
+  sendReminderOnOpen?: boolean | undefined;
 }
 
 export class ElectionService {
@@ -315,6 +316,7 @@ export class ElectionService {
           reminderEmailMessage: input.reminderEmailMessage,
           ...(input.includeVoteLink !== undefined ? { includeVoteLink: input.includeVoteLink } : {}),
           ...(input.includeWhatsappSupport !== undefined ? { includeWhatsappSupport: input.includeWhatsappSupport } : {}),
+          ...(input.sendReminderOnOpen !== undefined ? { sendReminderOnOpen: input.sendReminderOnOpen } : {}),
         },
       });
       await auditService.writeLog(
@@ -425,7 +427,7 @@ export class ElectionService {
         data: {
           status: input.status,
           ...(input.status === "OPEN" && !election.openedAt ? { openedAt: new Date() } : {}),
-          ...(input.status === "OPEN" && !election.openedAt
+          ...(input.status === "OPEN" && !election.openedAt && election.sendReminderOnOpen
             ? { reminderQueuedAt: new Date(), reminderCompletedAt: null }
             : {}),
           ...(input.status === "CLOSED" ? { closedAt: new Date() } : {}),

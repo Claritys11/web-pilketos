@@ -582,6 +582,8 @@ export class TokenService {
         voteUrl: buildTokenVoteUrl(plaintextToken),
         subjectTemplate: election.tokenEmailSubject,
         messageTemplate: election.tokenEmailMessage,
+        includeVoteLink: election.includeVoteLink,
+        includeWhatsappSupport: election.includeWhatsappSupport,
       });
 
       await prisma.votingToken.update({

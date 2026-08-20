@@ -61,6 +61,7 @@ export function ElectionDetailClient({
     reminderEmailMessage: DEFAULT_REMINDER_EMAIL_MESSAGE,
     includeVoteLink: true,
     includeWhatsappSupport: true,
+    sendReminderOnOpen: true,
   });
   const canManage = user.role !== "VIEWER";
 
@@ -82,6 +83,7 @@ export function ElectionDetailClient({
         reminderEmailMessage: data.reminderEmailMessage ?? DEFAULT_REMINDER_EMAIL_MESSAGE,
         includeVoteLink: data.includeVoteLink ?? true,
         includeWhatsappSupport: data.includeWhatsappSupport ?? true,
+        sendReminderOnOpen: data.sendReminderOnOpen ?? true,
       });
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Gagal memuat detail election.");
@@ -139,7 +141,11 @@ export function ElectionDetailClient({
         body: JSON.stringify({ status: pendingStatus }),
       });
       if (pendingStatus === "OPEN") {
-        setNotice("Voting dibuka. Reminder untuk pemilih yang belum voting mulai dikirim.");
+        setNotice(
+          emailTemplates.sendReminderOnOpen
+            ? "Voting dibuka. Reminder untuk pemilih yang belum voting mulai dikirim."
+            : "Voting dibuka. (Pengiriman reminder otomatis saat buka voting dinonaktifkan).",
+        );
       }
       setPendingStatus(null);
       await load();
@@ -291,9 +297,9 @@ export function ElectionDetailClient({
 
         <div className="mt-5 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
           <h4 className="text-xs font-semibold uppercase text-neutral-600 tracking-wider mb-3">
-            Opsi Bagian Otomatis Email
+            Opsi Bagian Otomatis Email & Reminder
           </h4>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-8 text-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6 text-sm">
             <label className="inline-flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -320,6 +326,20 @@ export function ElectionDetailClient({
               />
               <span className="font-medium text-neutral-800">
                 Sertakan bagian &quot;Hubungi Admin via WhatsApp&quot;
+              </span>
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={emailTemplates.sendReminderOnOpen}
+                onChange={(e) =>
+                  setEmailTemplates((prev) => ({ ...prev, sendReminderOnOpen: e.target.checked }))
+                }
+                disabled={!canManage || ["CLOSED", "ARCHIVED"].includes(election.status)}
+                className="h-4 w-4 rounded border-neutral-300 text-[var(--color-vote-primary)] focus:ring-red-500"
+              />
+              <span className="font-medium text-neutral-800">
+                Kirim email reminder otomatis saat voting dibuka
               </span>
             </label>
           </div>

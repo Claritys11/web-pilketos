@@ -99,6 +99,7 @@ model Election {
   reminderEmailMessage      String?        @map("reminder_email_message") @db.Text
   includeVoteLink           Boolean        @default(true) @map("include_vote_link")
   includeWhatsappSupport    Boolean        @default(true) @map("include_whatsapp_support")
+  sendReminderOnOpen        Boolean        @default(true) @map("send_reminder_on_open")
   reminderQueuedAt          DateTime?      @map("reminder_queued_at") @db.Timestamptz(6)
   reminderCompletedAt       DateTime?      @map("reminder_completed_at") @db.Timestamptz(6)
   createdById               String         @map("created_by")
