@@ -10,10 +10,7 @@ import { prisma } from "@/lib/prisma";
  *
  * Reference: _reference/e-pilketos/(live)/LiveCount2Kandidat/[id]/page.tsx
  */
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
@@ -34,6 +31,8 @@ export async function GET(
             name: true,
             className: true,
             photoUrl: true,
+            vision: true,
+            missions: true,
             _count: { select: { votes: true } },
           },
         },
@@ -49,16 +48,15 @@ export async function GET(
 
     const candidates = election.candidates.map((candidate) => {
       const voteCount = candidate._count.votes;
-      const percentage =
-        totalVotes === 0
-          ? 0
-          : Number(((voteCount / totalVotes) * 100).toFixed(2));
+      const percentage = totalVotes === 0 ? 0 : Number(((voteCount / totalVotes) * 100).toFixed(2));
       return {
         id: candidate.id,
         orderNumber: candidate.orderNumber,
         name: candidate.name,
         className: candidate.className,
         photoUrl: candidate.photoUrl ?? null,
+        vision: candidate.vision ?? null,
+        missions: Array.isArray(candidate.missions) ? candidate.missions : [],
         voteCount,
         percentage,
       };

@@ -11,6 +11,8 @@ interface Candidate {
   name: string;
   className: string;
   photoUrl?: string | null;
+  vision?: string | null;
+  missions?: string[];
   voteCount: number;
   percentage: number;
 }
@@ -166,6 +168,7 @@ function MultiCandidateGrid({
     <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 w-full">
       {candidates.map((cand) => {
         const isLeader = cand.voteCount === maxVotes && totalVotes > 0;
+        const firstMission = cand.missions && cand.missions.length > 0 ? cand.missions[0] : null;
         return (
           <div
             key={cand.id}
@@ -205,6 +208,31 @@ function MultiCandidateGrid({
                 <span className="text-xs text-[#926f6b]">{cand.className}</span>
               </div>
             </div>
+
+            {/* Visi & 1 Misi */}
+            {(cand.vision || firstMission) && (
+              <div className="my-1 p-2.5 rounded-lg bg-white/70 border border-white/60 text-xs text-[#5d3f3c] space-y-1 backdrop-blur-sm">
+                {cand.vision && (
+                  <div>
+                    <span className="font-extrabold text-[#c00018] uppercase tracking-wider text-[9px] block">
+                      Visi
+                    </span>
+                    <p className="line-clamp-1 leading-tight text-[#1b1c1c] italic font-medium">
+                      &ldquo;{cand.vision}&rdquo;
+                    </p>
+                  </div>
+                )}
+                {firstMission && (
+                  <div className={cand.vision ? "pt-1 border-t border-black/5" : ""}>
+                    <span className="font-extrabold text-[#926f6b] uppercase tracking-wider text-[9px] block">
+                      Misi Utama
+                    </span>
+                    <p className="line-clamp-1 leading-tight text-[#1b1c1c]">• {firstMission}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="mt-auto">
               <span className="text-3xl font-black tabular-nums text-[#c00018]">
                 <LiveCounterAnimation
@@ -363,6 +391,9 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
   // Ticker text from live activity feed log
   const tickerText = activityLogs.join("    •    ");
 
+  const cand1FirstMission = cand1?.missions && cand1.missions.length > 0 ? cand1.missions[0] : null;
+  const cand2FirstMission = cand2?.missions && cand2.missions.length > 0 ? cand2.missions[0] : null;
+
   return (
     <>
       <style>{pulseDotStyle}</style>
@@ -403,7 +434,7 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
                       }
                     : { border: "1px solid rgba(255,255,255,0.4)" }),
                 }}
-                className="relative rounded-2xl p-6 flex flex-col overflow-hidden shadow-sm h-full"
+                className="relative rounded-2xl p-6 flex flex-col justify-between overflow-hidden shadow-sm h-full"
               >
                 {cand1IsLeader && (
                   <div className="absolute top-0 right-0 bg-[#e7232a] text-white text-[11px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-xl rounded-tr-2xl z-10 flex items-center gap-1">
@@ -413,7 +444,7 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
                     UNGGUL
                   </div>
                 )}
-                <div className="flex items-start gap-5 mb-4">
+                <div className="flex items-start gap-5 mb-2">
                   <CandidateAvatar photoUrl={cand1.photoUrl} name={cand1.name} />
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#926f6b]">
@@ -425,7 +456,34 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
                     <span className="text-sm font-medium text-[#c00018]">{cand1.className}</span>
                   </div>
                 </div>
-                <div className="mt-auto flex flex-col items-start">
+
+                {/* Candidate 1 Visi & 1 Misi Box */}
+                {(cand1.vision || cand1FirstMission) && (
+                  <div className="my-auto py-3 px-4 rounded-xl bg-white/70 border border-white/60 text-xs text-[#5d3f3c] space-y-2 backdrop-blur-sm shadow-inner">
+                    {cand1.vision && (
+                      <div>
+                        <span className="font-extrabold text-[#c00018] uppercase tracking-wider text-[10px] block mb-0.5">
+                          Visi
+                        </span>
+                        <p className="line-clamp-2 leading-relaxed text-[#1b1c1c] italic font-medium">
+                          &ldquo;{cand1.vision}&rdquo;
+                        </p>
+                      </div>
+                    )}
+                    {cand1FirstMission && (
+                      <div className={cand1.vision ? "pt-1.5 border-t border-black/5" : ""}>
+                        <span className="font-extrabold text-[#926f6b] uppercase tracking-wider text-[10px] block mb-0.5">
+                          Misi Utama
+                        </span>
+                        <p className="line-clamp-2 leading-relaxed text-[#1b1c1c]">
+                          • {cand1FirstMission}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-auto flex flex-col items-start pt-2">
                   <span
                     className="font-black tracking-tighter leading-none text-[#c00018]"
                     style={{ fontSize: "clamp(2.8rem,5.5vw,4rem)" }}
@@ -474,7 +532,7 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
                       }
                     : { border: "1px solid rgba(255,255,255,0.4)" }),
                 }}
-                className="relative rounded-2xl p-6 flex flex-col overflow-hidden shadow-sm h-full"
+                className="relative rounded-2xl p-6 flex flex-col justify-between overflow-hidden shadow-sm h-full"
               >
                 {cand2IsLeader && (
                   <div className="absolute top-0 left-0 bg-[#e7232a] text-white text-[11px] font-black uppercase tracking-widest px-4 py-1.5 rounded-br-xl rounded-tl-2xl z-10 flex items-center gap-1">
@@ -484,7 +542,7 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
                     UNGGUL
                   </div>
                 )}
-                <div className="flex items-start gap-5 mb-4 flex-row-reverse text-right">
+                <div className="flex items-start gap-5 mb-2 flex-row-reverse text-right">
                   <CandidateAvatar photoUrl={cand2.photoUrl} name={cand2.name} />
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#926f6b]">
@@ -496,7 +554,34 @@ export default function LiveCountPage({ params }: { params: Promise<{ id: string
                     <span className="text-sm font-medium text-[#5d3f3c]">{cand2.className}</span>
                   </div>
                 </div>
-                <div className="mt-auto flex flex-col items-end">
+
+                {/* Candidate 2 Visi & 1 Misi Box */}
+                {(cand2.vision || cand2FirstMission) && (
+                  <div className="my-auto py-3 px-4 rounded-xl bg-white/70 border border-white/60 text-xs text-[#5d3f3c] space-y-2 backdrop-blur-sm shadow-inner text-right">
+                    {cand2.vision && (
+                      <div>
+                        <span className="font-extrabold text-[#c00018] uppercase tracking-wider text-[10px] block mb-0.5">
+                          Visi
+                        </span>
+                        <p className="line-clamp-2 leading-relaxed text-[#1b1c1c] italic font-medium">
+                          &ldquo;{cand2.vision}&rdquo;
+                        </p>
+                      </div>
+                    )}
+                    {cand2FirstMission && (
+                      <div className={cand2.vision ? "pt-1.5 border-t border-black/5" : ""}>
+                        <span className="font-extrabold text-[#926f6b] uppercase tracking-wider text-[10px] block mb-0.5">
+                          Misi Utama
+                        </span>
+                        <p className="line-clamp-2 leading-relaxed text-[#1b1c1c]">
+                          • {cand2FirstMission}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-auto flex flex-col items-end pt-2">
                   <span
                     className="font-black tracking-tighter leading-none opacity-80 text-[#1b1c1c]"
                     style={{ fontSize: "clamp(2.8rem,5.5vw,4rem)" }}
