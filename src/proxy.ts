@@ -22,13 +22,13 @@ const RATE_LIMITS = [
   {
     name: "vote-validate",
     matches: (pathname: string) => pathname === "/api/vote/validate-token",
-    limit: 10,
+    limit: 100,
     windowMs: 60_000,
   },
   {
     name: "vote-cast",
     matches: (pathname: string) => pathname === "/api/vote/cast",
-    limit: 20,
+    limit: 100,
     windowMs: 60_000,
   },
 ] as const;
