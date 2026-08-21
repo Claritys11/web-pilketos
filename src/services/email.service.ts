@@ -20,6 +20,8 @@ export interface TokenEmailInput {
   kind?: VotingEmailKind;
   subjectTemplate?: string | null;
   messageTemplate?: string | null;
+  includeVoteLink?: boolean | undefined;
+  includeWhatsappSupport?: boolean | undefined;
 }
 
 export interface TokenEmailResult {
@@ -340,6 +342,8 @@ function escapeHtml(value: string) {
 
 export function buildVotingTokenEmail(input: TokenEmailInput) {
   const kind = input.kind ?? "TOKEN";
+  const includeVoteLink = input.includeVoteLink !== false;
+  const includeWhatsappSupport = input.includeWhatsappSupport !== false;
   const defaultSubject =
     kind === "REMINDER" ? DEFAULT_REMINDER_EMAIL_SUBJECT : DEFAULT_TOKEN_EMAIL_SUBJECT;
   const defaultMessage =
@@ -348,10 +352,9 @@ export function buildVotingTokenEmail(input: TokenEmailInput) {
     name: input.studentName,
     election: input.electionTitle,
   };
-  const supportUrl = buildWhatsAppSupportUrl(
-    config.mail.supportWhatsappNumber,
-    input.electionTitle,
-  );
+  const supportUrl = includeWhatsappSupport
+    ? buildWhatsAppSupportUrl(config.mail.supportWhatsappNumber, input.electionTitle)
+    : null;
   const subject = renderTemplate(input.subjectTemplate || defaultSubject, templateValues)
     .replace(/[\r\n]+/g, " ")
     .trim();
@@ -361,7 +364,7 @@ export function buildVotingTokenEmail(input: TokenEmailInput) {
     "",
     ...(input.studentIdentifier ? [`NIS/ID: ${input.studentIdentifier}`] : []),
     `Token: ${input.token}`,
-    `Link voting otomatis: ${input.voteUrl}`,
+    ...(includeVoteLink ? [`Link voting otomatis: ${input.voteUrl}`] : []),
     "",
     "Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.",
     ...(supportUrl
@@ -379,10 +382,14 @@ export function buildVotingTokenEmail(input: TokenEmailInput) {
       ? [`<p><strong>NIS/ID:</strong> ${escapeHtml(input.studentIdentifier)}</p>`]
       : []),
     `<p><strong>Token:</strong> <code style="font-size:18px">${escapeHtml(input.token)}</code></p>`,
-    renderVoteButton(
-      input.voteUrl,
-      kind === "REMINDER" ? "Buka Voting Sekarang" : "Buka Voting dan Isi Token Otomatis",
-    ),
+    ...(includeVoteLink
+      ? [
+          renderVoteButton(
+            input.voteUrl,
+            kind === "REMINDER" ? "Buka Voting Sekarang" : "Buka Voting dan Isi Token Otomatis",
+          ),
+        ]
+      : []),
     `<p>Token ini hanya bisa dipakai satu kali. Jangan bagikan token ini kepada orang lain.</p>`,
     ...(supportUrl ? [renderWhatsAppSupport(supportUrl)] : []),
   ].join("");

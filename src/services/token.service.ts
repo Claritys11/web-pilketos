@@ -485,6 +485,8 @@ export class TokenService {
         status: true,
         tokenEmailSubject: true,
         tokenEmailMessage: true,
+        includeVoteLink: true,
+        includeWhatsappSupport: true,
       },
     });
 
@@ -580,6 +582,8 @@ export class TokenService {
         voteUrl: buildTokenVoteUrl(plaintextToken),
         subjectTemplate: election.tokenEmailSubject,
         messageTemplate: election.tokenEmailMessage,
+        includeVoteLink: election.includeVoteLink,
+        includeWhatsappSupport: election.includeWhatsappSupport,
       });
 
       await prisma.votingToken.update({
@@ -771,6 +775,8 @@ export class TokenService {
         reminderQueuedAt: true,
         reminderEmailSubject: true,
         reminderEmailMessage: true,
+        includeVoteLink: true,
+        includeWhatsappSupport: true,
       },
     });
     if (!election) {
@@ -850,6 +856,8 @@ export class TokenService {
         kind: "REMINDER",
         subjectTemplate: election.reminderEmailSubject,
         messageTemplate: election.reminderEmailMessage,
+        includeVoteLink: election.includeVoteLink,
+        includeWhatsappSupport: election.includeWhatsappSupport,
       });
 
       await prisma.votingToken.update({
@@ -1125,20 +1133,37 @@ function validateAssignmentsForElection(
     );
   }
 
+  // Detect simple mode: all students have no studentIdentifier (name+email only)
+  const isSimpleMode =
+    mode === "STANDARD" &&
+    students !== undefined &&
+    students.every((student) => !student.studentIdentifier);
+
   for (const [index, student] of (students ?? []).entries()) {
     const row = index + 1;
     if (mode === "STANDARD") {
-      if (!student.studentIdentifier) {
+      if (!isSimpleMode && !student.studentIdentifier) {
         throw new ServiceError(
           "TOKEN_STUDENT_IDENTIFIER_REQUIRED",
-          `Baris ${row}: NIS/ID wajib diisi untuk election biasa.`,
+          `Baris ${row}: NIS/ID wajib diisi untuk election biasa (kecuali mode Nama & Email saja, di mana semua baris tidak ber-NIS/ID).`,
           422,
         );
       }
       if (!student.voterType || !["STUDENT", "TEACHER"].includes(student.voterType)) {
+        // Default to STUDENT for simple mode
+        student.voterType = "STUDENT";
+      }
+      if (!student.studentName?.trim()) {
         throw new ServiceError(
-          "TOKEN_VOTER_TYPE_INVALID",
-          `Baris ${row}: role election biasa harus SISWA atau GURU.`,
+          "TOKEN_STUDENT_NAME_REQUIRED",
+          `Baris ${row}: nama wajib diisi.`,
+          422,
+        );
+      }
+      if (isSimpleMode && !student.studentEmail) {
+        throw new ServiceError(
+          "TOKEN_STUDENT_EMAIL_REQUIRED",
+          `Baris ${row}: email wajib diisi pada mode Nama & Email saja.`,
           422,
         );
       }

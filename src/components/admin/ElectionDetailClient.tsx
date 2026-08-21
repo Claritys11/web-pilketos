@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, BellRing, CheckCircle2, LockKeyhole, X } from "lucide-react";
+import { AlertTriangle, BellRing, CheckCircle2, ExternalLink, LockKeyhole, Tv, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -59,6 +59,9 @@ export function ElectionDetailClient({
     tokenEmailMessage: DEFAULT_TOKEN_EMAIL_MESSAGE,
     reminderEmailSubject: DEFAULT_REMINDER_EMAIL_SUBJECT,
     reminderEmailMessage: DEFAULT_REMINDER_EMAIL_MESSAGE,
+    includeVoteLink: true,
+    includeWhatsappSupport: true,
+    sendReminderOnOpen: true,
   });
   const canManage = user.role !== "VIEWER";
 
@@ -78,6 +81,9 @@ export function ElectionDetailClient({
         tokenEmailMessage: data.tokenEmailMessage ?? DEFAULT_TOKEN_EMAIL_MESSAGE,
         reminderEmailSubject: data.reminderEmailSubject ?? DEFAULT_REMINDER_EMAIL_SUBJECT,
         reminderEmailMessage: data.reminderEmailMessage ?? DEFAULT_REMINDER_EMAIL_MESSAGE,
+        includeVoteLink: data.includeVoteLink ?? true,
+        includeWhatsappSupport: data.includeWhatsappSupport ?? true,
+        sendReminderOnOpen: data.sendReminderOnOpen ?? true,
       });
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "Gagal memuat detail election.");
@@ -135,7 +141,11 @@ export function ElectionDetailClient({
         body: JSON.stringify({ status: pendingStatus }),
       });
       if (pendingStatus === "OPEN") {
-        setNotice("Voting dibuka. Reminder untuk pemilih yang belum voting mulai dikirim.");
+        setNotice(
+          emailTemplates.sendReminderOnOpen
+            ? "Voting dibuka. Reminder untuk pemilih yang belum voting mulai dikirim."
+            : "Voting dibuka. (Pengiriman reminder otomatis saat buka voting dinonaktifkan).",
+        );
       }
       setPendingStatus(null);
       await load();
@@ -239,12 +249,26 @@ export function ElectionDetailClient({
           Dibuat oleh {election.createdBy?.username ?? "-"} pada{" "}
           {new Date(election.createdAt).toLocaleString("id-ID")}
         </p>
-        <div className="mt-4 flex flex-wrap gap-2 text-sm">
-          <Badge tone="primary">
-            {election.mode === "WEIGHTED_FIVE" ? "5 kandidat berbobot" : "Kandidat bebas"}
-          </Badge>
-          {election.mode === "WEIGHTED_FIVE" ? (
-            <span className="text-neutral-600">OSIS 40% · MPK 30% · GURU 30%</span>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="primary">
+              {election.mode === "WEIGHTED_FIVE" ? "5 kandidat berbobot" : "Kandidat bebas"}
+            </Badge>
+            {election.mode === "WEIGHTED_FIVE" ? (
+              <span className="text-neutral-600">OSIS 40% · MPK 30% · GURU 30%</span>
+            ) : null}
+          </div>
+          {election.status === "OPEN" || election.status === "PAUSED" ? (
+            <Link
+              href={`/live/${election.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow hover:bg-slate-800 transition"
+            >
+              <Tv className="size-3.5 text-red-400" />
+              Buka Live Mode
+              <ExternalLink className="size-3 text-neutral-400" />
+            </Link>
           ) : null}
         </div>
       </section>
@@ -269,6 +293,56 @@ export function ElectionDetailClient({
               {savingTemplates ? "Menyimpan..." : "Simpan Template"}
             </button>
           ) : null}
+        </div>
+
+        <div className="mt-5 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+          <h4 className="text-xs font-semibold uppercase text-neutral-600 tracking-wider mb-3">
+            Opsi Bagian Otomatis Email & Reminder
+          </h4>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6 text-sm">
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={emailTemplates.includeVoteLink}
+                onChange={(e) =>
+                  setEmailTemplates((prev) => ({ ...prev, includeVoteLink: e.target.checked }))
+                }
+                disabled={!canManage || ["CLOSED", "ARCHIVED"].includes(election.status)}
+                className="h-4 w-4 rounded border-neutral-300 text-[var(--color-vote-primary)] focus:ring-red-500"
+              />
+              <span className="font-medium text-neutral-800">
+                Sertakan tombol &quot;Buka Voting / Isi Token Otomatis&quot;
+              </span>
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={emailTemplates.includeWhatsappSupport}
+                onChange={(e) =>
+                  setEmailTemplates((prev) => ({ ...prev, includeWhatsappSupport: e.target.checked }))
+                }
+                disabled={!canManage || ["CLOSED", "ARCHIVED"].includes(election.status)}
+                className="h-4 w-4 rounded border-neutral-300 text-[var(--color-vote-primary)] focus:ring-red-500"
+              />
+              <span className="font-medium text-neutral-800">
+                Sertakan bagian &quot;Hubungi Admin via WhatsApp&quot;
+              </span>
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={emailTemplates.sendReminderOnOpen}
+                onChange={(e) =>
+                  setEmailTemplates((prev) => ({ ...prev, sendReminderOnOpen: e.target.checked }))
+                }
+                disabled={!canManage || ["CLOSED", "ARCHIVED"].includes(election.status)}
+                className="h-4 w-4 rounded border-neutral-300 text-[var(--color-vote-primary)] focus:ring-red-500"
+              />
+              <span className="font-medium text-neutral-800">
+                Kirim email reminder otomatis saat voting dibuka
+              </span>
+            </label>
+          </div>
         </div>
 
         <fieldset
@@ -301,6 +375,8 @@ export function ElectionDetailClient({
               subject={emailTemplates.tokenEmailSubject}
               message={emailTemplates.tokenEmailMessage}
               electionTitle={election.title}
+              includeVoteLink={emailTemplates.includeVoteLink}
+              includeWhatsappSupport={emailTemplates.includeWhatsappSupport}
             />
           </div>
           <div className="space-y-4 lg:border-l lg:border-neutral-200 lg:pl-6">
@@ -329,6 +405,8 @@ export function ElectionDetailClient({
               subject={emailTemplates.reminderEmailSubject}
               message={emailTemplates.reminderEmailMessage}
               electionTitle={election.title}
+              includeVoteLink={emailTemplates.includeVoteLink}
+              includeWhatsappSupport={emailTemplates.includeWhatsappSupport}
             />
           </div>
         </fieldset>
@@ -665,11 +743,15 @@ function EmailPreview({
   subject,
   message,
   electionTitle,
+  includeVoteLink = true,
+  includeWhatsappSupport = true,
 }: {
   kind: "TOKEN" | "REMINDER";
   subject: string;
   message: string;
   electionTitle: string;
+  includeVoteLink?: boolean;
+  includeWhatsappSupport?: boolean;
 }) {
   const values = { name: "Nama Pemilih", election: electionTitle };
   const renderedSubject = renderTemplatePreview(subject, values);
@@ -701,24 +783,30 @@ function EmailPreview({
               ABCD-EFGH-1234
             </code>
           </p>
-          <span className="mt-3 inline-flex min-h-10 items-center bg-[var(--color-vote-primary)] px-4 font-semibold text-white">
-            {kind === "REMINDER" ? "Buka Voting Sekarang" : "Buka Voting dan Isi Token Otomatis"}
-          </span>
-          <p className="mt-3 break-all text-xs text-sky-700 underline">
-            https://domain-pilketos.example/vote?token=...
-          </p>
+          {includeVoteLink ? (
+            <>
+              <span className="mt-3 inline-flex min-h-10 items-center bg-[var(--color-vote-primary)] px-4 font-semibold text-white">
+                {kind === "REMINDER" ? "Buka Voting Sekarang" : "Buka Voting dan Isi Token Otomatis"}
+              </span>
+              <p className="mt-3 break-all text-xs text-sky-700 underline">
+                https://domain-pilketos.example/vote?token=...
+              </p>
+            </>
+          ) : null}
           <p className="mt-3 text-xs text-neutral-600">
             Token hanya bisa dipakai satu kali. Jangan bagikan token kepada orang lain.
           </p>
-          <div className="mt-3 border-t border-neutral-200 pt-3">
-            <p className="font-semibold text-neutral-800">Link atau website bermasalah?</p>
-            <span className="mt-2 inline-flex min-h-9 items-center bg-emerald-600 px-3 text-xs font-semibold text-white">
-              Hubungi Admin via WhatsApp
-            </span>
-            <p className="mt-2 text-xs text-neutral-500">
-              Ditampilkan jika nomor WhatsApp support dikonfigurasi.
-            </p>
-          </div>
+          {includeWhatsappSupport ? (
+            <div className="mt-3 border-t border-neutral-200 pt-3">
+              <p className="font-semibold text-neutral-800">Link atau website bermasalah?</p>
+              <span className="mt-2 inline-flex min-h-9 items-center bg-emerald-600 px-3 text-xs font-semibold text-white">
+                Hubungi Admin via WhatsApp
+              </span>
+              <p className="mt-2 text-xs text-neutral-500">
+                Ditampilkan jika nomor WhatsApp support dikonfigurasi.
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

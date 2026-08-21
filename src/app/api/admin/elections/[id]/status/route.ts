@@ -25,7 +25,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       actorRole: admin.role,
       ...requestContext,
     });
-    if (body.status === "OPEN") {
+    if (body.status === "OPEN" && election.sendReminderOnOpen) {
       after(async () => {
         try {
           await tokenService.deliverElectionReminderQueue({

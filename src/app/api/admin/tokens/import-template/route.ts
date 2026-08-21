@@ -15,14 +15,27 @@ const WEIGHTED_TEMPLATE_ROWS = [
   "Nama Guru,,guru@example.com,GURU",
 ];
 
+const SIMPLE_EMAIL_TEMPLATE_ROWS = [
+  "student_name,student_email",
+  "Nama Lengkap 1,pemilih1@example.com",
+  "Nama Lengkap 2,pemilih2@example.com",
+  "Nama Lengkap 3,pemilih3@example.com",
+];
+
 export async function GET(request: Request) {
   try {
     await requireAdmin(["VIEWER", "ADMIN", "SUPER_ADMIN"]);
-    const weighted = new URL(request.url).searchParams.get("mode") === "WEIGHTED_FIVE";
-    return csv(
-      (weighted ? WEIGHTED_TEMPLATE_ROWS : STANDARD_TEMPLATE_ROWS).join("\n"),
-      `template-import-pemilih-${weighted ? "berbobot" : "biasa"}.csv`,
-    );
+    const mode = new URL(request.url).searchParams.get("mode");
+
+    if (mode === "WEIGHTED_FIVE") {
+      return csv(WEIGHTED_TEMPLATE_ROWS.join("\n"), "template-import-pemilih-berbobot.csv");
+    }
+
+    if (mode === "SIMPLE_EMAIL") {
+      return csv(SIMPLE_EMAIL_TEMPLATE_ROWS.join("\n"), "template-import-pemilih-sederhana.csv");
+    }
+
+    return csv(STANDARD_TEMPLATE_ROWS.join("\n"), "template-import-pemilih-biasa.csv");
   } catch (error) {
     return handleApiError(error);
   }

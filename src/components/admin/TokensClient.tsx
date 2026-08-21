@@ -16,7 +16,7 @@ import { adminFetch } from "@/lib/admin/api";
 import type { AdminSessionUser, DashboardStats, ElectionDetail } from "@/lib/admin/types";
 import type { VoterType } from "@/lib/admin/types";
 
-type GeneratorMode = "count" | "students";
+type GeneratorMode = "count" | "students" | "simple";
 type TokenStatusFilter = "all" | "used" | "unused";
 
 interface TokenAssignment {
@@ -123,8 +123,8 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
   const weightedMode = election?.mode === "WEIGHTED_FIVE";
   const activeGeneratorMode: GeneratorMode = weightedMode ? "students" : generatorMode;
   const parsedStudents = useMemo(
-    () => parseStudents(studentInput, weightedMode),
-    [studentInput, weightedMode],
+    () => parseStudents(studentInput, weightedMode, false, activeGeneratorMode === "simple"),
+    [studentInput, weightedMode, activeGeneratorMode],
   );
   const filteredTokens = useMemo(() => {
     const query = tokenSearch.trim().toLowerCase();
@@ -185,7 +185,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
     try {
       setError(null);
       const body =
-        activeGeneratorMode === "students"
+        activeGeneratorMode === "students" || activeGeneratorMode === "simple"
           ? { electionId, students: parsedStudents }
           : { electionId, count };
 
@@ -378,16 +378,17 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
 
     try {
       setImportMessage(null);
+      const isSimple = activeGeneratorMode === "simple";
       const parsedRows =
         file.name.toLowerCase().endsWith(".csv") || file.name.toLowerCase().endsWith(".tsv")
-          ? parseStudents(await file.text(), weightedMode, true)
-          : await parseExcelFile(file, weightedMode);
+          ? parseStudents(await file.text(), weightedMode, true, isSimple)
+          : await parseExcelFile(file, weightedMode, isSimple);
 
       if (parsedRows.length === 0) {
         throw new Error("File tidak berisi data pemilih yang valid.");
       }
 
-      setStudentInput(parsedRows.map(formatStudentLine).join("\n"));
+      setStudentInput(parsedRows.map((s) => formatStudentLine(s, isSimple)).join("\n"));
       setImportMessage(`${parsedRows.length} pemilih dimuat dari ${file.name}.`);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Gagal membaca file import.");
@@ -663,7 +664,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
       {generatorOpen ? (
         <Modal title="Generate Token" onClose={() => setGeneratorOpen(false)}>
           <form onSubmit={generateTokens} className="space-y-5">
-            <div className="grid grid-cols-2 gap-2 rounded-lg bg-red-50 p-1">
+            <div className={`grid ${weightedMode ? "grid-cols-2" : "grid-cols-3"} gap-2 rounded-lg bg-red-50 p-1`}>
               <button
                 type="button"
                 onClick={() => setGeneratorMode("students")}
@@ -673,8 +674,21 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                     : "text-neutral-600"
                 }`}
               >
-                Per Siswa
+                Data Lengkap
               </button>
+              {!weightedMode ? (
+                <button
+                  type="button"
+                  onClick={() => setGeneratorMode("simple")}
+                  className={`h-10 rounded-md text-sm font-semibold ${
+                    activeGeneratorMode === "simple"
+                      ? "bg-white text-[var(--color-primary-700)] shadow-sm"
+                      : "text-neutral-600"
+                  }`}
+                >
+                  Nama & Email Saja
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setGeneratorMode("count")}
@@ -689,7 +703,7 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
               </button>
             </div>
 
-            {activeGeneratorMode === "students" ? (
+            {activeGeneratorMode === "students" || activeGeneratorMode === "simple" ? (
               <>
                 <label className="block">
                   <span className="text-sm font-semibold text-neutral-800">Import pemilih</span>
@@ -702,15 +716,23 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                   <span className="mt-2 block text-xs font-medium text-neutral-500">
                     {weightedMode
                       ? "Kolom: nama, kelas, email, role. Header boleh ada atau tidak. Role wajib OSIS/MPK/GURU; kelas tidak perlu untuk GURU; NIS/ID tidak digunakan."
-                      : "Header: student_identifier/nis/id, student_name/nama, student_class/kelas, student_email/email, voter_type/role. Role SISWA/GURU."}{" "}
+                      : activeGeneratorMode === "simple"
+                        ? "Format simpel 2 kolom: nama_lengkap, email. NIS/ID, kelas, dan tipe pemilih tidak diperlukan."
+                        : "Header: student_identifier/nis/id, student_name/nama, student_class/kelas, student_email/email, voter_type/role. Role SISWA/GURU."}{" "}
                     CSV dengan koma di dalam nama atau jabatan didukung. Email dikirim bertahap
                     mengikuti batas server.
                   </span>
                   <a
-                    href={`/api/admin/tokens/import-template?mode=${weightedMode ? "WEIGHTED_FIVE" : "STANDARD"}`}
+                    href={`/api/admin/tokens/import-template?mode=${
+                      weightedMode
+                        ? "WEIGHTED_FIVE"
+                        : activeGeneratorMode === "simple"
+                          ? "SIMPLE_EMAIL"
+                          : "STANDARD"
+                    }`}
                     className="mt-2 inline-block text-xs font-semibold text-[var(--color-primary-700)] hover:underline"
                   >
-                    Download template sesuai mode
+                    Download template ({activeGeneratorMode === "simple" ? "Nama & Email Saja" : weightedMode ? "Berbobot" : "Standar"})
                   </a>
                 </label>
 
@@ -725,14 +747,18 @@ export function TokensClient({ electionId, user }: { electionId: string; user: A
                     placeholder={
                       weightedMode
                         ? "Nama OSIS,XII RPL 1,osis@example.com,OSIS\nNama Guru,,guru@example.com,GURU"
-                        : "12345,Nama Siswa,XII RPL 1,siswa@example.com,SISWA"
+                        : activeGeneratorMode === "simple"
+                          ? "Nama Lengkap 1,pemilih1@example.com\nNama Lengkap 2,pemilih2@example.com"
+                          : "12345,Nama Siswa,XII RPL 1,siswa@example.com,SISWA"
                     }
                     className="mt-2 w-full rounded-lg border border-neutral-200 px-3 py-3 font-mono text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary-600)]"
                   />
                   <span className="mt-2 block text-xs font-medium text-neutral-500">
                     {weightedMode
                       ? "Format: Nama, Kelas, Email, Role. Untuk GURU, kelas boleh kosong."
-                      : "Format: ID, Nama, Kelas/Jabatan, Email, Tipe."}{" "}
+                      : activeGeneratorMode === "simple"
+                        ? "Format: Nama Lengkap, Email. Tanpa NIS/ID atau Kelas."
+                        : "Format: ID, Nama, Kelas/Jabatan, Email, Tipe."}{" "}
                     Pemisah boleh koma, titik koma, atau tab. Terdeteksi {parsedStudents.length}{" "}
                     pemilih. Maksimal {MAX_TOKEN_BATCH_SIZE} pemilih.
                   </span>
@@ -986,6 +1012,7 @@ export function parseStudents(
   value: string,
   weightedMode: boolean,
   strict = false,
+  simpleMode = false,
 ): ParsedStudent[] {
   const result = Papa.parse<string[]>(value.replace(/^\uFEFF/, ""), {
     skipEmptyLines: "greedy",
@@ -1012,17 +1039,20 @@ export function parseStudents(
         parseSpreadsheetRow(
           Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])),
           weightedMode,
+          simpleMode,
         ),
       )
       .filter((row) => row !== null);
   }
 
   return rows.reduce<ParsedStudent[]>((students, cells) => {
-    const [studentIdentifier, studentName, studentClass, studentEmail, voterType] = weightedMode
-      ? [undefined, cells[0], cells[1], cells[2], cells[3]]
-      : cells;
+    const [studentIdentifier, studentName, studentClass, studentEmail, voterType] = simpleMode
+      ? [undefined, cells[0], undefined, cells[1], undefined]
+      : weightedMode
+        ? [undefined, cells[0], cells[1], cells[2], cells[3]]
+        : cells;
 
-    if ((!weightedMode && !studentIdentifier) || !studentName) {
+    if (!studentName || (!simpleMode && !weightedMode && !studentIdentifier)) {
       return students;
     }
 
@@ -1049,19 +1079,22 @@ function isVoterHeaderRow(row: string[]) {
 function parseSpreadsheetRow(
   row: Record<string, unknown>,
   weightedMode: boolean,
+  simpleMode = false,
 ): ParsedStudent | null {
   const normalized = Object.fromEntries(
     Object.entries(row).map(([key, value]) => [normalizeHeader(key), String(value).trim()]),
   );
-  const studentIdentifier =
-    pickValue(normalized, ["student_identifier", "nis", "id", "nomor_induk", "identifier"]) ?? "";
+  const studentIdentifier = simpleMode
+    ? undefined
+    : (pickValue(normalized, ["student_identifier", "nis", "id", "nomor_induk", "identifier"]) ?? "");
   const studentName = pickValue(normalized, ["student_name", "nama", "name"]) ?? "";
-  const studentClass =
-    pickValue(normalized, ["student_class", "kelas", "class", "jabatan"]) ?? undefined;
+  const studentClass = simpleMode
+    ? undefined
+    : (pickValue(normalized, ["student_class", "kelas", "class", "jabatan"]) ?? undefined);
   const studentEmail = pickValue(normalized, ["student_email", "email", "mail"]) ?? undefined;
-  const voterType = pickValue(normalized, ["voter_type", "role", "tipe", "pembeda"]);
+  const voterType = simpleMode ? undefined : pickValue(normalized, ["voter_type", "role", "tipe", "pembeda"]);
 
-  if ((!weightedMode && !studentIdentifier) || !studentName) {
+  if (!studentName || (!simpleMode && !weightedMode && !studentIdentifier)) {
     return null;
   }
 
@@ -1074,7 +1107,7 @@ function parseSpreadsheetRow(
   };
 }
 
-async function parseExcelFile(file: File, weightedMode: boolean) {
+async function parseExcelFile(file: File, weightedMode: boolean, simpleMode = false) {
   const { readSheet } = await import("read-excel-file/browser");
   const rows = await readSheet(file);
   const [headers, ...bodyRows] = rows;
@@ -1093,6 +1126,7 @@ async function parseExcelFile(file: File, weightedMode: boolean) {
           ]),
         ),
         weightedMode,
+        simpleMode,
       ),
     )
     .filter((row) => row !== null);
@@ -1113,7 +1147,11 @@ function pickValue(row: Record<string, string>, keys: string[]) {
   return undefined;
 }
 
-export function formatStudentLine(student: ParsedStudent) {
+export function formatStudentLine(student: ParsedStudent, simpleMode = false) {
+  if (simpleMode) {
+    return Papa.unparse([[student.studentName, student.studentEmail ?? ""]], { newline: "\n" });
+  }
+
   const voterType = voterTypeLabel(student.voterType).toUpperCase();
   const cells = student.studentIdentifier
     ? [
